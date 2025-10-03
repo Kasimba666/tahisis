@@ -116,6 +116,7 @@
 </template>
 
 <script>
+import {useScreen} from '@/composables/useScreen.js';
 import {
   House,
   Document,
@@ -126,7 +127,7 @@ import {
   Close,
   Star,
   Upload
-} from '@element-plus/icons-vue'
+} from '@element-plus/icons-vue';
 
 export default {
   name: 'AppHeader',
@@ -140,6 +141,13 @@ export default {
     return {
       activeIndex: '/',
       mobileMenuOpen: false
+    }
+  },
+  setup() {
+    const {screen, screenBreakpoints} = useScreen();
+    return {
+      screen,
+      screenBreakpoints
     }
   },
   computed: {
