@@ -14,12 +14,12 @@
       <!-- Горизонтальное меню -->
       <div class="header-menu">
         <el-menu
-          :default-active="activeIndex"
-          mode="horizontal"
-          @select="handleSelect"
-          class="main-menu"
-          :ellipsis="false"
-          router
+            :default-active="activeIndex"
+            mode="horizontal"
+            @select="handleSelect"
+            class="main-menu"
+            :ellipsis="false"
+            router
         >
           <el-menu-item index="/">
             <el-icon><House /></el-icon>
@@ -58,22 +58,22 @@
 
       <!-- Мобильное меню -->
       <div class="mobile-menu">
-        <el-button 
-          @click="toggleMobileMenu" 
-          :icon="mobileMenuOpen ? Close : Menu"
-          circle
-          size="large"
-          class="mobile-menu-btn"
+        <el-button
+            @click="toggleMobileMenu"
+            :icon="mobileMenuOpen ? Close : Menu"
+            circle
+            size="large"
+            class="mobile-menu-btn"
         />
-        
+
         <div v-if="mobileMenuOpen" class="mobile-menu-overlay" @click="closeMobileMenu">
           <div class="mobile-menu-content" @click.stop>
             <el-menu
-              :default-active="activeIndex"
-              mode="vertical"
-              @select="handleMobileSelect"
-              class="mobile-nav"
-              router
+                :default-active="activeIndex"
+                mode="vertical"
+                @select="handleMobileSelect"
+                class="mobile-nav"
+                router
             >
               <el-menu-item index="/">
                 <el-icon><House /></el-icon>
@@ -116,8 +116,6 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
-import { useRoute } from 'vue-router'
 import {
   House,
   Document,
@@ -138,47 +136,52 @@ export default {
       default: 'Мой Сайт'
     }
   },
-  setup() {
-    const route = useRoute()
-    const activeIndex = ref('/')
-    const mobileMenuOpen = ref(false)
-    
-    // Computed
-    const logoIcon = computed(() => Star)
-    
-    // Watch route changes
-    watch(() => route.path, (newPath) => {
-      activeIndex.value = newPath
-    }, { immediate: true })
-    
-    // Methods
-    const handleSelect = (key, keyPath) => {
-      console.log('Выбран пункт меню:', key, keyPath)
-      activeIndex.value = key
-    }
-    
-    const handleMobileSelect = (key, keyPath) => {
-      handleSelect(key, keyPath)
-      closeMobileMenu()
-    }
-    
-    const toggleMobileMenu = () => {
-      mobileMenuOpen.value = !mobileMenuOpen.value
-    }
-    
-    const closeMobileMenu = () => {
-      mobileMenuOpen.value = false
-    }
-    
+  data() {
     return {
-      activeIndex,
-      mobileMenuOpen,
-      logoIcon,
-      handleSelect,
-      handleMobileSelect,
-      toggleMobileMenu,
-      closeMobileMenu
+      activeIndex: '/',
+      mobileMenuOpen: false
     }
+  },
+  computed: {
+    logoIcon() {
+      return Star
+    }
+  },
+  watch: {
+    '$route.path'(newPath) {
+      this.activeIndex = newPath
+    }
+  },
+  mounted() {
+    // Устанавливаем начальное значение при монтировании
+    this.activeIndex = this.$route.path
+  },
+  methods: {
+    handleSelect(key, keyPath) {
+      console.log('Выбран пункт меню:', key, keyPath)
+      this.activeIndex = key
+    },
+    handleMobileSelect(key, keyPath) {
+      this.handleSelect(key, keyPath)
+      this.closeMobileMenu()
+    },
+    toggleMobileMenu() {
+      this.mobileMenuOpen = !this.mobileMenuOpen
+    },
+    closeMobileMenu() {
+      this.mobileMenuOpen = false
+    }
+  },
+  components: {
+    House,
+    Document,
+    Grid,
+    Briefcase,
+    ChatDotRound,
+    Menu,
+    Close,
+    Star,
+    Upload
   }
 }
 </script>

@@ -1955,6 +1955,21 @@ __metadata:
   languageName: node
   linkType: hard
 
+"tahisis@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "tahisis@workspace:."
+  dependencies:
+    "@element-plus/icons-vue": "npm:^2.3.2"
+    "@vitejs/plugin-vue": "npm:^5.2.1"
+    element-plus: "npm:^2.11.4"
+    sass: "npm:^1.93.2"
+    vite: "npm:^6.2.0"
+    vue: "npm:^3.5.13"
+    vue-router: "npm:^4.5.1"
+    xlsx: "npm:^0.18.5"
+  languageName: unknown
+  linkType: soft
+
 "tar@npm:^7.4.3":
   version: 7.5.1
   resolution: "tar@npm:7.5.1"
@@ -2004,21 +2019,6 @@ __metadata:
   checksum: 10c0/d324c5a44887bd7e105ce800fcf7533d43f29c48757ac410afd42975de82cc38ea2035c0483f4de82d186691bf3208ef35c644f73aa2b1b20b8e651be5afd293
   languageName: node
   linkType: hard
-
-"vite-vue-starter@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "vite-vue-starter@workspace:."
-  dependencies:
-    "@element-plus/icons-vue": "npm:^2.3.2"
-    "@vitejs/plugin-vue": "npm:^5.2.1"
-    element-plus: "npm:^2.11.4"
-    sass: "npm:^1.93.2"
-    vite: "npm:^6.2.0"
-    vue: "npm:^3.5.13"
-    vue-router: "npm:^4.5.1"
-    xlsx: "npm:^0.18.5"
-  languageName: unknown
-  linkType: soft
 
 "vite@npm:^6.2.0":
   version: 6.3.6
