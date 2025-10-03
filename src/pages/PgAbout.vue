@@ -1,5 +1,5 @@
 <template>
-  <main class="EstateTypesUpload">
+  <main class="PgAbout">
     <div class="page-header">
       <h1>О нас</h1>
       <p>Узнайте больше о нашей компании и команде</p>
@@ -35,7 +35,7 @@
 <style scoped lang="scss">
 @use '@/styles/themes.scss' as *;
 
-.EstateTypesUpload {
+.PgAbout {
   flex: 1;
   width: 100%;
   max-width: 1200px;
@@ -89,7 +89,7 @@
 }
 
 @media (max-width: 768px) {
-  .EstateTypesUpload {
+  .PgAbout {
     padding: 1rem;
   }
   
