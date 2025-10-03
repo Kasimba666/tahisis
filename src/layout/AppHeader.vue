@@ -115,7 +115,7 @@
   </header>
 </template>
 
-<script setup>
+<script>
 import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
@@ -130,44 +130,56 @@ import {
   Upload
 } from '@element-plus/icons-vue'
 
-// Props
-const props = defineProps({
-  siteTitle: {
-    type: String,
-    default: 'Мой Сайт'
+export default {
+  name: 'AppHeader',
+  props: {
+    siteTitle: {
+      type: String,
+      default: 'Мой Сайт'
+    }
+  },
+  setup() {
+    const route = useRoute()
+    const activeIndex = ref('/')
+    const mobileMenuOpen = ref(false)
+    
+    // Computed
+    const logoIcon = computed(() => Star)
+    
+    // Watch route changes
+    watch(() => route.path, (newPath) => {
+      activeIndex.value = newPath
+    }, { immediate: true })
+    
+    // Methods
+    const handleSelect = (key, keyPath) => {
+      console.log('Выбран пункт меню:', key, keyPath)
+      activeIndex.value = key
+    }
+    
+    const handleMobileSelect = (key, keyPath) => {
+      handleSelect(key, keyPath)
+      closeMobileMenu()
+    }
+    
+    const toggleMobileMenu = () => {
+      mobileMenuOpen.value = !mobileMenuOpen.value
+    }
+    
+    const closeMobileMenu = () => {
+      mobileMenuOpen.value = false
+    }
+    
+    return {
+      activeIndex,
+      mobileMenuOpen,
+      logoIcon,
+      handleSelect,
+      handleMobileSelect,
+      toggleMobileMenu,
+      closeMobileMenu
+    }
   }
-})
-
-// Reactive data
-const route = useRoute()
-const activeIndex = ref('/')
-const mobileMenuOpen = ref(false)
-
-// Computed
-const logoIcon = computed(() => Star)
-
-// Watch route changes
-watch(() => route.path, (newPath) => {
-  activeIndex.value = newPath
-}, { immediate: true })
-
-// Methods
-const handleSelect = (key, keyPath) => {
-  console.log('Выбран пункт меню:', key, keyPath)
-  activeIndex.value = key
-}
-
-const handleMobileSelect = (key, keyPath) => {
-  handleSelect(key, keyPath)
-  closeMobileMenu()
-}
-
-const toggleMobileMenu = () => {
-  mobileMenuOpen.value = !mobileMenuOpen.value
-}
-
-const closeMobileMenu = () => {
-  mobileMenuOpen.value = false
 }
 </script>
 
