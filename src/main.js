@@ -1,0 +1,20 @@
+import { createApp } from 'vue'
+import router from './router'
+import ElementPlus from 'element-plus'
+import 'element-plus/dist/index.css'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import './styles/global.scss'
+import './styles/element-plus-overrides.scss'
+import App from './App.vue'
+
+const app = createApp(App)
+
+app.use(router)
+app.use(ElementPlus)
+
+// Регистрируем все иконки Element Plus
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, component)
+}
+
+app.mount('#app')
