@@ -39,5 +39,14 @@ export default {
 </script>
 
 <style scoped lang="scss">
-  @use './styles/themes.scss' as *;
+@use './styles/themes.scss' as *;
+.screen-monitor {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-size: 12px;
+  color: gray;
+  z-index: 1000;
+}
+
 </style>

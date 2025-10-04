@@ -21,11 +21,11 @@
             :ellipsis="false"
             router
         >
-          <el-menu-item index="/">
-            <span>Главная</span>
-          </el-menu-item>
           <el-menu-item index="/about">
-            <span>О нас</span>
+            <span>О проекте</span>
+          </el-menu-item>
+          <el-menu-item index="/">
+            <span>Список сословий</span>
           </el-menu-item>
           <el-sub-menu index="/services">
             <template #title>
@@ -154,7 +154,7 @@ export default {
   box-shadow: 0 2px 8px var(--shadow);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 10;
   @include theme-transition;
 }
 
