@@ -48,16 +48,4 @@ const currentYear = computed(() => new Date().getFullYear())
   padding: 1.5rem 0;
 }
 
-// Адаптивность
-@media (max-width: 768px) {
-  .footer-container {
-    padding: 0 1rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .footer-container {
-    padding: 0 0.5rem;
-  }
-}
 </style>
