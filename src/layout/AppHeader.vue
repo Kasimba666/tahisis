@@ -22,16 +22,13 @@
             router
         >
           <el-menu-item index="/">
-            <el-icon><House /></el-icon>
             <span>Главная</span>
           </el-menu-item>
           <el-menu-item index="/about">
-            <el-icon><Document /></el-icon>
             <span>О нас</span>
           </el-menu-item>
           <el-sub-menu index="/services">
             <template #title>
-              <el-icon><Grid /></el-icon>
               <span>Услуги</span>
             </template>
             <el-menu-item index="/services">Все услуги</el-menu-item>
@@ -39,14 +36,12 @@
           </el-sub-menu>
           <el-sub-menu index="/data-upload">
             <template #title>
-              <el-icon><Upload /></el-icon>
               <span>Загрузка данных</span>
             </template>
             <el-menu-item index="/estate-types-upload">Загрузка типов сословий</el-menu-item>
             <el-menu-item index="/revisions-upload">Загрузка ревизий</el-menu-item>
           </el-sub-menu>
           <el-menu-item index="/contact">
-            <el-icon><ChatDotRound /></el-icon>
             <span>Контакты</span>
           </el-menu-item>
           <!-- Spacer -->
@@ -60,64 +55,15 @@
             <template #title>{{ authState.user.email }}</template>
             <el-menu-item @click="handleLogout">Logout</el-menu-item>
           </el-sub-menu>
+
+          <!-- Theme Toggle in Menu -->
+          <li class="theme-menu-item" style="margin-left: auto; display: flex; align-items: center; list-style: none; background: none !important; border: none !important; padding: 0.5rem;">
+            <ThemeToggle />
+          </li>
         </el-menu>
       </div>
 
-      <!-- Мобильное меню -->
-      <div class="mobile-menu">
-        <el-button
-            @click="toggleMobileMenu"
-            :icon="mobileMenuOpen ? Close : Menu"
-            circle
-            size="large"
-            class="mobile-menu-btn"
-        />
 
-        <div v-if="mobileMenuOpen" class="mobile-menu-overlay" @click="closeMobileMenu">
-          <div class="mobile-menu-content" @click.stop>
-            <el-menu
-                :default-active="activeIndex"
-                mode="vertical"
-                @select="handleMobileSelect"
-                class="mobile-nav"
-                router
-            >
-              <el-menu-item index="/">
-                <el-icon><House /></el-icon>
-                <span>Главная</span>
-              </el-menu-item>
-              <el-menu-item index="/about">
-                <el-icon><Document /></el-icon>
-                <span>О нас</span>
-              </el-menu-item>
-              <el-sub-menu index="/services">
-                <template #title>
-                  <el-icon><Grid /></el-icon>
-                  <span>Услуги</span>
-                </template>
-                <el-menu-item index="/services">Все услуги</el-menu-item>
-                <el-menu-item index="/demo">Демо компонентов</el-menu-item>
-              </el-sub-menu>
-              <el-sub-menu index="/data-upload">
-                <template #title>
-                  <el-icon><Upload /></el-icon>
-                  <span>Загрузка данных</span>
-                </template>
-                <el-menu-item index="/estate-types-upload">Загрузка типов сословий</el-menu-item>
-                <el-menu-item index="/revisions-upload">Загрузка ревизий</el-menu-item>
-              </el-sub-menu>
-              <el-menu-item index="/portfolio">
-                <el-icon><Briefcase /></el-icon>
-                <span>Портфолио</span>
-              </el-menu-item>
-              <el-menu-item index="/contact">
-                <el-icon><ChatDotRound /></el-icon>
-                <span>Контакты</span>
-              </el-menu-item>
-             </el-menu>
-          </div>
-        </div>
-      </div>
     </div>
   </header>
 
@@ -131,29 +77,15 @@ import AuthModal from '@/components/AuthModal.vue'
 import { ElMessage } from 'element-plus'
 import { state as authState, signOut } from '@/store/auth.js'
 import {
-  House,
-  Document,
-  Grid,
-  Briefcase,
-  ChatDotRound,
-  Menu,
-  Close,
-  Star,
-  Upload
+  Star
 } from '@element-plus/icons-vue';
+import ThemeToggle from '@/components/ThemeToggle.vue';
 
 export default {
   name: 'AppHeader',
   components: { AuthModal,
-    House,
-    Document,
-    Grid,
-    Briefcase,
-    ChatDotRound,
-    Menu,
-    Close,
     Star,
-    Upload
+    ThemeToggle
   },
   props: {
     siteTitle: {
@@ -164,7 +96,6 @@ export default {
   data() {
     return {
       activeIndex: '/',
-      mobileMenuOpen: false,
       authModalVisible: false,
       authState: authState // Make state reactive in the template
     }
@@ -194,16 +125,6 @@ export default {
     handleSelect(key, keyPath) {
       console.log('Выбран пункт меню:', key, keyPath)
       this.activeIndex = key
-    },
-    handleMobileSelect(key, keyPath) {
-      this.handleSelect(key, keyPath)
-      this.closeMobileMenu()
-    },
-    toggleMobileMenu() {
-      this.mobileMenuOpen = !this.mobileMenuOpen
-    },
-    closeMobileMenu() {
-      this.mobileMenuOpen = false
     },
     openAuthModal() {
       this.authModalVisible = true
@@ -251,13 +172,13 @@ export default {
   display: flex;
   align-items: center;
   gap: 1rem;
-  
+
   .logo {
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  
+
   .site-title {
     font-size: 1.5rem;
     font-weight: 700;
@@ -274,25 +195,28 @@ export default {
   flex: 1;
   display: flex;
   justify-content: center;
-  margin: 0 2rem;
+  margin: 0 1rem;
 }
 
 .main-menu {
   border-bottom: none !important;
   background-color: transparent !important;
-  
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+
   :deep(.el-menu-item) {
     color: var(--text-secondary);
     border-bottom: 2px solid transparent;
     margin: 0 0.5rem;
     border-radius: 8px 8px 0 0;
     @include theme-transition;
-    
+
     &:hover {
       color: var(--accent-primary);
       background-color: var(--bg-secondary);
     }
-    
+
     &.is-active {
       color: var(--accent-primary);
       border-bottom-color: var(--accent-primary);
@@ -339,111 +263,5 @@ export default {
   }
 }
 
-.mobile-menu {
-  display: none;
-}
 
-.mobile-menu-btn {
-  background-color: var(--bg-secondary) !important;
-  border-color: var(--border-color) !important;
-  color: var(--text-primary) !important;
-}
-
-.mobile-menu-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding-top: 70px;
-}
-
-.mobile-menu-content {
-  background-color: var(--bg-primary);
-  width: 280px;
-  height: calc(100vh - 70px);
-  box-shadow: -4px 0 12px var(--shadow);
-  overflow-y: auto;
-}
-
-.mobile-nav {
-  border-right: none !important;
-  background-color: transparent !important;
-  
-  :deep(.el-menu-item) {
-    color: var(--text-secondary);
-    padding-left: 2rem;
-    
-    &:hover {
-      background-color: var(--bg-secondary);
-      color: var(--accent-primary);
-    }
-    
-    &.is-active {
-      background-color: var(--bg-secondary);
-      color: var(--accent-primary);
-      border-right: 3px solid var(--accent-primary);
-    }
-  }
-  
-  :deep(.el-sub-menu) {
-    .el-sub-menu__title {
-      color: var(--text-secondary);
-      padding-left: 2rem;
-      
-      &:hover {
-        background-color: var(--bg-secondary);
-        color: var(--accent-primary);
-      }
-    }
-    
-    .el-menu-item {
-      padding-left: 3rem;
-    }
-  }
-}
-
-// Адаптивность
-@media (max-width: 768px) {
-  .header-container {
-    padding: 0 1rem;
-  }
-  
-  .header-menu {
-    display: none;
-  }
-  
-  .mobile-menu {
-    display: block;
-  }
-  
-  .header-brand {
-    .site-title {
-      font-size: 1.25rem;
-    }
-  }
-}
-
-@media (max-width: 480px) {
-  .header-container {
-    padding: 0 0.5rem;
-  }
-  
-  .header-brand {
-    gap: 0.5rem;
-    
-    .site-title {
-      font-size: 1.1rem;
-    }
-  }
-  
-  .mobile-menu-content {
-    width: 100vw;
-  }
-}
 </style>

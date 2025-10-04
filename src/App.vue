@@ -3,7 +3,6 @@
     {{ screen.type }}<br/>
     {{ screen.width }}px
   </div>
-  <ThemeToggle />
   <AppHeader site-title="Историческое расселение" />
   <router-view />
   <AppFooter site-title="Историческое расселение" />
@@ -13,10 +12,9 @@
 import {useScreen} from "@/composables/useScreen.js";
 import AppHeader from '@/layout/AppHeader.vue';
 import AppFooter from '@/layout/AppFooter.vue';
-import ThemeToggle from '@/components/ThemeToggle.vue';
 export default {
   name: 'App',
-  components: {AppFooter, AppHeader, ThemeToggle},
+  components: {AppFooter, AppHeader},
   data() {
     return {
       DEBUG: import.meta.env.MODE === 'development',
