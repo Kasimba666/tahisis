@@ -1,6 +1,20 @@
 <template>
   <div class="PgRevisionsUpload">
+    <h3>Типы сословий</h3>
     <ExcelUpload @dataProcessed="fetchData" />
+
+    <div class="table-info">
+      <el-alert
+          type="info"
+          :closable="false"
+          show-icon
+      >
+        <template #title>
+          Всего записей: {{ totalRecords }}
+        </template>
+      </el-alert>
+    </div>
+
     <div class="table-header">
       <el-button type="success" size="small" @click="addRow">Добавить</el-button>
     </div>
@@ -108,6 +122,11 @@ export default {
       editRow: {}
     }
   },
+  computed: {
+    totalRecords() {
+      return this.tableData.length
+    }
+  },
   methods: {
     async fetchData() {
       // Основная таблица
@@ -203,6 +222,21 @@ export default {
 <style scoped>
 .PgRevisionsUpload {
   padding: 1rem;
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 1.5rem 0;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .table-info {
+    margin-bottom: 1rem;
+  }
 
   .table-header {
     margin-bottom: 1rem;

@@ -171,64 +171,222 @@ export default {
     },
 
     async processSupabaseData(rows) {
-      // 1. Создать запись Revision_report
-      const { data: revision, error: revErr } = await supabase
+      // 1. Проверить, существует ли ревизия с таким номером
+      const { data: existingRevision, error: findErr } = await supabase
           .from('Revision_report')
-          .insert([
-            {
-              year: Number(this.revisionForm.year),
-              number: Number(this.revisionForm.number)
-            }
-          ])
-          .select()
-          .single()
-      if (revErr) throw revErr
-      const revisionId = revision.id
+          .select('id, year, number')
+          .eq('number', Number(this.revisionForm.number))
+          .maybeSingle()
 
-      // 2. Для каждой строки Excel
-      for (const row of rows) {
-        const code = row.id
-        const quantityAll = row.populall || null
+      if (findErr) throw findErr
 
-        const { data: report, error: repErr } = await supabase
-            .from('Report_record')
+      let revisionId
+
+      if (existingRevision) {
+        // Если ревизия существует, обновляем только год
+        const { data: updatedRevision, error: updateErr } = await supabase
+            .from('Revision_report')
+            .update({
+              year: Number(this.revisionForm.year)
+            })
+            .eq('id', existingRevision.id)
+            .select('id')
+            .single()
+
+        if (updateErr) throw updateErr
+        revisionId = updatedRevision.id
+      } else {
+        // Если ревизии нет, создаем новую
+        const { data: newRevision, error: insertErr } = await supabase
+            .from('Revision_report')
             .insert([
               {
-                code,
-                quantity_all: quantityAll,
-                id_revision_report: revisionId
+                year: Number(this.revisionForm.year),
+                number: Number(this.revisionForm.number)
               }
             ])
             .select()
             .single()
-        if (repErr) throw repErr
 
-        const reportId = report.id
+        if (insertErr) throw insertErr
+        revisionId = newRevision.id
+      }
 
-        // 3. Обработка estate колонок
+        // 2. Для каждой строки Excel
+        for (const row of rows) {
+          const code = String(row.id || '').trim()
+          const populationAll = row.populall || null
+
+          // Пропускаем строки без кода
+          if (!code) {
+            console.warn('Пропущена строка без кода:', row)
+            continue
+          }
+
+          // Проверяем, существует ли уже запись с таким code
+          const { data: existingReport, error: findErr } = await supabase
+              .from('Report_record')
+              .select('id')
+              .eq('code', code)
+              .maybeSingle()
+
+          let reportId
+
+          if (existingReport && !findErr) {
+            // Если запись существует, обновляем её данные
+            const { data: updatedReport, error: updateErr } = await supabase
+                .from('Report_record')
+                .update({
+                  population_all: populationAll,
+                  id_revision_report: revisionId
+                })
+                .eq('id', existingReport.id)
+                .select('id')
+                .single()
+
+            if (updateErr) throw updateErr
+            reportId = updatedReport.id
+
+            // Удаляем старые записи Estate для этого report_record
+            await supabase
+                .from('Estate')
+                .delete()
+                .eq('id_report_record', reportId)
+          } else {
+            // Если записи нет, создаем новую
+            const { data: newReport, error: insertErr } = await supabase
+                .from('Report_record')
+                .insert([
+                  {
+                    code,
+                    population_all: populationAll,
+                    id_revision_report: revisionId
+                  }
+                ])
+                .select()
+                .single()
+
+            if (insertErr) throw insertErr
+            reportId = newReport.id
+          }
+
+        // 3. Обработка estate колонок с соответствующими male/female данными
         for (let i = 1; i <= 5; i++) {
-          const key = i === 1 ? 'estate' : `estate${i}`
-          if (row[key]) {
-            const estateName = String(row[key]).trim()
+          const estateKey = `estate${i}`
+          const maleKey = `male${i}`
+          const femaleKey = `female${i}`
+          const admunitKey = `admunitold${i}`
+
+          if (row[estateKey]) {
+            const estateName = String(row[estateKey]).trim()
             if (!estateName) continue
 
             // ищем Subtype_estate
             const { data: subtype, error: subErr } = await supabase
                 .from('Subtype_estate')
-                .select('id')
+                .select('id, id_type_affiliation')
                 .ilike('name', estateName)
                 .maybeSingle()
             if (subErr) throw subErr
             if (!subtype) continue
 
-            await supabase.from('Estate').insert([
-              {
-                id_report_record: reportId,
-                id_subtype_estate: subtype.id,
-                men_quantity: row.men || null,
-                women_quantity: row.women || null
+            // Получаем информацию о типе принадлежности
+            const { data: typeAffiliation, error: affErr } = await supabase
+                .from('Type_affiliation')
+                .select('name')
+                .eq('id', subtype.id_type_affiliation)
+                .single()
+            if (affErr) throw affErr
+
+            // Подготавливаем данные для Estate записи
+            let estateData = {
+              id_report_record: reportId,
+              id_subtype_estate: subtype.id,
+              male: row[maleKey] ? Number(String(row[maleKey]).trim()) || null : null,
+              female: row[femaleKey] ? Number(String(row[femaleKey]).trim()) || null : null,
+              id_volost: null,
+              id_landowner: null,
+              id_military_unit: null
+            }
+
+            // Обрабатываем административную единицу в зависимости от типа принадлежности
+            if (row[admunitKey] && typeAffiliation.name !== 'нет') {
+              const admunitValue = String(row[admunitKey]).trim()
+
+              if (typeAffiliation.name === 'волость') {
+                // Создаем или находим Volost
+                let { data: volost, error: volErr } = await supabase
+                    .from('Volost')
+                    .select('id')
+                    .ilike('name', admunitValue)
+                    .maybeSingle()
+
+                if (volErr) throw volErr
+
+                if (!volost) {
+                  const { data: newVolost, error: insertVolErr } = await supabase
+                      .from('Volost')
+                      .insert([{ name: admunitValue }])
+                      .select('id')
+                      .single()
+                  if (insertVolErr) throw insertVolErr
+                  volost = newVolost
+                }
+
+                estateData.id_volost = volost.id
+
+              } else if (['войско', 'команда', 'старшина', 'кантон'].includes(typeAffiliation.name)) {
+                // Создаем или находим Military_unit
+                let { data: militaryUnit, error: milErr } = await supabase
+                    .from('Military_unit')
+                    .select('id')
+                    .ilike('description', admunitValue)
+                    .maybeSingle()
+
+                if (milErr) throw milErr
+
+                if (!militaryUnit) {
+                  const { data: newMilitaryUnit, error: insertMilErr } = await supabase
+                      .from('Military_unit')
+                      .insert([{ description: admunitValue }])
+                      .select('id')
+                      .single()
+                  if (insertMilErr) throw insertMilErr
+                  militaryUnit = newMilitaryUnit
+                }
+
+                estateData.id_military_unit = militaryUnit.id
+
+              } else if (typeAffiliation.name === 'фамилия') {
+                // Создаем или находим Landowner
+                let { data: landowner, error: landErr } = await supabase
+                    .from('Landowner')
+                    .select('id')
+                    .ilike('description', admunitValue)
+                    .maybeSingle()
+
+                if (landErr) throw landErr
+
+                if (!landowner) {
+                  const { data: newLandowner, error: insertLandErr } = await supabase
+                      .from('Landowner')
+                      .insert([{ description: admunitValue }])
+                      .select('id')
+                      .single()
+                  if (insertLandErr) throw insertLandErr
+                  landowner = newLandowner
+                }
+
+                estateData.id_landowner = landowner.id
               }
-            ])
+            }
+
+            // Создаем запись Estate с соответствующими данными
+            const { error: estateErr } = await supabase
+                .from('Estate')
+                .insert([estateData])
+
+            if (estateErr) throw estateErr
           }
         }
       }

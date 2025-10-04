@@ -27,14 +27,16 @@
           <el-menu-item index="/">
             <span>Список сословий</span>
           </el-menu-item>
+          <el-menu-item v-if="authState.user" index="/demo">
+            <span>Демо компонентов</span>
+          </el-menu-item>
           <el-sub-menu index="/services">
             <template #title>
               <span>Услуги</span>
             </template>
             <el-menu-item index="/services">Все услуги</el-menu-item>
-            <el-menu-item index="/demo">Демо компонентов</el-menu-item>
           </el-sub-menu>
-          <el-sub-menu index="/data-upload">
+          <el-sub-menu v-if="authState.user" index="/data-upload">
             <template #title>
               <span>Загрузка данных</span>
             </template>

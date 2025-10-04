@@ -226,38 +226,108 @@ export default {
           });
     },
 
-    processSupabaseData(data) {
-      // Извлекаем все необходимые имена из данных Excel
-      const affiliationNames = data.map(row => row.Type_affiliation);
-      const religionNames = data.map(row => row.Type_religion);
-      const estateNames = data.map(row => row.Type_estate);
+    /**
+     * Проверяет и обновляет существующие записи в справочниках.
+     * @param {string} tableName - Имя таблицы в Supabase.
+     * @param {string[]} names - Массив уникальных имен из Excel.
+     * @returns {Promise<Map<string, number>>} - Promise, который разрешается в Map { name -> id }.
+     */
+    async checkAndUpdateReferenceTables(tableName, names) {
+      const uniqueNames = [...new Set(names)].filter(Boolean);
+      if (uniqueNames.length === 0) {
+        return new Map();
+      }
+
+      const idMap = new Map();
+
+      // 1. Найти существующие записи
+      const { data: existingData, error: findError } = await supabase
+          .from(tableName)
+          .select('id, name')
+          .in('name', uniqueNames);
+
+      if (findError) throw findError;
+
+      // Создаем карту существующих записей
+      existingData.forEach(item => idMap.set(item.name, item.id));
+
+      // 2. Определить, какие записи нужно создать
+      const namesToCreate = uniqueNames.filter(name => !idMap.has(name));
+
+      if (namesToCreate.length > 0) {
+        // 3. Создать новые записи
+        const recordsToInsert = namesToCreate.map(name => ({ name }));
+        const { data: newData, error: insertError } = await supabase
+            .from(tableName)
+            .insert(recordsToInsert)
+            .select('id, name');
+
+        if (insertError) throw insertError;
+
+        // 4. Обновить карту новыми ID
+        newData.forEach(item => idMap.set(item.name, item.id));
+      }
+
+      return idMap;
+    },
+
+    async processSupabaseData(data) {
+      // Извлекаем все необходимые имена из данных Excel с удалением пробелов
+      const affiliationNames = data.map(row => String(row.Type_affiliation || '').trim());
+      const religionNames = data.map(row => String(row.Type_religion || '').trim());
+      const estateNames = data.map(row => String(row.Type_estate || '').trim());
 
       // Используем Promise.all для параллельного получения/создания ID для всех справочников
-      return Promise.all([
-        this.getOrCreateIds('Type_affiliation', affiliationNames),
-        this.getOrCreateIds('Type_religion', religionNames),
-        this.getOrCreateIds('Type_estate', estateNames),
-      ])
-          .then(([affiliationMap, religionMap, estateMap]) => {
-            // Теперь у нас есть полные карты ID, включая только что созданные
-            const subtypeRecordsToInsert = data.map(row => ({
-              name: row.Subtype_estate,
-              id_type_affiliation: affiliationMap.get(row.Type_affiliation) || null,
-              id_type_religion: religionMap.get(row.Type_religion) || null,
-              id_type_estate: estateMap.get(row.Type_estate) || null,
-            })).filter(rec => rec.name); // Фильтруем записи без имени
+      const [affiliationMap, religionMap, estateMap] = await Promise.all([
+        this.checkAndUpdateReferenceTables('Type_affiliation', affiliationNames),
+        this.checkAndUpdateReferenceTables('Type_religion', religionNames),
+        this.checkAndUpdateReferenceTables('Type_estate', estateNames),
+      ]);
 
-            if (subtypeRecordsToInsert.length === 0) {
-              return 0;
-            }
+      let processedCount = 0;
 
-            // Выполняем финальную вставку в основную таблицу
-            return supabase.from('Subtype_estate').insert(subtypeRecordsToInsert)
-                .then(({ error }) => {
-                  if (error) throw error;
-                  return subtypeRecordsToInsert.length;
-                });
-          });
+      // Обрабатываем каждую запись Subtype_estate
+      for (const row of data) {
+        if (!row.Subtype_estate) continue;
+
+        const subtypeName = row.Subtype_estate.trim();
+
+        // Проверяем, существует ли уже запись с таким именем
+        const { data: existingSubtypes, error: findError } = await supabase
+            .from('Subtype_estate')
+            .select('id')
+            .eq('name', subtypeName);
+
+        if (findError) throw findError;
+
+        const subtypeData = {
+          name: subtypeName,
+          id_type_affiliation: affiliationMap.get(row.Type_affiliation) || null,
+          id_type_religion: religionMap.get(row.Type_religion) || null,
+          id_type_estate: estateMap.get(row.Type_estate) || null,
+        };
+
+        if (existingSubtypes && existingSubtypes.length > 0) {
+          // Обновляем существующую запись (берем первую, если несколько)
+          const { error: updateError } = await supabase
+              .from('Subtype_estate')
+              .update(subtypeData)
+              .eq('id', existingSubtypes[0].id);
+
+          if (updateError) throw updateError;
+        } else {
+          // Создаем новую запись
+          const { error: insertError } = await supabase
+              .from('Subtype_estate')
+              .insert([subtypeData]);
+
+          if (insertError) throw insertError;
+        }
+
+        processedCount++;
+      }
+
+      return processedCount;
     }
   }
 }
