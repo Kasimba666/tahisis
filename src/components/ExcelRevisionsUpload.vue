@@ -27,7 +27,7 @@
       <el-button
           type="primary"
           :disabled="!file"
-          @click="processFile"
+          @click="openRevisionDialog"
           :loading="isLoading"
           class="process-button"
       >
@@ -42,6 +42,21 @@
       </el-button>
     </div>
 
+    <el-dialog v-model="dialogVisible" title="Новая ревизия" width="400">
+      <el-form :model="revisionForm" label-width="120px">
+        <el-form-item label="Номер ревизии">
+          <el-input v-model="revisionForm.number" />
+        </el-form-item>
+        <el-form-item label="Год">
+          <el-input v-model="revisionForm.year" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">Отмена</el-button>
+        <el-button type="primary" @click="processFile">Загрузить</el-button>
+      </template>
+    </el-dialog>
+
     <el-alert
         v-if="error"
         :title="error"
@@ -50,7 +65,6 @@
         @close="error = null"
         class="status-alert"
     />
-
     <el-alert
         v-if="success"
         :title="success"
@@ -63,14 +77,14 @@
 </template>
 
 <script>
-import { ElMessage } from 'element-plus';
-import { UploadFilled } from '@element-plus/icons-vue';
-import * as XLSX from 'xlsx';
-import { supabase } from '@/services/supabase'; // <-- ИСПРАВЛЕНО: Добавлен импорт
+import { ElMessage } from 'element-plus'
+import { UploadFilled } from '@element-plus/icons-vue'
+import * as XLSX from 'xlsx'
+import { supabase } from '@/services/supabase'
 
 export default {
-  name: 'ExcelUpload',
-  components: { UploadFilled }, // <-- ИСПРАВЛЕНО: Иконка добавлена в компоненты
+  name: 'ExcelRevisionsUpload',
+  components: { UploadFilled },
   emits: ['dataProcessed'],
   data() {
     return {
@@ -78,186 +92,146 @@ export default {
       error: null,
       success: null,
       isLoading: false,
-    };
+      dialogVisible: false,
+      revisionForm: {
+        number: '',
+        year: ''
+      }
+    }
   },
   methods: {
     async clearSupabaseTables() {
-      if (!confirm('Вы уверены, что хотите очистить все данные в таблицах Type_affiliation, Type_religion, Type_estate и Subtype_estate? Это действие нельзя отменить.')) {
-        return;
-      }
+      if (!confirm('Очистить все записи из Estate, Report_record и Revision_report?')) return
 
-      this.isLoading = true;
-      this.error = null;
-      this.success = null;
-
+      this.isLoading = true
       try {
-        // Delete from Subtype_estate first (due to foreign key constraints)
-        const { error: subtypeError } = await supabase.from('Subtype_estate').delete().neq('name', ''); // Delete all records
-        if (subtypeError) throw subtypeError;
-
-        // Then delete from reference tables
-        const { error: affiliationError } = await supabase.from('Type_affiliation').delete().neq('name', ''); // Delete all records
-        if (affiliationError) throw affiliationError;
-
-        const { error: religionError } = await supabase.from('Type_religion').delete().neq('name', ''); // Delete all records
-        if (religionError) throw religionError;
-
-        const { error: estateError } = await supabase.from('Type_estate').delete().neq('name', ''); // Delete all records
-        if (estateError) throw estateError;
-
-        this.success = 'Все таблицы Supabase успешно очищены.';
-        // Emit event to refresh the table data
-        this.$emit('dataProcessed');
+        await supabase.from('Estate').delete().neq('id', 0)
+        await supabase.from('Report_record').delete().neq('id', 0)
+        await supabase.from('Revision_report').delete().neq('id', 0)
+        this.success = 'Таблицы успешно очищены.'
+        this.$emit('dataProcessed')
       } catch (err) {
-        this.error = err.message || 'Ошибка при очистке таблиц Supabase.';
-        console.error('Clear tables error:', err);
+        this.error = err.message || 'Ошибка очистки таблиц'
       } finally {
-        this.isLoading = false;
+        this.isLoading = false
       }
     },
-
     handleFileChange(uploadedFile) {
-      // Проверяем тип файла
-      const isExcel = uploadedFile.raw.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || uploadedFile.raw.type === 'application/vnd.ms-excel';
+      const isExcel =
+          uploadedFile.raw.type ===
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+          uploadedFile.raw.type === 'application/vnd.ms-excel'
       if (!isExcel) {
-        ElMessage.error('Пожалуйста, загрузите файл в формате .xlsx или .xls');
-        // Очищаем список файлов в el-upload
-        this.$refs.upload.clearFiles();
-        return;
+        ElMessage.error('Загрузите файл .xlsx или .xls')
+        this.$refs.upload.clearFiles()
+        return
       }
-      this.file = uploadedFile.raw;
-      this.error = null;
-      this.success = null;
+      this.file = uploadedFile.raw
+      this.error = null
+      this.success = null
     },
-
     handleExceed() {
-      ElMessage.warning('Можно загрузить только один файл. Сначала удалите предыдущий.');
+      ElMessage.warning('Можно загрузить только один файл.')
     },
-
+    openRevisionDialog() {
+      if (!this.file) return
+      this.dialogVisible = true
+    },
     processFile() {
-      if (!this.file) return;
-      this.isLoading = true;
+      if (!this.file) return
+      this.dialogVisible = false
+      this.isLoading = true
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
+      const reader = new FileReader()
+      reader.onload = async (e) => {
         try {
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          const data = new Uint8Array(e.target.result)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+          const jsonData = XLSX.utils.sheet_to_json(worksheet)
 
-          if (!jsonData || jsonData.length === 0) {
-            throw new Error('Файл Excel пуст или не содержит данных.');
-          }
+          if (!jsonData || jsonData.length === 0) throw new Error('Файл пуст')
 
-          const requiredColumns = ['Subtype_estate', 'Type_affiliation', 'Type_religion', 'Type_estate'];
-          const firstRow = jsonData[0];
-          const missingColumns = requiredColumns.filter(col => !firstRow.hasOwnProperty(col));
-
-          if (missingColumns.length > 0) {
-            throw new Error(`Отсутствуют обязательные столбцы: ${missingColumns.join(', ')}`);
-          }
-
-          this.processSupabaseData(jsonData)
-              .then(processedCount => {
-                this.success = `Успешно обработано и загружено ${processedCount} записей.`;
-                this.$emit('dataProcessed');
-                this.file = null;
-                this.$refs.upload.clearFiles(); // Убираем файл из списка после успешной обработки
-              })
-              .catch(err => {
-                this.error = err.message || 'Произошла ошибка при обработке данных в Supabase.';
-              })
-              .finally(() => {
-                this.isLoading = false;
-              });
-
+          await this.processSupabaseData(jsonData)
+          this.success = 'Загрузка успешно завершена'
+          this.$emit('dataProcessed')
+          this.file = null
+          this.$refs.upload.clearFiles()
         } catch (err) {
-          this.error = err.message || 'Неизвестная ошибка при чтении файла.';
-          this.isLoading = false;
+          this.error = err.message || 'Ошибка обработки файла'
+        } finally {
+          this.isLoading = false
         }
-      };
-      reader.onerror = () => {
-        this.error = 'Не удалось прочитать файл.';
-        this.isLoading = false;
-      };
-      reader.readAsArrayBuffer(this.file);
-    },
-
-    /**
-     * Получает существующие ID или создает новые для связанных таблиц.
-     * @param {string} tableName - Имя таблицы в Supabase.
-     * @param {string[]} names - Массив уникальных имен из Excel.
-     * @returns {Promise<Map<string, number>>} - Promise, который разрешается в Map { name -> id }.
-     */
-    getOrCreateIds(tableName, names) {
-      const uniqueNames = [...new Set(names)].filter(Boolean); // Уникальные и непустые имена
-      if (uniqueNames.length === 0) {
-        return Promise.resolve(new Map());
       }
-
-      const idMap = new Map();
-
-      // 1. Найти существующие записи
-      return supabase.from(tableName).select('id, name').in('name', uniqueNames)
-          .then(({ data: existingData, error }) => {
-            if (error) throw error;
-
-            existingData.forEach(item => idMap.set(item.name, item.id));
-
-            // 2. Определить, какие записи нужно создать
-            const namesToCreate = uniqueNames.filter(name => !idMap.has(name));
-
-            if (namesToCreate.length === 0) {
-              return idMap; // Все записи уже существуют
-            }
-
-            // 3. Создать новые записи
-            const recordsToInsert = namesToCreate.map(name => ({ name }));
-            return supabase.from(tableName).insert(recordsToInsert).select('id, name')
-                .then(({ data: newData, error: insertError }) => {
-                  if (insertError) throw insertError;
-
-                  // 4. Обновить карту новыми ID
-                  newData.forEach(item => idMap.set(item.name, item.id));
-
-                  return idMap;
-                });
-          });
+      reader.onerror = () => {
+        this.error = 'Не удалось прочитать файл'
+        this.isLoading = false
+      }
+      reader.readAsArrayBuffer(this.file)
     },
 
-    processSupabaseData(data) {
-      // Извлекаем все необходимые имена из данных Excel
-      const affiliationNames = data.map(row => row.Type_affiliation);
-      const religionNames = data.map(row => row.Type_religion);
-      const estateNames = data.map(row => row.Type_estate);
-
-      // Используем Promise.all для параллельного получения/создания ID для всех справочников
-      return Promise.all([
-        this.getOrCreateIds('Type_affiliation', affiliationNames),
-        this.getOrCreateIds('Type_religion', religionNames),
-        this.getOrCreateIds('Type_estate', estateNames),
-      ])
-          .then(([affiliationMap, religionMap, estateMap]) => {
-            // Теперь у нас есть полные карты ID, включая только что созданные
-            const subtypeRecordsToInsert = data.map(row => ({
-              name: row.Subtype_estate,
-              id_type_affiliation: affiliationMap.get(row.Type_affiliation) || null,
-              id_type_religion: religionMap.get(row.Type_religion) || null,
-              id_type_estate: estateMap.get(row.Type_estate) || null,
-            })).filter(rec => rec.name); // Фильтруем записи без имени
-
-            if (subtypeRecordsToInsert.length === 0) {
-              return 0;
+    async processSupabaseData(rows) {
+      // 1. Создать запись Revision_report
+      const { data: revision, error: revErr } = await supabase
+          .from('Revision_report')
+          .insert([
+            {
+              year: Number(this.revisionForm.year),
+              number: Number(this.revisionForm.number)
             }
+          ])
+          .select()
+          .single()
+      if (revErr) throw revErr
+      const revisionId = revision.id
 
-            // Выполняем финальную вставку в основную таблицу
-            return supabase.from('Subtype_estate').insert(subtypeRecordsToInsert)
-                .then(({ error }) => {
-                  if (error) throw error;
-                  return subtypeRecordsToInsert.length;
-                });
-          });
+      // 2. Для каждой строки Excel
+      for (const row of rows) {
+        const code = row.id
+        const quantityAll = row.populall || null
+
+        const { data: report, error: repErr } = await supabase
+            .from('Report_record')
+            .insert([
+              {
+                code,
+                quantity_all: quantityAll,
+                id_revision_report: revisionId
+              }
+            ])
+            .select()
+            .single()
+        if (repErr) throw repErr
+
+        const reportId = report.id
+
+        // 3. Обработка estate колонок
+        for (let i = 1; i <= 5; i++) {
+          const key = i === 1 ? 'estate' : `estate${i}`
+          if (row[key]) {
+            const estateName = String(row[key]).trim()
+            if (!estateName) continue
+
+            // ищем Subtype_estate
+            const { data: subtype, error: subErr } = await supabase
+                .from('Subtype_estate')
+                .select('id')
+                .ilike('name', estateName)
+                .maybeSingle()
+            if (subErr) throw subErr
+            if (!subtype) continue
+
+            await supabase.from('Estate').insert([
+              {
+                id_report_record: reportId,
+                id_subtype_estate: subtype.id,
+                men_quantity: row.men || null,
+                women_quantity: row.women || null
+              }
+            ])
+          }
+        }
+      }
     }
   }
 }
@@ -270,29 +244,18 @@ export default {
   border: 1px dashed var(--border-color);
   border-radius: 8px;
   background-color: var(--bg-secondary);
-  transition: background-color 0.3s ease;
-
   &:hover {
     background-color: var(--bg-primary);
   }
 }
-
-.upload-component {
-  :deep(.el-upload-dragger) {
-    padding: 20px;
-  }
-}
-
 .button-container {
   display: flex;
   justify-content: center;
   margin-top: 1.5rem;
 }
-
 .process-button {
   min-width: 250px;
 }
-
 .status-alert {
   margin-top: 1.5rem;
 }

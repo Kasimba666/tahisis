@@ -1,197 +1,62 @@
 <template>
   <div class="PgRevisionsUpload">
-    <ExcelUpload @dataProcessed="fetchData" />
-    <div class="table-header">
-      <el-button type="success" size="small" @click="addRow">Добавить</el-button>
-    </div>
+    <ExcelRevisionsUpload @dataProcessed="fetchData" />
 
     <el-table :data="tableData" style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
-
-      <el-table-column label="Название">
-        <template #default="{ row }">
-          <div v-if="editRowId === row.id">
-            <el-input v-model="editRow.name" />
-          </div>
-          <div v-else>
-            {{ row.name }}
-          </div>
-        </template>
-      </el-table-column>
-
+      <el-table-column prop="code" label="Код" width="100" />
+      <el-table-column prop="quantity_all" label="Всего" width="100" />
+      <el-table-column prop="revision" label="Ревизия" />
       <el-table-column label="Сословие">
         <template #default="{ row }">
-          <div v-if="editRowId === row.id">
-            <el-select v-model="editRow.id_type_estate" placeholder="Выбрать">
-              <el-option
-                  v-for="item in typeEstateOptions"
-                  :key="item.id"
-                  :label="item.name"
-                  :value="item.id"
-              />
-            </el-select>
-          </div>
-          <div v-else>
-            {{ row.type_estate_name }}
-          </div>
+          {{ row.subtype_name }}
         </template>
       </el-table-column>
-
-      <el-table-column label="Религия">
-        <template #default="{ row }">
-          <div v-if="editRowId === row.id">
-            <el-select v-model="editRow.id_type_religion" placeholder="Выбрать">
-              <el-option
-                  v-for="item in typeReligionOptions"
-                  :key="item.id"
-                  :label="item.name"
-                  :value="item.id"
-              />
-            </el-select>
-          </div>
-          <div v-else>
-            {{ row.type_religion_name }}
-          </div>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Принадлежность">
-        <template #default="{ row }">
-          <div v-if="editRowId === row.id">
-            <el-select v-model="editRow.id_type_affiliation" placeholder="Выбрать">
-              <el-option
-                  v-for="item in typeAffiliationOptions"
-                  :key="item.id"
-                  :label="item.name"
-                  :value="item.id"
-              />
-            </el-select>
-          </div>
-          <div v-else>
-            {{ row.type_affiliation_name }}
-          </div>
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Действия" width="280">
-        <template #default="{ row }">
-          <div v-if="editRowId === row.id">
-            <el-button type="success" size="small" @click="updateRow(row.id)">Сохранить</el-button>
-            <el-button type="warning" size="small" @click="cancelEdit">Отменить</el-button>
-          </div>
-          <div v-else>
-            <el-button type="primary" size="small" @click="startEdit(row)">Редактировать</el-button>
-            <el-button type="danger" size="small" @click="deleteRow(row.id)">Удалить</el-button>
-          </div>
-        </template>
-      </el-table-column>
+      <el-table-column prop="men_quantity" label="Муж." width="100" />
+      <el-table-column prop="women_quantity" label="Жен." width="100" />
     </el-table>
   </div>
 </template>
 
 <script>
-import { supabase } from "@/services/supabase"
-import ExcelEstateTypesUpload from '@/components/ExcelEstateTypesUpload.vue'
+import { supabase } from '@/services/supabase'
+import ExcelRevisionsUpload from '@/components/ExcelRevisionsUpload.vue'
 
 export default {
-  name: "SubtypeEstateTable",
-  components: {
-    ExcelUpload: ExcelEstateTypesUpload
-  },
+  name: 'PgRevisionsUpload',
+  components: { ExcelRevisionsUpload },
   data() {
     return {
-      tableData: [],
-      typeEstateOptions: [],
-      typeReligionOptions: [],
-      typeAffiliationOptions: [],
-      editRowId: null,
-      editRow: {}
+      tableData: []
     }
   },
   methods: {
     async fetchData() {
-      // Основная таблица
-      const { data: estates } = await supabase
-          .from("Subtype_estate")
-          .select(`
-          id, name, id_type_estate, id_type_religion, id_type_affiliation,
-          Type_estate ( name ),
-          Type_religion ( name ),
-          Type_affiliation ( name )
-        `)
-
-      this.tableData = estates.map(e => ({
-        ...e,
-        type_estate_name: e.Type_estate?.name || "",
-        type_religion_name: e.Type_religion?.name || "",
-        type_affiliation_name: e.Type_affiliation?.name || ""
-      }))
-
-      // Справочники
-      const { data: estateOptions } = await supabase.from("Type_estate").select("*")
-      const { data: religionOptions } = await supabase.from("Type_religion").select("*")
-      const { data: affiliationOptions } = await supabase.from("Type_affiliation").select("*")
-
-      this.typeEstateOptions = estateOptions || []
-      this.typeReligionOptions = religionOptions || []
-      this.typeAffiliationOptions = affiliationOptions || []
-    },
-    startEdit(row) {
-      this.editRowId = row.id
-      this.editRow = { ...row }
-    },
-    cancelEdit() {
-      this.editRowId = null
-      this.editRow = {}
-      this.fetchData()
-    },
-    async updateRow(id) {
-      const { error } = await supabase
-          .from("Subtype_estate")
-          .update({
-            name: this.editRow.name,
-            id_type_estate: this.editRow.id_type_estate,
-            id_type_religion: this.editRow.id_type_religion,
-            id_type_affiliation: this.editRow.id_type_affiliation
-          })
-          .eq("id", id)
-
-      if (!error) {
-        this.cancelEdit()
-      } else {
-        console.error(error)
-      }
-    },
-    async deleteRow(id) {
-      const { error } = await supabase.from("Subtype_estate").delete().eq("id", id)
-      if (!error) {
-        this.fetchData()
-      } else {
-        console.error(error)
-      }
-    },
-    async addRow() {
       const { data, error } = await supabase
-          .from("Subtype_estate")
-          .insert([
-            {
-              name: "",
-              id_type_estate: this.typeEstateOptions[0]?.id || null,
-              id_type_religion: this.typeReligionOptions[0]?.id || null,
-              id_type_affiliation: this.typeAffiliationOptions[0]?.id || null
-            }
-          ])
-          .select()
-
-      if (!error && data?.length) {
-        this.tableData.push({
-          ...data[0],
-          type_estate_name: "",
-          type_religion_name: "",
-          type_affiliation_name: ""
-        })
-        this.startEdit(data[0])
+          .from('Estate')
+          .select(`
+          id, men_quantity, women_quantity,
+          Report_record (
+            id, code, quantity_all,
+            Revision_report ( year, number )
+          ),
+          Subtype_estate ( name )
+        `)
+      if (error) {
+        console.error(error)
+        return
       }
+      this.tableData = data.map(e => ({
+        id: e.id,
+        code: e.Report_record?.code || '',
+        quantity_all: e.Report_record?.quantity_all || '',
+        revision: e.Report_record?.Revision_report
+            ? `${e.Report_record.Revision_report.number} (${e.Report_record.Revision_report.year})`
+            : '',
+        subtype_name: e.Subtype_estate?.name || '',
+        men_quantity: e.men_quantity || '',
+        women_quantity: e.women_quantity || ''
+      }))
     }
   },
   mounted() {
@@ -203,11 +68,5 @@ export default {
 <style scoped>
 .PgRevisionsUpload {
   padding: 1rem;
-
-  .table-header {
-    margin-bottom: 1rem;
-  }
-
 }
-
 </style>
