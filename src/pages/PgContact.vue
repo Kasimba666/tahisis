@@ -1,5 +1,5 @@
 <template>
-  <main class="EstateTypesUpload">
+  <main class="PgRevisionsUpload">
     <div class="page-header">
       <h1>Контакты</h1>
       <p>Свяжитесь с нами для обсуждения вашего проекта</p>
@@ -76,7 +76,7 @@ const submitForm = () => {
 <style scoped lang="scss">
 @use '@/styles/themes.scss' as *;
 
-.EstateTypesUpload {
+.PgRevisionsUpload {
   flex: 1;
   width: 100%;
   max-width: 1200px;
@@ -136,7 +136,7 @@ const submitForm = () => {
 }
 
 @media (max-width: 768px) {
-  .EstateTypesUpload {
+  .PgRevisionsUpload {
     padding: 1rem;
   }
   

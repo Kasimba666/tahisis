@@ -1,5 +1,5 @@
 <template>
-  <main class="EstateTypesUpload">
+  <main class="PgRevisionsUpload">
     <div class="page-header">
       <h1>Демо Element Plus компонентов</h1>
       <p>Примеры различных компонентов с интеграцией тем</p>
@@ -191,7 +191,7 @@ export default {
 </script>
 
 <style scoped>
-.EstateTypesUpload {
+.PgRevisionsUpload {
   padding: 20px;
 }
 

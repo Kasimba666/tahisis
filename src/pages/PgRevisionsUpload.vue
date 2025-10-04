@@ -1,5 +1,5 @@
 <template>
-  <main class="EstateTypesUpload">
+  <main class="PgRevisionsUpload">
     <div class="page-header">
       <h1>Загрузка ревизий</h1>
       <p>Импорт данных ревизий из Excel файлов с расширенными возможностями фильтрации</p>
@@ -791,7 +791,7 @@ export default {
 </script>
 
 <style scoped>
-.EstateTypesUpload {
+.PgRevisionsUpload {
   padding: 20px;
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <main class="EstateTypesUpload">
+  <main class="PgRevisionsUpload">
     <div class="hero-section">
       <h1>Добро пожаловать!</h1>
       <p>Это современный сайт с красивым header и переключателем тем</p>
@@ -37,7 +37,7 @@
 <style scoped lang="scss">
 @use '@/styles/themes.scss' as *;
 
-.EstateTypesUpload {
+.PgRevisionsUpload {
   flex: 1;
   width: 100%;
   max-width: 1200px;
@@ -98,7 +98,7 @@
 
 // Адаптивность
 @media (max-width: 768px) {
-  .EstateTypesUpload {
+  .PgRevisionsUpload {
     padding: 1rem;
   }
   

@@ -1,6 +1,7 @@
 <template>
   <div class="excel-upload-container">
     <el-upload
+        ref="upload"
         class="upload-component"
         drag
         action="#"
@@ -162,7 +163,7 @@ export default {
                 this.success = `Успешно обработано и загружено ${processedCount} записей.`;
                 this.$emit('dataProcessed');
                 this.file = null;
-                // this.$refs.upload.clearFiles(); // Раскомментируйте, если нужно очищать список файлов
+                this.$refs.upload.clearFiles(); // Убираем файл из списка после успешной обработки
               })
               .catch(err => {
                 this.error = err.message || 'Произошла ошибка при обработке данных в Supabase.';

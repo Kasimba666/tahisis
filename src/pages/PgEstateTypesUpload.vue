@@ -1,5 +1,5 @@
 <template>
-  <div class="subtype-estate-table">
+  <div class="PgEstateTypesUpload">
     <ExcelUpload @dataProcessed="fetchData" />
     <div class="table-header">
       <el-button type="success" size="small" @click="addRow">Добавить</el-button>
@@ -91,12 +91,12 @@
 
 <script>
 import { supabase } from "@/services/supabase"
-import ExcelUpload from '@/components/ExcelUpload.vue'
+import ExcelEstateTypesUpload from '@/components/ExcelEstateTypesUpload.vue'
 
 export default {
   name: "SubtypeEstateTable",
   components: {
-    ExcelUpload
+    ExcelUpload: ExcelEstateTypesUpload
   },
   data() {
     return {
@@ -201,10 +201,13 @@ export default {
 </script>
 
 <style scoped>
-.subtype-estate-table {
+.PgEstateTypesUpload {
   padding: 1rem;
+
+  .table-header {
+    margin-bottom: 1rem;
+  }
+
 }
-.table-header {
-  margin-bottom: 1rem;
-}
+
 </style>
