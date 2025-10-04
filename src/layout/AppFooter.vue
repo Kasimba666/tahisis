@@ -3,71 +3,7 @@
     <div class="footer-container">
       <!-- Основная информация -->
       <div class="footer-content">
-        <div class="footer-section">
-          <div class="footer-brand">
-            <div class="logo">
-              <el-icon size="24" color="var(--accent-primary)">
-                <Star />
-              </el-icon>
-            </div>
-            <h3 class="brand-name">{{ siteTitle }}</h3>
-          </div>
-          <p class="brand-description">
-            Современные веб-решения для вашего бизнеса. 
-            Создаём качественные продукты с использованием передовых технологий.
-          </p>
-        </div>
-        
-        <div class="footer-section">
-          <h4>Навигация</h4>
-          <ul class="footer-links">
-            <li><router-link to="/">Главная</router-link></li>
-            <li><router-link to="/about">О нас</router-link></li>
-            <li><router-link to="/services">Услуги</router-link></li>
-            <li><router-link to="/portfolio">Портфолио</router-link></li>
-            <li><router-link to="/contact">Контакты</router-link></li>
-          </ul>
-        </div>
-        
-        <div class="footer-section">
-          <h4>Услуги</h4>
-          <ul class="footer-links">
-            <li><a href="#web-dev">Веб-разработка</a></li>
-            <li><a href="#mobile-dev">Мобильные приложения</a></li>
-            <li><a href="#ui-ux">UI/UX Дизайн</a></li>
-            <li><a href="#consulting">Консультации</a></li>
-          </ul>
-        </div>
-        
-        <div class="footer-section">
-          <h4>Контакты</h4>
-          <div class="contact-info">
-            <div class="contact-item">
-              <el-icon><Message /></el-icon>
-              <span>info@example.com</span>
-            </div>
-            <div class="contact-item">
-              <el-icon><Phone /></el-icon>
-              <span>+7 (999) 123-45-67</span>
-            </div>
-            <div class="contact-item">
-              <el-icon><Location /></el-icon>
-              <span>г. Москва, ул. Примерная, д. 123</span>
-            </div>
-          </div>
-          
-          <div class="social-links">
-            <a href="#" class="social-link" title="Telegram">
-              <el-icon><ChatDotRound /></el-icon>
-            </a>
-            <a href="#" class="social-link" title="Email">
-              <el-icon><Message /></el-icon>
-            </a>
-            <a href="#" class="social-link" title="GitHub">
-              <el-icon><Link /></el-icon>
-            </a>
-          </div>
-        </div>
+
       </div>
       
       <!-- Нижняя часть -->

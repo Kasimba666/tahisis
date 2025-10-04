@@ -45,14 +45,21 @@
             <el-menu-item index="/estate-types-upload">Загрузка типов сословий</el-menu-item>
             <el-menu-item index="/revisions-upload">Загрузка ревизий</el-menu-item>
           </el-sub-menu>
-          <el-menu-item index="/portfolio">
-            <el-icon><Briefcase /></el-icon>
-            <span>Портфолио</span>
-          </el-menu-item>
           <el-menu-item index="/contact">
             <el-icon><ChatDotRound /></el-icon>
             <span>Контакты</span>
           </el-menu-item>
+          <!-- Spacer -->
+          <div class="flex-spacer"></div>
+
+          <!-- Auth Section -->
+          <el-menu-item v-if="!authState.user" @click="openAuthModal">
+            Login
+          </el-menu-item>
+          <el-sub-menu v-else index="user-menu">
+            <template #title>{{ authState.user.email }}</template>
+            <el-menu-item @click="handleLogout">Logout</el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </div>
 
@@ -107,16 +114,22 @@
                 <el-icon><ChatDotRound /></el-icon>
                 <span>Контакты</span>
               </el-menu-item>
-            </el-menu>
+             </el-menu>
           </div>
         </div>
       </div>
     </div>
   </header>
+
+  <!-- Authentication Modal -->
+  <AuthModal v-model="authModalVisible" />
 </template>
 
 <script>
 import {useScreen} from '@/composables/useScreen.js';
+import AuthModal from '@/components/AuthModal.vue'
+import { ElMessage } from 'element-plus'
+import { state as authState, signOut } from '@/store/auth.js'
 import {
   House,
   Document,
@@ -131,6 +144,17 @@ import {
 
 export default {
   name: 'AppHeader',
+  components: { AuthModal,
+    House,
+    Document,
+    Grid,
+    Briefcase,
+    ChatDotRound,
+    Menu,
+    Close,
+    Star,
+    Upload
+  },
   props: {
     siteTitle: {
       type: String,
@@ -140,7 +164,9 @@ export default {
   data() {
     return {
       activeIndex: '/',
-      mobileMenuOpen: false
+      mobileMenuOpen: false,
+      authModalVisible: false,
+      authState: authState // Make state reactive in the template
     }
   },
   setup() {
@@ -178,19 +204,24 @@ export default {
     },
     closeMobileMenu() {
       this.mobileMenuOpen = false
+    },
+    openAuthModal() {
+      this.authModalVisible = true
+    },
+    handleLogout() {
+      signOut()
+          .then(({ error }) => {
+            if (error) {
+              ElMessage.error(error.message)
+            } else {
+              ElMessage.success('You have been logged out.')
+              // Redirect to home or login page if necessary
+              this.$router.push('/')
+            }
+          })
     }
   },
-  components: {
-    House,
-    Document,
-    Grid,
-    Briefcase,
-    ChatDotRound,
-    Menu,
-    Close,
-    Star,
-    Upload
-  }
+
 }
 </script>
 
