@@ -1,5 +1,5 @@
 <template>
-  <div class="PgEstateTypesUpload">
+  <div class="PgRevisionsUpload">
     <ExcelUpload @dataProcessed="fetchData" />
     <div class="table-header">
       <el-button type="success" size="small" @click="addRow">Добавить</el-button>
@@ -201,7 +201,7 @@ export default {
 </script>
 
 <style scoped>
-.PgEstateTypesUpload {
+.PgRevisionsUpload {
   padding: 1rem;
 
   .table-header {
