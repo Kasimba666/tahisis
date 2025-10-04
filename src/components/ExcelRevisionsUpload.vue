@@ -101,12 +101,15 @@ export default {
   },
   methods: {
     async clearSupabaseTables() {
-      if (!confirm('Очистить все записи из Estate, Report_record и Revision_report?')) return
+      if (!confirm('Очистить все записи из Estate, Report_record, Revision_report, Settlement и District?')) return
 
       this.isLoading = true
       try {
+        // Удаляем в правильном порядке с учетом внешних ключей
         await supabase.from('Estate').delete().neq('id', 0)
         await supabase.from('Report_record').delete().neq('id', 0)
+        await supabase.from('Settlement').delete().neq('id', 0)
+        await supabase.from('District').delete().neq('id', 0)
         await supabase.from('Revision_report').delete().neq('id', 0)
         this.success = 'Таблицы успешно очищены.'
         this.$emit('dataProcessed')
@@ -216,10 +219,16 @@ export default {
         for (const row of rows) {
           const code = String(row.id || '').trim()
           const populationAll = row.populall || null
+          const nameOld = String(row.nameold || '').trim()
+          const nameOldAlt = String(row.nameoldalt || '').trim()
+          const nameModern = String(row.namemod || '').trim() || null
+          const districtName = String(row.admunitmod || '').trim()
+          const lat = row.lat ? Number(row.lat) : 0
+          const lon = row.lon ? Number(row.lon) : 0
 
-          // Пропускаем строки без кода
-          if (!code) {
-            console.warn('Пропущена строка без кода:', row)
+          // Пропускаем строки без кода или названия старого
+          if (!code || !nameOld) {
+            console.warn('Пропущена строка без кода или названия:', row)
             continue
           }
 
@@ -270,7 +279,81 @@ export default {
             reportId = newReport.id
           }
 
-        // 3. Обработка estate колонок с соответствующими male/female данными
+          // 3. Обработка Settlement и District
+          let settlementId = null
+
+          if (nameOld) {
+            // Ищем существующий Settlement по name_old
+            const { data: existingSettlement, error: settleFindErr } = await supabase
+                .from('Settlement')
+                .select('id')
+                .eq('name_old', nameOld)
+                .maybeSingle()
+
+            if (settleFindErr) throw settleFindErr
+
+            if (existingSettlement) {
+              settlementId = existingSettlement.id
+            } else {
+              // Создаем новый Settlement
+              let districtId = null
+
+              // Обрабатываем District если есть название района
+              if (districtName) {
+                const { data: existingDistrict, error: distFindErr } = await supabase
+                    .from('District')
+                    .select('id')
+                    .eq('name', districtName)
+                    .maybeSingle()
+
+                if (distFindErr) throw distFindErr
+
+                if (existingDistrict) {
+                  districtId = existingDistrict.id
+                } else {
+                  const { data: newDistrict, error: distInsertErr } = await supabase
+                      .from('District')
+                      .insert([{ name: districtName }])
+                      .select('id')
+                      .single()
+
+                  if (distInsertErr) throw distInsertErr
+                  districtId = newDistrict.id
+                }
+              }
+
+              // Создаем новый Settlement
+              const settlementData = {
+                name_old: nameOld,
+                name_old_alt: nameOldAlt || null,
+                name_modern: nameModern,
+                lat: lat,
+                lon: lon
+              }
+
+              // Добавляем район только если он существует
+              if (districtId) {
+                settlementData.id_district = districtId
+              }
+
+              const { data: newSettlement, error: settleInsertErr } = await supabase
+                  .from('Settlement')
+                  .insert([settlementData])
+                  .select('id')
+                  .single()
+
+              if (settleInsertErr) throw settleInsertErr
+              settlementId = newSettlement.id
+            }
+
+            // Связываем Report_record с Settlement
+            await supabase
+                .from('Report_record')
+                .update({ id_report_record: settlementId })
+                .eq('id', reportId)
+          }
+
+        // 4. Обработка estate колонок с соответствующими male/female данными
         for (let i = 1; i <= 5; i++) {
           const estateKey = `estate${i}`
           const maleKey = `male${i}`

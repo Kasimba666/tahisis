@@ -44,6 +44,36 @@
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="revision" label="Ревизия" width="100" />
       <el-table-column prop="code" label="Код" width="100" />
+      <el-table-column label="Населенный пункт (старое)">
+        <template #default="{ row }">
+          {{ row.settlement_name_old || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Населенный пункт (альтернативное)">
+        <template #default="{ row }">
+          {{ row.settlement_name_old_alt || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Населенный пункт (современное)">
+        <template #default="{ row }">
+          {{ row.settlement_name_modern || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Район">
+        <template #default="{ row }">
+          {{ row.district_name || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Широта" width="100">
+        <template #default="{ row }">
+          {{ row.settlement_lat || '-' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="Долгота" width="100">
+        <template #default="{ row }">
+          {{ row.settlement_lon || '-' }}
+        </template>
+      </el-table-column>
       <el-table-column label="Сословие">
         <template #default="{ row }">
           {{ row.subtype_name }}
@@ -113,7 +143,11 @@ export default {
           id, male, female, id_volost, id_landowner, id_military_unit,
           Report_record (
             id, code, population_all,
-            Revision_report ( year, number )
+            Revision_report ( year, number ),
+            Settlement (
+              name_old, name_old_alt, name_modern, lat, lon,
+              District ( name )
+            )
           ),
           Subtype_estate ( name ),
           Volost ( name ),
@@ -148,6 +182,12 @@ export default {
         revision: e.Report_record?.Revision_report
             ? `${e.Report_record.Revision_report.number} (${e.Report_record.Revision_report.year})`
             : '',
+        settlement_name_old: e.Report_record?.Settlement?.name_old || '',
+        settlement_name_old_alt: e.Report_record?.Settlement?.name_old_alt || '',
+        settlement_name_modern: e.Report_record?.Settlement?.name_modern || '',
+        settlement_lat: e.Report_record?.Settlement?.lat || '',
+        settlement_lon: e.Report_record?.Settlement?.lon || '',
+        district_name: e.Report_record?.Settlement?.District?.name || '',
         subtype_name: e.Subtype_estate?.name || '',
         male: e.male || '',
         female: e.female || '',
