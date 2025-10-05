@@ -335,8 +335,8 @@ export default {
 
 <style scoped lang="scss">
 .excel-upload-container {
-  margin: 1.5rem 0;
-  padding: 1.5rem;
+  margin: 3px 0;
+  padding: 3px;
   border: 1px dashed var(--border-color);
   border-radius: 8px;
   background-color: var(--bg-secondary);
@@ -349,14 +349,14 @@ export default {
 
 .upload-component {
   :deep(.el-upload-dragger) {
-    padding: 20px;
+    padding: 3px;
   }
 }
 
 .button-container {
   display: flex;
   justify-content: center;
-  margin-top: 1.5rem;
+  margin-top: 3px;
 }
 
 .process-button {
@@ -364,6 +364,6 @@ export default {
 }
 
 .status-alert {
-  margin-top: 1.5rem;
+  margin-top: 3px;
 }
 </style>

@@ -1,27 +1,28 @@
 <template>
   <footer class="app-footer">
     <div class="footer-container">
-          <p class="copyright">
-            © {{ currentYear }} {{ siteTitle }}. Все права защищены.
-          </p>
-        </div>
+      <p class="copyright">
+        © {{ currentYear }} {{ siteTitle }}. Все права защищены.
+      </p>
+    </div>
   </footer>
 </template>
 
-<script setup>
-import { computed } from 'vue'
-
-
-// Props
-const props = defineProps({
-  siteTitle: {
-    type: String,
-    default: 'Мой Сайт'
+<script>
+export default {
+  name: 'AppFooter',
+  props: {
+    siteTitle: {
+      type: String,
+      default: 'Мой Сайт'
+    }
+  },
+  computed: {
+    currentYear() {
+      return new Date().getFullYear()
+    }
   }
-})
-
-// Computed
-const currentYear = computed(() => new Date().getFullYear())
+}
 </script>
 
 <style scoped lang="scss">
@@ -37,7 +38,7 @@ const currentYear = computed(() => new Date().getFullYear())
 .footer-container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 3px;
 }
 
 .copyright {
@@ -45,7 +46,7 @@ const currentYear = computed(() => new Date().getFullYear())
   font-size: 0.9rem;
   margin: 0;
   text-align: center;
-  padding: 1.5rem 0;
+  padding: 3px 0;
 }
 
 </style>

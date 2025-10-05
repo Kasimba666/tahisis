@@ -1,5 +1,5 @@
 <template>
-  <main class="PgRevisionsUpload">
+  <main class="pg-home">
     <div class="hero-section">
       <h1>Добро пожаловать!</h1>
       <p>Это современный сайт с красивым header и переключателем тем</p>
@@ -30,14 +30,16 @@
   </main>
 </template>
 
-<script setup>
-// Главная страница
+<script>
+export default {
+  name: 'PgHome'
+}
 </script>
 
 <style scoped lang="scss">
 @use '@/styles/themes.scss' as *;
 
-.PgRevisionsUpload {
+.pg-home {
   flex: 1;
   width: 100%;
   max-width: 1200px;
@@ -98,7 +100,7 @@
 
 // Адаптивность
 @media (max-width: 768px) {
-  .PgRevisionsUpload {
+  .pg-home {
     padding: 1rem;
   }
   

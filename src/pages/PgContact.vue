@@ -1,5 +1,5 @@
 <template>
-  <main class="PgRevisionsUpload">
+  <main class="pg-contact">
     <div class="page-header">
       <h1>Контакты</h1>
       <p>Свяжитесь с нами для обсуждения вашего проекта</p>
@@ -57,26 +57,32 @@
   </main>
 </template>
 
-<script setup>
-import { reactive } from 'vue'
+<script>
 import { ElMessage } from 'element-plus'
 
-const form = reactive({
-  name: '',
-  email: '',
-  message: ''
-})
-
-const submitForm = () => {
-  ElMessage.success('Сообщение отправлено! Мы свяжемся с вами в ближайшее время.')
-  // Здесь будет логика отправки формы
+export default {
+  name: 'PgContact',
+  data() {
+    return {
+      form: {
+        name: '',
+        email: '',
+        message: ''
+      }
+    }
+  },
+  methods: {
+    submitForm() {
+      ElMessage.success('Сообщение отправлено! Мы свяжемся с вами в ближайшее время.')
+    }
+  }
 }
 </script>
 
 <style scoped lang="scss">
 @use '@/styles/themes.scss' as *;
 
-.PgRevisionsUpload {
+.pg-contact {
   flex: 1;
   width: 100%;
   max-width: 1200px;
@@ -136,7 +142,7 @@ const submitForm = () => {
 }
 
 @media (max-width: 768px) {
-  .PgRevisionsUpload {
+  .pg-contact {
     padding: 1rem;
   }
   

@@ -1,5 +1,5 @@
 <template>
-  <main class="PgRevisionsUpload">
+  <main class="pg-services">
     <div class="page-header">
       <h1>Наши услуги</h1>
       <p>Полный спектр услуг для вашего бизнеса</p>
@@ -33,14 +33,16 @@
   </main>
 </template>
 
-<script setup>
-// Страница услуг
+<script>
+export default {
+  name: 'PgServices'
+}
 </script>
 
 <style scoped lang="scss">
 @use '@/styles/themes.scss' as *;
 
-.PgRevisionsUpload {
+.pg-services {
   flex: 1;
   width: 100%;
   max-width: 1200px;
@@ -97,7 +99,7 @@
 }
 
 @media (max-width: 768px) {
-  .PgRevisionsUpload {
+  .pg-services {
     padding: 1rem;
   }
   

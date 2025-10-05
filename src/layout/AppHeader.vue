@@ -1,91 +1,80 @@
 <template>
   <header class="app-header">
     <div class="header-container">
-      <!-- Логотип и заглавие -->
-      <div class="header-brand">
-        <div class="logo">
-          <el-icon size="32" color="var(--accent-primary)">
-            <component :is="logoIcon" />
-          </el-icon>
+      <div class="header-top">
+        <div class="header-brand">
+          <div class="logo">
+            <el-icon :size="24" color="var(--accent-primary)">
+              <component :is="logoIcon" />
+            </el-icon>
+          </div>
+          <h1 class="site-title">{{ siteTitle }}</h1>
         </div>
-        <h1 class="site-title">{{ siteTitle }}</h1>
+        <div class="header-actions">
+          <ThemeToggle />
+        </div>
       </div>
-
-      <!-- Горизонтальное меню -->
-      <div class="header-menu">
-        <el-menu
-            :default-active="activeIndex"
-            mode="horizontal"
-            @select="handleSelect"
-            class="main-menu"
-            :ellipsis="false"
-            router
-        >
-          <el-menu-item index="/about">
-            <span>О проекте</span>
-          </el-menu-item>
-          <el-menu-item index="/">
-            <span>Список сословий</span>
-          </el-menu-item>
-          <el-menu-item v-if="authState.user" index="/demo">
-            <span>Демо компонентов</span>
-          </el-menu-item>
-          <el-sub-menu index="/services">
-            <template #title>
-              <span>Услуги</span>
-            </template>
-            <el-menu-item index="/services">Все услуги</el-menu-item>
-          </el-sub-menu>
-          <el-sub-menu v-if="authState.user" index="/data-upload">
-            <template #title>
-              <span>Загрузка данных</span>
-            </template>
-            <el-menu-item index="/estate-types-upload">Загрузка типов сословий</el-menu-item>
-            <el-menu-item index="/revisions-upload">Загрузка ревизий</el-menu-item>
-          </el-sub-menu>
-          <el-menu-item index="/contact">
-            <span>Контакты</span>
-          </el-menu-item>
-          <!-- Spacer -->
-          <div class="flex-spacer"></div>
-
-          <!-- Auth Section -->
-          <el-menu-item v-if="!authState.user" @click="openAuthModal">
+      
+      <div class="header-bottom">
+        <nav class="main-nav" :class="{ 'multi-line': isSmallScreen }">
+          <router-link to="/about" class="nav-item" :class="{ active: isActive('/about') }">
+            О проекте
+          </router-link>
+          <router-link to="/estates-list" class="nav-item" :class="{ active: isActive('/estates-list') }">
+            Список сословий
+          </router-link>
+          <router-link v-if="authState.user" to="/demo" class="nav-item" :class="{ active: isActive('/demo') }">
+            Демо
+          </router-link>
+          <router-link to="/services" class="nav-item" :class="{ active: isActive('/services') }">
+            Услуги
+          </router-link>
+          <div v-if="authState.user" class="nav-item has-submenu">
+            <span class="submenu-trigger">Загрузка данных</span>
+            <div class="submenu">
+              <router-link to="/estate-types-upload" class="submenu-item">
+                Типы сословий
+              </router-link>
+              <router-link to="/revisions-upload" class="submenu-item">
+                Ревизии
+              </router-link>
+            </div>
+          </div>
+          <router-link to="/contact" class="nav-item" :class="{ active: isActive('/contact') }">
+            Контакты
+          </router-link>
+          
+          <div class="nav-spacer"></div>
+          
+          <a v-if="!authState.user" @click="openAuthModal" class="nav-item nav-action">
             Login
-          </el-menu-item>
-          <el-sub-menu v-else index="user-menu">
-            <template #title>{{ authState.user.email }}</template>
-            <el-menu-item @click="handleLogout">Logout</el-menu-item>
-          </el-sub-menu>
-
-          <!-- Theme Toggle in Menu -->
-          <li class="theme-menu-item" style="margin-left: auto; display: flex; align-items: center; list-style: none; background: none !important; border: none !important; padding: 0.5rem;">
-            <ThemeToggle />
-          </li>
-        </el-menu>
+          </a>
+          <div v-else class="nav-item has-submenu">
+            <span class="submenu-trigger">{{ authState.user.email }}</span>
+            <div class="submenu">
+              <a @click="handleLogout" class="submenu-item">Logout</a>
+            </div>
+          </div>
+        </nav>
       </div>
-
-
     </div>
   </header>
 
-  <!-- Authentication Modal -->
   <AuthModal v-model="authModalVisible" />
 </template>
 
 <script>
-import {useScreen} from '@/composables/useScreen.js';
+import {useScreen} from '@/composables/useScreen.js'
 import AuthModal from '@/components/AuthModal.vue'
 import { ElMessage } from 'element-plus'
 import { state as authState, signOut } from '@/store/auth.js'
-import {
-  Star
-} from '@element-plus/icons-vue';
-import ThemeToggle from '@/components/ThemeToggle.vue';
+import { Star } from '@element-plus/icons-vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 export default {
   name: 'AppHeader',
-  components: { AuthModal,
+  components: { 
+    AuthModal,
     Star,
     ThemeToggle
   },
@@ -97,63 +86,62 @@ export default {
   },
   data() {
     return {
-      activeIndex: '/',
       authModalVisible: false,
-      authState: authState // Make state reactive in the template
-    }
-  },
-  setup() {
-    const {screen, screenBreakpoints} = useScreen();
-    return {
-      screen,
-      screenBreakpoints
+      authState: authState,
+      screen: null,
+      setScreenListener: null,
+      removeScreenListener: null
     }
   },
   computed: {
     logoIcon() {
       return Star
+    },
+    isSmallScreen() {
+      return this.screen && (this.screen.type === 'xs' || this.screen.type === 'sm')
     }
   },
-  watch: {
-    '$route.path'(newPath) {
-      this.activeIndex = newPath
-    }
+  created() {
+    const screenComposable = useScreen()
+    this.screen = screenComposable.screen
+    this.setScreenListener = screenComposable.setScreenListener
+    this.removeScreenListener = screenComposable.removeScreenListener
   },
   mounted() {
-    // Устанавливаем начальное значение при монтировании
-    this.activeIndex = this.$route.path
+    this.setScreenListener()
+  },
+  unmounted() {
+    this.removeScreenListener()
   },
   methods: {
-    handleSelect(key, keyPath) {
-      console.log('Выбран пункт меню:', key, keyPath)
-      this.activeIndex = key
+    isActive(path) {
+      return this.$route.path === path
     },
     openAuthModal() {
       this.authModalVisible = true
     },
     handleLogout() {
       signOut()
-          .then(({ error }) => {
-            if (error) {
-              ElMessage.error(error.message)
-            } else {
-              ElMessage.success('You have been logged out.')
-              // Redirect to home or login page if necessary
-              this.$router.push('/')
-            }
-          })
+        .then(({ error }) => {
+          if (error) {
+            ElMessage.error(error.message)
+          } else {
+            ElMessage.success('You have been logged out.')
+            this.$router.push('/')
+          }
+        })
     }
-  },
-
+  }
 }
 </script>
 
 <style scoped lang="scss">
 @use '@/styles/themes.scss' as *;
+
 .app-header {
   background-color: var(--bg-primary);
   border-bottom: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px var(--shadow);
+  box-shadow: 0 1px 4px var(--shadow);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -163,17 +151,21 @@ export default {
 .header-container {
   max-width: 1200px;
   margin: 0 auto;
+  padding: 0 3px;
+}
+
+.header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 2rem;
-  height: 70px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 3px;
 
   .logo {
     display: flex;
@@ -182,7 +174,7 @@ export default {
   }
 
   .site-title {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
@@ -193,77 +185,109 @@ export default {
   }
 }
 
-.header-menu {
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.header-bottom {
+  padding: 3px 0;
+}
+
+.main-nav {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: nowrap;
+  
+  &.multi-line {
+    flex-wrap: wrap;
+  }
+}
+
+.nav-item {
+  position: relative;
+  padding: 3px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border-radius: 4px;
+  white-space: nowrap;
+  cursor: pointer;
+  @include theme-transition;
+  
+  &:hover {
+    color: var(--accent-primary);
+    background-color: var(--bg-secondary);
+  }
+  
+  &.active {
+    color: var(--accent-primary);
+    background-color: var(--bg-secondary);
+  }
+  
+  &.nav-action {
+    cursor: pointer;
+  }
+  
+  &.has-submenu {
+    .submenu-trigger {
+      display: block;
+      padding: 0;
+      cursor: pointer;
+    }
+    
+    &:hover .submenu {
+      display: block;
+    }
+  }
+}
+
+.submenu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 180px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px var(--shadow);
+  padding: 3px 0;
+  margin-top: 2px;
+  z-index: 100;
+}
+
+.submenu-item {
+  display: block;
+  padding: 3px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  cursor: pointer;
+  @include theme-transition;
+  
+  &:hover {
+    color: var(--accent-primary);
+    background-color: var(--bg-secondary);
+  }
+}
+
+.nav-spacer {
   flex: 1;
-  display: flex;
-  justify-content: center;
-  margin: 0 1rem;
+  min-width: 3px;
 }
 
-.main-menu {
-  border-bottom: none !important;
-  background-color: transparent !important;
-  display: flex;
-  justify-content: space-between;
-  width: 100%;
-
-  :deep(.el-menu-item) {
-    color: var(--text-secondary);
-    border-bottom: 2px solid transparent;
-    margin: 0 0.5rem;
-    border-radius: 8px 8px 0 0;
-    @include theme-transition;
-
-    &:hover {
-      color: var(--accent-primary);
-      background-color: var(--bg-secondary);
-    }
-
-    &.is-active {
-      color: var(--accent-primary);
-      border-bottom-color: var(--accent-primary);
-      background-color: var(--bg-secondary);
-    }
+@media (max-width: 576px) {
+  .header-brand .site-title {
+    font-size: 1rem;
   }
   
-  :deep(.el-sub-menu) {
-    .el-sub-menu__title {
-      color: var(--text-secondary);
-      border-bottom: 2px solid transparent;
-      margin: 0 0.5rem;
-      border-radius: 8px 8px 0 0;
-      @include theme-transition;
-      
-      &:hover {
-        color: var(--accent-primary);
-        background-color: var(--bg-secondary);
-      }
-    }
-    
-    &.is-active .el-sub-menu__title {
-      color: var(--accent-primary);
-      border-bottom-color: var(--accent-primary);
-    }
-  }
-  
-  :deep(.el-menu--popup) {
-    background-color: var(--bg-primary);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 12px var(--shadow);
-    
-    .el-menu-item {
-      color: var(--text-secondary);
-      margin: 0;
-      border-radius: 0;
-      border-bottom: none;
-      
-      &:hover {
-        background-color: var(--bg-secondary);
-        color: var(--accent-primary);
-      }
-    }
+  .nav-item {
+    font-size: 0.85rem;
+    padding: 2px;
   }
 }
-
-
 </style>

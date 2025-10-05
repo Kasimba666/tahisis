@@ -1,5 +1,5 @@
 <template>
-  <div class="PgRevisionsUpload">
+  <div class="pg-revisions-upload">
     <h3>Ревизии</h3>
     <ExcelRevisionsUpload @dataProcessed="handleDataProcessed" />
 
@@ -44,17 +44,17 @@
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="revision" label="Ревизия" width="100" />
       <el-table-column prop="code" label="Код" width="100" />
-      <el-table-column label="Населенный пункт (старое)">
+      <el-table-column label="Нас.пункт старый">
         <template #default="{ row }">
           {{ row.settlement_name_old || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="Населенный пункт (альтернативное)">
+      <el-table-column label="Населенный пункт альт">
         <template #default="{ row }">
           {{ row.settlement_name_old_alt || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="Населенный пункт (современное)">
+      <el-table-column label="Нас. пункт совр.">
         <template #default="{ row }">
           {{ row.settlement_name_modern || '-' }}
         </template>
@@ -275,7 +275,7 @@ export default {
 </script>
 
 <style scoped>
-.PgRevisionsUpload {
+.pg-revisions-upload {
   padding: 0.5rem;
 
   h1 {

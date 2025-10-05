@@ -165,18 +165,18 @@ export default {
 .auth-modal {
   // Overrides for Element Plus dialog to be more compact
   :deep(.el-dialog__header) {
-    padding: 10px 15px;
+    padding: 3px;
     margin-right: 0;
   }
 
   :deep(.el-dialog__body) {
-    padding: 5px 25px 20px 25px;
+    padding: 3px;
   }
 }
 
 .auth-form {
   :deep(.el-form-item) {
-    margin-bottom: 12px;
+    margin-bottom: 3px;
   }
   :deep(.el-form-item__label) {
     padding-bottom: 2px;
@@ -191,7 +191,7 @@ export default {
 .oauth-providers {
   display: flex;
   justify-content: center;
-  gap: 1rem;
+  gap: 3px;
 
   .el-button {
     font-size: 1.2rem;

@@ -1,19 +1,33 @@
-// Переменные для светлой темы
+@use './variables.scss' as *;
+
+// ============================================
+// СВЕТЛАЯ ТЕМА (по умолчанию)
+// ============================================
+
 :root {
-  --bg-primary: #f5f7fa;
-  --bg-secondary: #e8ecf0;
-  --bg-tertiary: #d1d9e0;
-  --text-primary: #1a202c;
-  --text-secondary: #4a5568;
-  --text-muted: #718096;
-  --border-color: #cbd5e0;
-  --shadow: rgba(0, 0, 0, 0.15);
-  --accent-primary: #646cff;
-  --accent-hover: #535bf2;
-  --success: #28a745;
-  --warning: #ffc107;
-  --error: #dc3545;
-  --info: #17a2b8;
+  // Основные цвета фона
+  --bg-primary: #{$light-bg-primary};
+  --bg-secondary: #{$light-bg-secondary};
+  --bg-tertiary: #{$light-bg-tertiary};
+  
+  // Цвета текста
+  --text-primary: #{$light-text-primary};
+  --text-secondary: #{$light-text-secondary};
+  --text-muted: #{$light-text-muted};
+  
+  // Границы и тени
+  --border-color: #{$light-border-color};
+  --shadow: #{$light-shadow};
+  
+  // Акцентные цвета
+  --accent-primary: #{$accent-primary};
+  --accent-hover: #{$accent-hover};
+  
+  // Семантические цвета
+  --success: #{$light-success};
+  --warning: #{$light-warning};
+  --error: #{$light-error};
+  --info: #{$light-info};
   
   // Element Plus переменные
   --el-bg-color: var(--bg-primary);
@@ -23,26 +37,56 @@
   --el-border-color: var(--border-color);
   --el-fill-color-blank: var(--bg-primary);
   --el-fill-color-light: var(--bg-secondary);
+  --el-color-primary: var(--accent-primary);
+  --el-color-primary-light-3: var(--accent-hover);
+  --el-color-primary-light-5: hsla(237, 100%, 64%, 0.5);
+  --el-color-primary-light-7: hsla(237, 100%, 64%, 0.3);
+  --el-color-primary-light-8: hsla(237, 100%, 64%, 0.2);
+  --el-color-primary-light-9: hsla(237, 100%, 64%, 0.1);
+  --el-color-success: var(--success);
+  --el-color-warning: var(--warning);
+  --el-color-danger: var(--error);
+  --el-color-error: var(--error);
+  --el-color-info: var(--info);
+  --el-border-radius-base: #{$border-radius-lg};
+  --el-border-radius-small: #{$border-radius-md};
+  --el-border-radius-round: #{$border-radius-round};
+  --el-border-radius-circle: 100%;
+  --el-box-shadow: #{$shadow-lg};
+  --el-box-shadow-light: #{$shadow-md};
+  --el-box-shadow-dark: #{$shadow-xl};
 }
 
-// Переменные для тёмной темы
+// ============================================
+// ТЕМНАЯ ТЕМА
+// ============================================
+
 [data-theme="dark"] {
-  --bg-primary: #0f1419;
-  --bg-secondary: #1a202c;
-  --bg-tertiary: #2d3748;
-  --text-primary: #f7fafc;
-  --text-secondary: #e0e0e0;
-  --text-muted: #a0a0a0;
-  --border-color: #4a5568;
-  --shadow: rgba(0, 0, 0, 0.3);
-  --accent-primary: #646cff;
-  --accent-hover: #535bf2;
-  --success: #4caf50;
-  --warning: #ff9800;
-  --error: #f44336;
-  --info: #2196f3;
+  // Основные цвета фона
+  --bg-primary: #{$dark-bg-primary};
+  --bg-secondary: #{$dark-bg-secondary};
+  --bg-tertiary: #{$dark-bg-tertiary};
   
-  // Element Plus переменные для тёмной темы
+  // Цвета текста
+  --text-primary: #{$dark-text-primary};
+  --text-secondary: #{$dark-text-secondary};
+  --text-muted: #{$dark-text-muted};
+  
+  // Границы и тени
+  --border-color: #{$dark-border-color};
+  --shadow: #{$dark-shadow};
+  
+  // Акцентные цвета (остаются те же)
+  --accent-primary: #{$accent-primary};
+  --accent-hover: #{$accent-hover};
+  
+  // Семантические цвета
+  --success: #{$dark-success};
+  --warning: #{$dark-warning};
+  --error: #{$dark-error};
+  --info: #{$dark-info};
+  
+  // Element Plus переменные для темной темы
   --el-bg-color: var(--bg-primary);
   --el-bg-color-page: var(--bg-secondary);
   --el-text-color-primary: var(--text-primary);
@@ -52,27 +96,33 @@
   --el-fill-color-light: var(--bg-secondary);
 }
 
-// Миксины для удобства использования
+// ============================================
+// МИКСИНЫ ДЛЯ ПЕРЕИСПОЛЬЗОВАНИЯ
+// ============================================
+
 @mixin theme-transition {
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  transition: background-color $transition-base, 
+              color $transition-base, 
+              border-color $transition-base;
 }
 
 @mixin card-style {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px var(--shadow);
+  border-radius: $border-radius-xl;
+  padding: $spacing-sm;
+  box-shadow: $shadow-md;
   @include theme-transition;
 }
 
 @mixin button-style {
   background-color: var(--accent-primary);
-  color: white;
+  color: var(--bg-primary);
   border: none;
-  border-radius: 8px;
-  padding: 0.75rem 1.5rem;
-  font-weight: 500;
+  border-radius: $border-radius-lg;
+  padding: $spacing-xs $spacing-sm;
+  font-weight: $font-weight-medium;
+  font-size: $font-size-sm;
   cursor: pointer;
   @include theme-transition;
   

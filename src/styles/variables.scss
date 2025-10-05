@@ -1,0 +1,109 @@
+// ============================================
+// ЦВЕТОВАЯ ПАЛИТРА (HSL формат)
+// ============================================
+
+// Светлая тема - цвета
+$light-bg-primary: hsl(216, 33%, 97%);
+$light-bg-secondary: hsl(214, 32%, 91%);
+$light-bg-tertiary: hsl(210, 29%, 84%);
+$light-text-primary: hsl(217, 33%, 17%);
+$light-text-secondary: hsl(215, 19%, 35%);
+$light-text-muted: hsl(214, 14%, 48%);
+$light-border-color: hsl(214, 32%, 82%);
+$light-shadow: hsla(0, 0%, 0%, 0.15);
+
+// Темная тема - цвета
+$dark-bg-primary: hsl(210, 40%, 7%);
+$dark-bg-secondary: hsl(217, 33%, 17%);
+$dark-bg-tertiary: hsl(215, 25%, 27%);
+$dark-text-primary: hsl(210, 40%, 98%);
+$dark-text-secondary: hsl(0, 0%, 88%);
+$dark-text-muted: hsl(0, 0%, 63%);
+$dark-border-color: hsl(215, 19%, 35%);
+$dark-shadow: hsla(0, 0%, 0%, 0.3);
+
+// Акцентные цвета
+$accent-primary: hsl(237, 100%, 64%);
+$accent-hover: hsl(237, 94%, 59%);
+
+// Семантические цвета - светлая тема
+$light-success: hsl(134, 61%, 41%);
+$light-warning: hsl(45, 100%, 51%);
+$light-error: hsl(354, 70%, 54%);
+$light-info: hsl(188, 78%, 41%);
+
+// Семантические цвета - темная тема
+$dark-success: hsl(122, 39%, 49%);
+$dark-warning: hsl(36, 100%, 50%);
+$dark-error: hsl(4, 90%, 58%);
+$dark-info: hsl(207, 90%, 54%);
+
+// ============================================
+// РАЗМЕРЫ И ОТСТУПЫ (компактный интерфейс)
+// ============================================
+
+// Минимальные отступы для компактности (максимум 3px)
+$spacing-xs: 0.125rem;  // 2px
+$spacing-sm: 0.1875rem; // 3px
+$spacing-md: 0.1875rem; // 3px
+$spacing-lg: 0.1875rem; // 3px
+$spacing-xl: 0.1875rem; // 3px
+
+// Радиусы скругления
+$border-radius-sm: 4px;
+$border-radius-md: 6px;
+$border-radius-lg: 8px;
+$border-radius-xl: 12px;
+$border-radius-round: 20px;
+
+// ============================================
+// ТИПОГРАФИКА
+// ============================================
+
+$font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+$font-size-xs: 0.6875rem;  // 11px
+$font-size-sm: 0.75rem;    // 12px
+$font-size-base: 0.875rem; // 14px
+$font-size-md: 1rem;       // 16px
+$font-size-lg: 1.125rem;   // 18px
+$font-size-xl: 1.25rem;    // 20px
+$font-size-2xl: 1.5rem;    // 24px
+$font-size-3xl: 2rem;      // 32px
+
+$font-weight-normal: 400;
+$font-weight-medium: 500;
+$font-weight-semibold: 600;
+$font-weight-bold: 700;
+
+$line-height-tight: 1.2;
+$line-height-normal: 1.4;
+$line-height-relaxed: 1.6;
+
+// ============================================
+// ПЕРЕХОДЫ И АНИМАЦИИ
+// ============================================
+
+$transition-fast: 0.15s ease;
+$transition-base: 0.3s ease;
+$transition-slow: 0.5s ease;
+
+// ============================================
+// ТЕНИ
+// ============================================
+
+$shadow-sm: 0 1px 3px var(--shadow);
+$shadow-md: 0 2px 8px var(--shadow);
+$shadow-lg: 0 4px 12px var(--shadow);
+$shadow-xl: 0 6px 16px var(--shadow);
+
+// ============================================
+// Z-INDEX СЛОИ
+// ============================================
+
+$z-dropdown: 1000;
+$z-sticky: 1020;
+$z-fixed: 1030;
+$z-modal-backdrop: 1040;
+$z-modal: 1050;
+$z-popover: 1060;
+$z-tooltip: 1070;

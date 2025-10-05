@@ -7,13 +7,14 @@ import PgContact from '@/pages/PgContact.vue'
 import PgComponentsDemo from '@/pages/PgComponentsDemo.vue'
 import PgEstateTypesUpload from '@/pages/PgEstateTypesUpload.vue'
 import PgRevisionsUpload from '@/pages/PgRevisionsUpload.vue'
+import PgEstatesList from '@/pages/PgEstatesList.vue'
 
 const routes = [
-  {
-    path: '/',
-    name: 'Home',
-    component: PgHome
-  },
+  // {
+  //   path: '/',
+  //   name: 'Home',
+  //   component: PgHome
+  // },
   {
     path: '/about',
     name: 'About',
@@ -52,6 +53,11 @@ const routes = [
     meta: {
       requireAuth: true
     }
+  },
+  {
+    path: '/estates-list',
+    name: 'EstatesList',
+    component: PgEstatesList
   }
 ]
 

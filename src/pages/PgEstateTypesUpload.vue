@@ -1,5 +1,5 @@
 <template>
-  <div class="PgRevisionsUpload">
+  <div class="pg-estate-types-upload">
     <h3>Типы сословий</h3>
     <ExcelUpload @dataProcessed="fetchData" />
 
@@ -108,7 +108,7 @@ import { supabase } from "@/services/supabase"
 import ExcelEstateTypesUpload from '@/components/ExcelEstateTypesUpload.vue'
 
 export default {
-  name: "SubtypeEstateTable",
+  name: "PgEstateTypesUpload",
   components: {
     ExcelUpload: ExcelEstateTypesUpload
   },
@@ -220,7 +220,7 @@ export default {
 </script>
 
 <style scoped>
-.PgRevisionsUpload {
+.pg-estate-types-upload {
   padding: 1rem;
 
   h1 {

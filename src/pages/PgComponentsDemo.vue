@@ -1,5 +1,5 @@
 <template>
-  <main class="PgRevisionsUpload">
+  <main class="pg-components-demo">
     <div class="page-header">
       <h1>Демо Element Plus компонентов</h1>
       <p>Примеры различных компонентов с интеграцией тем</p>
@@ -116,52 +116,45 @@
 </template>
 
 <script>
-import { ref, computed, nextTick } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 
 export default {
-  name: 'ComponentsDemo',
+  name: 'PgComponentsDemo',
   components: {
     Search
   },
-  setup() {
-    const inputValue = ref('')
-    const inputWithIcon = ref('')
-    const passwordValue = ref('')
-    const textareaValue = ref('')
-    const numberValue = ref(1)
-    const sizeDemo = ref('')
-    
-    const tableRowColor = ref('#ffffff')
-
-    const tableData = ref([])
-    
-    const tableStyle = computed(() => ({
-      '--el-table-row-hover-bg-color': tableRowColor.value
-    }))
-    
-    const paginatedData = computed(() => {
-      const start = (currentPage.value - 1) * pageSize.value
-      const end = start + pageSize.value
-      return filteredData.value.filter(item => item != null).slice(start, end)
-    })
-    
-    const updateTableStyle = () => {
-      // Update table style
+  data() {
+    return {
+      inputValue: '',
+      inputWithIcon: '',
+      passwordValue: '',
+      textareaValue: '',
+      numberValue: 1,
+      sizeDemo: '',
+      tableRowColor: '#ffffff',
+      tableData: []
     }
-    
-    const resetTableColor = () => {
-      tableRowColor.value = '#ffffff'
+  },
+  computed: {
+    tableStyle() {
+      return {
+        '--el-table-row-hover-bg-color': this.tableRowColor
+      }
     }
-    
-    const formatSalary = (salary) => {
+  },
+  methods: {
+    updateTableStyle() {
+    },
+    resetTableColor() {
+      this.tableRowColor = '#ffffff'
+    },
+    formatSalary(salary) {
       return new Intl.NumberFormat('ru-RU', {
         style: 'currency',
         currency: 'RUB'
       }).format(salary)
-    }
-    
-    const getStatusType = (status) => {
+    },
+    getStatusType(status) {
       switch (status) {
         case 'Активен': return 'success'
         case 'Неактивен': return 'danger'
@@ -169,48 +162,31 @@ export default {
         default: return 'info'
       }
     }
-    
-    
-    return {
-      inputValue,
-      inputWithIcon,
-      passwordValue,
-      textareaValue,
-      numberValue,
-      sizeDemo,
-      tableRowColor,
-      tableData,
-      tableStyle,
-      updateTableStyle,
-      resetTableColor,
-      formatSalary,
-      getStatusType
-    }
   }
 }
 </script>
 
 <style scoped>
-.PgRevisionsUpload {
-  padding: 20px;
+.pg-components-demo {
+  padding: 3px;
 }
 
 .page-header {
-  margin-bottom: 30px;
+  margin-bottom: 3px;
 }
 
 .demo-section {
-  margin-bottom: 40px;
+  margin-bottom: 3px;
 }
 
 .demo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
+  gap: 3px;
 }
 
 .demo-card {
-  padding: 20px;
+  padding: 3px;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
 }
@@ -220,26 +196,26 @@ export default {
 }
 
 .table-controls {
-  margin-bottom: 20px;
+  margin-bottom: 3px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 3px;
 }
 
 .table-filters {
-  margin-bottom: 20px;
+  margin-bottom: 3px;
 }
 
 .filter-row {
   display: flex;
-  gap: 20px;
+  gap: 3px;
   flex-wrap: wrap;
 }
 
 .filter-item {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 2px;
 }
 
 .filter-item label {
@@ -254,7 +230,7 @@ export default {
 .size-demo {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 3px;
 }
 
 .text-muted {
@@ -264,7 +240,7 @@ export default {
 
 .advanced-table {
   width: 100%;
-  margin-bottom: 20px;
+  margin-bottom: 3px;
 }
 
 .skills-container {
@@ -287,19 +263,19 @@ export default {
 .table-pagination {
   display: flex;
   justify-content: center;
-  margin: 20px 0;
+  margin: 3px 0;
 }
 
 .table-stats {
-  margin-top: 20px;
-  padding: 20px;
+  margin-top: 3px;
+  padding: 3px;
   background-color: var(--bg-secondary);
   border-radius: 8px;
 }
 
 .stat-card {
   text-align: center;
-  padding: 15px;
+  padding: 3px;
   background-color: var(--bg-primary);
   border-radius: 8px;
   border: 1px solid var(--border-color);
@@ -309,7 +285,7 @@ export default {
   font-size: 24px;
   font-weight: 700;
   color: var(--accent-primary);
-  margin-bottom: 5px;
+  margin-bottom: 2px;
 }
 
 .stat-label {
@@ -320,8 +296,8 @@ export default {
 }
 
 .excel-upload-section {
-  margin-bottom: 30px;
-  padding: 20px;
+  margin-bottom: 3px;
+  padding: 3px;
   border: 2px dashed var(--border-color);
   border-radius: 8px;
   background-color: var(--bg-secondary);
@@ -330,12 +306,12 @@ export default {
 .upload-controls {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 3px;
 }
 
 .upload-actions {
   display: flex;
-  gap: 10px;
+  gap: 3px;
   flex-wrap: wrap;
 }
 
@@ -344,12 +320,12 @@ export default {
 }
 
 .file-info {
-  margin-top: 15px;
+  margin-top: 3px;
 }
 
 .excel-preview-section {
-  margin-top: 20px;
-  padding: 20px;
+  margin-top: 3px;
+  padding: 3px;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background-color: var(--bg-primary);
@@ -359,27 +335,27 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 3px;
 }
 
 .preview-header h3 {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 3px;
   margin: 0;
 }
 
 .preview-actions {
   display: flex;
-  gap: 8px;
+  gap: 3px;
 }
 
 .preview-info {
-  margin-bottom: 15px;
+  margin-bottom: 3px;
 }
 
 .preview-table-container {
-  margin-bottom: 20px;
+  margin-bottom: 3px;
 }
 
 .excel-preview-table {
@@ -387,7 +363,7 @@ export default {
 }
 
 .preview-pagination-info {
-  margin-top: 10px;
+  margin-top: 3px;
 }
 
 .preview-cell {
@@ -422,14 +398,14 @@ export default {
 }
 
 .column-mapping-section {
-  padding: 15px;
+  padding: 3px;
   background-color: var(--bg-secondary);
   border-radius: 8px;
 }
 
 .mapping-grid {
   display: grid;
-  gap: 10px;
+  gap: 3px;
   max-height: 300px;
   overflow-y: auto;
 }
@@ -437,8 +413,8 @@ export default {
 .mapping-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px;
+  gap: 3px;
+  padding: 3px;
   background-color: var(--bg-primary);
   border-radius: 6px;
   border: 1px solid var(--border-color);
@@ -458,14 +434,14 @@ export default {
 
 .empty-table-message {
   text-align: center;
-  padding: 40px 20px;
+  padding: 3px;
   background-color: var(--bg-secondary);
   border-radius: 8px;
-  margin: 20px 0;
+  margin: 3px 0;
 }
 
 .no-stats {
-  margin-bottom: 20px;
+  margin-bottom: 3px;
 }
 
 .target-field {
@@ -494,7 +470,7 @@ export default {
   
   .preview-header {
     flex-direction: column;
-    gap: 10px;
+    gap: 3px;
     align-items: flex-start;
   }
   

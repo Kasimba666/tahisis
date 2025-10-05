@@ -1,5 +1,5 @@
 <template>
-  <main class="PgAbout">
+  <main class="pg-about">
     <div class="page-header">
       <p>Узнайте больше о нашей компании и команде</p>
     </div>
@@ -18,14 +18,16 @@
   </main>
 </template>
 
-<script setup>
-// Страница "О нас"
+<script>
+export default {
+  name: 'PgAbout'
+}
 </script>
 
 <style scoped lang="scss">
 @use '@/styles/themes.scss' as *;
 
-.PgAbout {
+.pg-about {
   flex: 1;
   width: 100%;
   max-width: 1200px;
@@ -79,7 +81,7 @@
 }
 
 @media (max-width: 768px) {
-  .PgAbout {
+  .pg-about {
     padding: 1rem;
   }
   

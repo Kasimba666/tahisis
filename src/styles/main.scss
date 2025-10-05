@@ -1,0 +1,618 @@
+// ============================================
+// MAIN.SCSS - Entry Point для всех стилей
+// ============================================
+
+@use './variables.scss' as *;
+@use './themes.scss' as *;
+
+// ============================================
+// ГЛОБАЛЬНЫЕ СТИЛИ
+// ============================================
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: $font-family;
+  line-height: $line-height-normal;
+  font-weight: $font-weight-normal;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: $font-size-base;
+  @include theme-transition;
+}
+
+// ============================================
+// ТИПОГРАФИКА (компактная)
+// ============================================
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+  font-weight: $font-weight-semibold;
+  line-height: $line-height-tight;
+  margin: 0 0 $spacing-sm 0;
+}
+
+h1 {
+  font-size: $font-size-3xl;
+  font-weight: $font-weight-bold;
+}
+
+h2 {
+  font-size: $font-size-2xl;
+}
+
+h3 {
+  font-size: $font-size-xl;
+}
+
+h4 {
+  font-size: $font-size-lg;
+}
+
+p {
+  color: var(--text-secondary);
+  margin: 0 0 $spacing-sm 0;
+  line-height: $line-height-normal;
+}
+
+// ============================================
+// ССЫЛКИ
+// ============================================
+
+a {
+  color: var(--accent-primary);
+  text-decoration: none;
+  font-weight: $font-weight-medium;
+  @include theme-transition;
+  
+  &:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+  }
+}
+
+// ============================================
+// КНОПКИ
+// ============================================
+
+button {
+  @include button-style;
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+// ============================================
+// ОСНОВНОЙ КОНТЕЙНЕР
+// ============================================
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+}
+
+// ============================================
+// КАРТОЧКИ
+// ============================================
+
+.card {
+  @include card-style;
+  margin: $spacing-sm 0;
+}
+
+// ============================================
+// УТИЛИТЫ
+// ============================================
+
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: $spacing-xs; }
+.mb-2 { margin-bottom: $spacing-sm; }
+.mb-3 { margin-bottom: $spacing-sm; }
+.mb-4 { margin-bottom: $spacing-sm; }
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: $spacing-xs; }
+.mt-2 { margin-top: $spacing-sm; }
+.mt-3 { margin-top: $spacing-sm; }
+.mt-4 { margin-top: $spacing-sm; }
+
+// ============================================
+// ELEMENT PLUS OVERRIDES (компактный интерфейс)
+// ============================================
+
+// Input компоненты
+.el-input {
+  --el-input-bg-color: var(--bg-primary);
+  --el-input-border-color: var(--border-color);
+  --el-input-hover-border-color: var(--accent-primary);
+  --el-input-focus-border-color: var(--accent-primary);
+  --el-input-text-color: var(--text-primary);
+  --el-input-placeholder-color: var(--text-muted);
+  
+  .el-input__wrapper {
+    background-color: var(--bg-primary) !important;
+    border-color: var(--border-color) !important;
+    box-shadow: none !important;
+    padding: $spacing-xs $spacing-sm !important;
+    transition: all $transition-base;
+    
+    &:hover {
+      border-color: var(--accent-primary) !important;
+    }
+    
+    &.is-focus {
+      border-color: var(--accent-primary) !important;
+      box-shadow: 0 0 0 2px hsla(237, 100%, 64%, 0.2) !important;
+    }
+  }
+  
+  .el-input__inner {
+    color: var(--text-primary) !important;
+    background-color: transparent !important;
+    font-size: $font-size-sm !important;
+    height: auto !important;
+    line-height: $line-height-normal !important;
+    
+    &::placeholder {
+      color: var(--text-muted) !important;
+    }
+  }
+  
+  .el-input__prefix,
+  .el-input__suffix {
+    color: var(--text-secondary) !important;
+  }
+}
+
+// Textarea
+.el-textarea {
+  .el-textarea__inner {
+    background-color: var(--bg-primary) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+    padding: $spacing-sm !important;
+    font-size: $font-size-sm !important;
+    
+    &::placeholder {
+      color: var(--text-muted) !important;
+    }
+    
+    &:hover {
+      border-color: var(--accent-primary) !important;
+    }
+    
+    &:focus {
+      border-color: var(--accent-primary) !important;
+      box-shadow: 0 0 0 2px hsla(237, 100%, 64%, 0.2) !important;
+    }
+  }
+}
+
+// Button компоненты (компактные)
+.el-button {
+  --el-button-bg-color: var(--bg-secondary);
+  --el-button-border-color: var(--border-color);
+  --el-button-text-color: var(--text-primary);
+  --el-button-hover-bg-color: var(--bg-tertiary);
+  --el-button-hover-border-color: var(--accent-primary);
+  --el-button-hover-text-color: var(--accent-primary);
+  
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+  padding: $spacing-xs $spacing-sm !important;
+  font-size: $font-size-sm !important;
+  height: auto !important;
+  transition: all $transition-base;
+  
+  &:hover {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--accent-primary) !important;
+    color: var(--accent-primary) !important;
+  }
+  
+  &.el-button--primary {
+    background-color: var(--accent-primary) !important;
+    border-color: var(--accent-primary) !important;
+    color: var(--bg-primary) !important;
+    
+    &:hover {
+      background-color: var(--accent-hover) !important;
+      border-color: var(--accent-hover) !important;
+    }
+  }
+  
+  &.el-button--success {
+    background-color: var(--success) !important;
+    border-color: var(--success) !important;
+    color: hsl(0, 0%, 100%) !important;
+  }
+  
+  &.el-button--danger {
+    background-color: var(--error) !important;
+    border-color: var(--error) !important;
+    color: hsl(0, 0%, 100%) !important;
+  }
+  
+  &.el-button--small {
+    padding: $spacing-xs $spacing-sm !important;
+    font-size: $font-size-xs !important;
+  }
+}
+
+// Table компоненты (максимально компактные)
+.el-table {
+  --el-table-bg-color: var(--bg-primary);
+  --el-table-tr-bg-color: var(--bg-primary);
+  --el-table-header-bg-color: var(--bg-secondary);
+  --el-table-row-hover-bg-color: var(--bg-secondary);
+  --el-table-border-color: var(--border-color);
+  --el-table-text-color: var(--text-primary);
+  
+  background-color: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+  font-size: $font-size-sm !important;
+  
+  .el-table__header {
+    background-color: var(--bg-secondary) !important;
+    
+    th {
+      background-color: var(--bg-secondary) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--border-color) !important;
+      font-weight: $font-weight-semibold;
+      padding: $spacing-xs $spacing-sm !important;
+      height: auto !important;
+      
+      .cell {
+        padding: 0 !important;
+        line-height: $line-height-tight !important;
+        font-size: $font-size-sm !important;
+      }
+    }
+  }
+  
+  .el-table__body {
+    tr {
+      background-color: var(--bg-primary) !important;
+      
+      &:hover {
+        background-color: var(--bg-secondary) !important;
+      }
+      
+      td {
+        border-color: var(--border-color) !important;
+        color: var(--text-primary) !important;
+        padding: $spacing-xs $spacing-sm !important;
+        height: auto !important;
+        
+        .cell {
+          padding: 0 !important;
+          line-height: $line-height-tight !important;
+          font-size: $font-size-sm !important;
+        }
+      }
+    }
+    
+    .el-table__row--striped {
+      td {
+        background-color: hsla(0, 0%, 100%, 0.02) !important;
+      }
+      
+      &:hover td {
+        background-color: var(--bg-secondary) !important;
+      }
+    }
+  }
+  
+  .el-table__empty-block {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-muted) !important;
+    padding: $spacing-sm !important;
+  }
+  
+  .el-checkbox {
+    .el-checkbox__inner {
+      background-color: var(--bg-secondary) !important;
+      border-color: var(--border-color) !important;
+      width: 14px !important;
+      height: 14px !important;
+    }
+    
+    &.is-checked .el-checkbox__inner {
+      background-color: var(--accent-primary) !important;
+      border-color: var(--accent-primary) !important;
+    }
+  }
+}
+
+// Select dropdown
+.el-select-dropdown {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-color) !important;
+  
+  .el-select-dropdown__item {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+    padding: $spacing-xs $spacing-sm !important;
+    font-size: $font-size-sm !important;
+    
+    &:hover {
+      background-color: var(--bg-secondary) !important;
+    }
+    
+    &.selected {
+      background-color: var(--accent-primary) !important;
+      color: var(--bg-primary) !important;
+    }
+  }
+}
+
+// Menu компоненты
+.el-menu {
+  background-color: transparent !important;
+  border-color: var(--border-color) !important;
+  
+  .el-menu-item {
+    color: var(--text-secondary) !important;
+    background-color: transparent !important;
+    padding: $spacing-sm $spacing-sm !important;
+    font-size: $font-size-sm !important;
+    
+    &:hover {
+      background-color: var(--bg-secondary) !important;
+      color: var(--accent-primary) !important;
+    }
+    
+    &.is-active {
+      background-color: var(--bg-secondary) !important;
+      color: var(--accent-primary) !important;
+    }
+  }
+}
+
+// Tag компоненты (компактные)
+.el-tag {
+  background-color: var(--bg-secondary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+  padding: 0 $spacing-xs !important;
+  height: 20px !important;
+  line-height: 20px !important;
+  font-size: $font-size-xs !important;
+  
+  &.el-tag--success {
+    background-color: hsla(122, 39%, 49%, 0.1) !important;
+    border-color: var(--success) !important;
+    color: var(--success) !important;
+  }
+  
+  &.el-tag--warning {
+    background-color: hsla(36, 100%, 50%, 0.1) !important;
+    border-color: var(--warning) !important;
+    color: var(--warning) !important;
+  }
+  
+  &.el-tag--danger {
+    background-color: hsla(4, 90%, 58%, 0.1) !important;
+    border-color: var(--error) !important;
+    color: var(--error) !important;
+  }
+}
+
+// Dialog (компактный)
+.el-dialog {
+  background-color: var(--bg-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: $shadow-xl !important;
+  
+  .el-dialog__header {
+    background-color: var(--bg-secondary) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    padding: $spacing-sm !important;
+    
+    .el-dialog__title {
+      color: var(--text-primary) !important;
+      font-size: $font-size-lg !important;
+      font-weight: $font-weight-semibold;
+    }
+  }
+  
+  .el-dialog__body {
+    color: var(--text-primary) !important;
+    padding: $spacing-sm !important;
+  }
+  
+  .el-dialog__footer {
+    background-color: var(--bg-secondary) !important;
+    border-top: 1px solid var(--border-color) !important;
+    padding: $spacing-sm !important;
+  }
+}
+
+// Message
+.el-message {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+  box-shadow: $shadow-lg !important;
+  padding: $spacing-xs $spacing-sm !important;
+  font-size: $font-size-sm !important;
+  
+  &.el-message--success {
+    background-color: hsla(122, 39%, 49%, 0.1) !important;
+    border-color: var(--success) !important;
+    color: var(--success) !important;
+  }
+  
+  &.el-message--warning {
+    background-color: hsla(36, 100%, 50%, 0.1) !important;
+    border-color: var(--warning) !important;
+    color: var(--warning) !important;
+  }
+  
+  &.el-message--error {
+    background-color: hsla(4, 90%, 58%, 0.1) !important;
+    border-color: var(--error) !important;
+    color: var(--error) !important;
+  }
+}
+
+// Pagination (компактная)
+.el-pagination {
+  font-size: $font-size-sm !important;
+  
+  .el-pager li {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    min-width: 24px !important;
+    height: 24px !important;
+    line-height: 22px !important;
+    font-size: $font-size-sm !important;
+    
+    &:hover {
+      color: var(--accent-primary) !important;
+    }
+    
+    &.is-active {
+      background-color: var(--accent-primary) !important;
+      color: var(--bg-primary) !important;
+    }
+  }
+  
+  .btn-prev,
+  .btn-next {
+    background-color: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-color) !important;
+    min-width: 24px !important;
+    height: 24px !important;
+    font-size: $font-size-sm !important;
+  }
+}
+
+// Form компоненты
+.el-form {
+  .el-form-item__label {
+    color: var(--text-primary) !important;
+    font-weight: $font-weight-medium;
+    font-size: $font-size-sm !important;
+    padding: 0 0 $spacing-xs 0 !important;
+  }
+  
+  .el-form-item__error {
+    color: var(--error) !important;
+    font-size: $font-size-xs !important;
+    padding-top: $spacing-xs !important;
+  }
+  
+  .el-form-item {
+    margin-bottom: $spacing-sm !important;
+  }
+}
+
+// Popper
+.el-popper {
+  background-color: var(--bg-primary) !important;
+  border-color: var(--border-color) !important;
+  box-shadow: $shadow-lg !important;
+  color: var(--text-primary) !important;
+  
+  .el-popper__arrow::before {
+    background-color: var(--bg-primary) !important;
+    border-color: var(--border-color) !important;
+  }
+}
+
+// Tooltip (компактный)
+.el-tooltip__popper {
+  background-color: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+  padding: $spacing-xs $spacing-sm !important;
+  font-size: $font-size-xs !important;
+}
+
+// Loading
+.el-loading-mask {
+  background-color: hsla(210, 40%, 7%, 0.8) !important;
+  
+  .el-loading-spinner {
+    color: var(--accent-primary) !important;
+  }
+}
+
+// Scrollbar
+.el-scrollbar {
+  .el-scrollbar__thumb {
+    background-color: var(--border-color) !important;
+    
+    &:hover {
+      background-color: var(--text-muted) !important;
+    }
+  }
+}
+
+// ============================================
+// АДАПТИВНОСТЬ
+// ============================================
+
+@media (max-width: 768px) {
+  #app {
+    padding: $spacing-sm;
+  }
+  
+  h1 {
+    font-size: $font-size-2xl;
+  }
+  
+  h2 {
+    font-size: $font-size-xl;
+  }
+  
+  .card {
+    padding: $spacing-sm;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: $font-size-xl;
+  }
+  
+  #app {
+    padding: $spacing-xs;
+  }
+}

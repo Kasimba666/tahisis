@@ -9,31 +9,37 @@
 </template>
 
 <script>
-import {useScreen} from "@/composables/useScreen.js";
-import AppHeader from '@/layout/AppHeader.vue';
-import AppFooter from '@/layout/AppFooter.vue';
+import {useScreen} from "@/composables/useScreen.js"
+import AppHeader from '@/layout/AppHeader.vue'
+import AppFooter from '@/layout/AppFooter.vue'
+
 export default {
   name: 'App',
-  components: {AppFooter, AppHeader},
+  components: {
+    AppFooter, 
+    AppHeader
+  },
   data() {
     return {
       DEBUG: import.meta.env.MODE === 'development',
+      screen: null,
+      screenBreakPoints: null,
+      setScreenListener: null,
+      removeScreenListener: null
     }
   },
-  setup() {
-    const {screen, screenBreakPoints, setScreenListener, removeScreenListener} = useScreen();
-    return {
-      screen,
-      screenBreakPoints,
-      setScreenListener,
-      removeScreenListener
-    }
+  created() {
+    const screenComposable = useScreen()
+    this.screen = screenComposable.screen
+    this.screenBreakPoints = screenComposable.screenBreakPoints
+    this.setScreenListener = screenComposable.setScreenListener
+    this.removeScreenListener = screenComposable.removeScreenListener
   },
   mounted() {
-    this.setScreenListener();
+    this.setScreenListener()
   },
   unmounted() {
-    this.removeScreenListener();
+    this.removeScreenListener()
   }
 }
 </script>
