@@ -1,7 +1,5 @@
 <template>
   <div class="pg-estates-list">
-    <h3>Список сословий</h3>
-    
     <div class="content-layout">
       <div class="filters-panel">
         <EstatesFilters 
@@ -69,21 +67,10 @@ export default {
   display: flex;
   flex-direction: column;
 
-  h3 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 1rem 0;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   .content-layout {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 5px;
     flex: 1;
     min-height: 0;
 
@@ -91,6 +78,7 @@ export default {
       background-color: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 8px;
+      margin-top: 5px;
       //padding: 1rem;
     }
 

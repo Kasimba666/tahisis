@@ -32,27 +32,55 @@
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown" :disabled="filters.districts.length === 0">
         <el-button size="large" :disabled="filters.districts.length === 0">
-          Населенный пункт ({{ filters.settlements.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          Нас. пункт (старый) ({{ filters.settlementNamesOld.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
             <div class="filter-search">
-              <el-input v-model="searchSettlement" placeholder="Поиск..." size="small" clearable />
+              <el-input v-model="searchSettlementOld" placeholder="Поиск..." size="small" clearable />
             </div>
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.settlements" @change="onSettlementsChange">
-                <el-checkbox 
-                  v-for="settlement in filteredSettlementsSearch" 
-                  :key="settlement.id" 
-                  :label="settlement.id"
+              <el-checkbox-group v-model="filters.settlementNamesOld" @change="onSettlementNamesOldChange">
+                <el-checkbox
+                  v-for="settlementName in filteredSettlementNamesOldSearch"
+                  :key="settlementName"
+                  :label="settlementName"
                 >
-                  {{ settlement.name }}
+                  {{ settlementName }}
                 </el-checkbox>
               </el-checkbox-group>
             </div>
             <div class="filter-actions-dropdown">
-              <el-button link size="small" @click="selectAllSettlements">Выбрать все</el-button>
-              <el-button link size="small" type="danger" @click="filters.settlements = []">Сбросить</el-button>
+              <el-button link size="small" @click="selectAllSettlementNamesOld">Выбрать все</el-button>
+              <el-button link size="small" type="danger" @click="filters.settlementNamesOld = []">Сбросить</el-button>
+            </div>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
+      <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown" :disabled="filters.districts.length === 0">
+        <el-button size="large" :disabled="filters.districts.length === 0">
+          Нас. пункт (совр) ({{ filters.settlementNamesModern.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="filter-search">
+              <el-input v-model="searchSettlementModern" placeholder="Поиск..." size="small" clearable />
+            </div>
+            <div class="filter-options">
+              <el-checkbox-group v-model="filters.settlementNamesModern" @change="onSettlementNamesModernChange">
+                <el-checkbox
+                  v-for="settlementName in filteredSettlementNamesModernSearch"
+                  :key="settlementName"
+                  :label="settlementName"
+                >
+                  {{ settlementName }}
+                </el-checkbox>
+              </el-checkbox-group>
+            </div>
+            <div class="filter-actions-dropdown">
+              <el-button link size="small" @click="selectAllSettlementNamesModern">Выбрать все</el-button>
+              <el-button link size="small" type="danger" @click="filters.settlementNamesModern = []">Сбросить</el-button>
             </div>
           </el-dropdown-menu>
         </template>
@@ -371,7 +399,8 @@ export default {
       filters: {
         revision: null,
         districts: [],
-        settlements: [],
+        settlementNamesOld: [],
+        settlementNamesModern: [],
         typeEstates: [],
         subtypeEstates: [],
         religions: [],
@@ -405,7 +434,8 @@ export default {
       allMilitaryUnits: [],
       // Поиск
       searchDistrict: '',
-      searchSettlement: '',
+      searchSettlementOld: '',
+      searchSettlementModern: '',
       searchLandowner: '',
       searchMilitaryUnit: ''
     }
@@ -467,12 +497,7 @@ export default {
       )
     },
     
-    filteredSettlementsSearch() {
-      if (!this.searchSettlement) return this.filteredSettlements
-      return this.filteredSettlements.filter(s => 
-        s.name.toLowerCase().includes(this.searchSettlement.toLowerCase())
-      )
-    },
+
     
     filteredLandownersSearch() {
       if (!this.searchLandowner) return this.filteredLandowners
@@ -483,8 +508,48 @@ export default {
     
     filteredMilitaryUnitsSearch() {
       if (!this.searchMilitaryUnit) return this.filteredMilitaryUnits
-      return this.filteredMilitaryUnits.filter(m => 
+      return this.filteredMilitaryUnits.filter(m =>
         m.name.toLowerCase().includes(this.searchMilitaryUnit.toLowerCase())
+      )
+    },
+
+    settlementNamesOld() {
+      // Получаем уникальные старые названия населенных пунктов из загруженных данных
+      const oldNames = new Set()
+      const filteredSettlements = this.filters.districts?.length > 0
+        ? this.allSettlements.filter(s => this.filters.districts.includes(s.id_district))
+        : this.allSettlements
+
+      filteredSettlements.forEach(s => {
+        if (s.name_old) oldNames.add(s.name_old)
+      })
+      return Array.from(oldNames).sort()
+    },
+
+    settlementNamesModern() {
+      // Получаем уникальные современные названия населенных пунктов из загруженных данных
+      const modernNames = new Set()
+      const filteredSettlements = this.filters.districts?.length > 0
+        ? this.allSettlements.filter(s => this.filters.districts.includes(s.id_district))
+        : this.allSettlements
+
+      filteredSettlements.forEach(s => {
+        if (s.name_modern) modernNames.add(s.name_modern)
+      })
+      return Array.from(modernNames).sort()
+    },
+
+    filteredSettlementNamesOldSearch() {
+      if (!this.searchSettlementOld) return this.settlementNamesOld
+      return this.settlementNamesOld.filter(name =>
+        name.toLowerCase().includes(this.searchSettlementOld.toLowerCase())
+      )
+    },
+
+    filteredSettlementNamesModernSearch() {
+      if (!this.searchSettlementModern) return this.settlementNamesModern
+      return this.settlementNamesModern.filter(name =>
+        name.toLowerCase().includes(this.searchSettlementModern.toLowerCase())
       )
     }
   },
@@ -645,20 +710,12 @@ export default {
     onRevisionChange() {
       this.applyFilters()
     },
-    
+
     onDistrictsChange() {
-      // Убираем населенные пункты, которые не относятся к выбранным районам
-      if (this.filters.districts.length > 0 && this.filters.settlements.length > 0) {
-        this.filters.settlements = this.filters.settlements.filter(settlementId => {
-          const settlement = this.allSettlements.find(s => s.id === settlementId)
-          return settlement && this.filters.districts.includes(settlement.id_district)
-        })
-      }
-    },
-    
-    onSettlementsChange() {
       // Ничего не делаем, просто для единообразия
     },
+    
+
     
     onTypeEstatesChange() {
       // Убираем подтипы, которые не относятся к выбранным типам
@@ -667,11 +724,48 @@ export default {
           const subtype = this.allSubtypeEstates.find(s => s.id === subtypeId)
           return subtype && this.filters.typeEstates.includes(subtype.id_type_estate)
         })
+      } else if (this.filters.typeEstates.length === 0) {
+        // Если не выбраны типы сословий, очищаем подтипы
+        this.filters.subtypeEstates = []
       }
     },
     
     applyFilters() {
-      this.$emit('filter-change', this.filters)
+      // Проверяем, есть ли активные фильтры
+      const hasActiveFilters =
+        this.filters.districts?.length > 0 ||
+        this.filters.settlementNamesOld?.length > 0 ||
+        this.filters.settlementNamesModern?.length > 0 ||
+        this.filters.typeEstates?.length > 0 ||
+        this.filters.subtypeEstates?.length > 0 ||
+        this.filters.religions?.length > 0 ||
+        this.filters.affiliations?.length > 0 ||
+        this.filters.volosts?.length > 0 ||
+        this.filters.landowners?.length > 0 ||
+        this.filters.militaryUnits?.length > 0 ||
+        this.filters.maleEnabled ||
+        this.filters.femaleEnabled ||
+        this.filters.populationEnabled ||
+        this.filters.estatesCountEnabled
+
+      if (!hasActiveFilters) {
+        this.$confirm(
+          'У вас не выбран ни один фильтр, продолжить?',
+          'Подтверждение',
+          {
+            confirmButtonText: 'Продолжить',
+            cancelButtonText: 'Отмена',
+            type: 'warning',
+            confirmButtonClass: 'el-button--primary'
+          }
+        ).then(() => {
+          this.$emit('filter-change', this.filters)
+        }).catch(() => {
+          // Пользователь отменил действие
+        })
+      } else {
+        this.$emit('filter-change', this.filters)
+      }
     },
     
     resetFilters() {
@@ -679,6 +773,8 @@ export default {
         revision: null,
         districts: [],
         settlements: [],
+        settlementNamesOld: [],
+        settlementNamesModern: [],
         typeEstates: [],
         subtypeEstates: [],
         religions: [],
@@ -704,11 +800,6 @@ export default {
     
     selectAllDistricts() {
       this.filters.districts = this.filteredDistrictsSearch.map(d => d.id)
-      this.onDistrictsChange()
-    },
-    
-    selectAllSettlements() {
-      this.filters.settlements = this.filteredSettlementsSearch.map(s => s.id)
     },
     
     selectAllTypeEstates() {
@@ -738,6 +829,22 @@ export default {
     
     selectAllMilitaryUnits() {
       this.filters.militaryUnits = this.filteredMilitaryUnitsSearch.map(m => m.id)
+    },
+
+    onSettlementNamesOldChange() {
+      // Ничего не делаем, просто для единообразия
+    },
+
+    onSettlementNamesModernChange() {
+      // Ничего не делаем, просто для единообразия
+    },
+
+    selectAllSettlementNamesOld() {
+      this.filters.settlementNamesOld = this.filteredSettlementNamesOldSearch
+    },
+
+    selectAllSettlementNamesModern() {
+      this.filters.settlementNamesModern = this.filteredSettlementNamesModernSearch
     }
   }
 }

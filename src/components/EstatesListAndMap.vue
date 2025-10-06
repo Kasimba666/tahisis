@@ -34,7 +34,8 @@
               <el-checkbox v-model="visibleEstateColumns.id">ID</el-checkbox>
               <el-checkbox v-model="visibleEstateColumns.revision_year">Год</el-checkbox>
               <el-checkbox v-model="visibleEstateColumns.revision_number">Рев.</el-checkbox>
-              <el-checkbox v-model="visibleEstateColumns.settlement_name">Населенный пункт</el-checkbox>
+              <el-checkbox v-model="visibleEstateColumns.settlement_name_old">Нас. пункт (старый)</el-checkbox>
+              <el-checkbox v-model="visibleEstateColumns.settlement_name_modern">Нас. пункт (совр.)</el-checkbox>
               <el-checkbox v-model="visibleEstateColumns.district_name">Район</el-checkbox>
               <el-checkbox v-model="visibleEstateColumns.subtype_estate_name">Подтип сословия</el-checkbox>
               <el-checkbox v-model="visibleEstateColumns.type_estate_name">Сословие</el-checkbox>
@@ -83,7 +84,8 @@
           <el-table-column v-if="visibleEstateColumns.id" prop="id" label="ID" width="50" sortable />
           <el-table-column v-if="visibleEstateColumns.revision_year" prop="revision_year" label="Год" width="60" sortable />
           <el-table-column v-if="visibleEstateColumns.revision_number" prop="revision_number" label="Рев." width="50" sortable />
-          <el-table-column v-if="visibleEstateColumns.settlement_name" prop="settlement_name" label="Населенный пункт" min-width="150" sortable />
+          <el-table-column v-if="visibleEstateColumns.settlement_name_old" prop="settlement_name_old" label="Нас. пункт (старый)" min-width="150" sortable />
+          <el-table-column v-if="visibleEstateColumns.settlement_name_modern" prop="settlement_name_modern" label="Нас. пункт (совр.)" min-width="150" sortable />
           <el-table-column v-if="visibleEstateColumns.district_name" prop="district_name" label="Район" width="120" sortable />
           <el-table-column v-if="visibleEstateColumns.subtype_estate_name" prop="subtype_estate_name" label="Подтип сословия" width="150" sortable />
           <el-table-column v-if="visibleEstateColumns.type_estate_name" prop="type_estate_name" label="Сословие" width="120" sortable />
@@ -120,6 +122,9 @@
           <el-table-column v-if="visibleReportColumns.lon" prop="lon" label="Долгота" width="90" sortable />
           <el-table-column v-if="visibleReportColumns.population_all" prop="population_all" label="Население" width="90" align="right" sortable />
           <el-table-column v-if="visibleReportColumns.estates_count" prop="estates_count" label="Сословий" width="80" align="right" sortable />
+          <el-table-column v-if="visibleReportColumns.total_male" prop="total_male" label="М" width="50" align="right" sortable />
+          <el-table-column v-if="visibleReportColumns.total_female" prop="total_female" label="Ж" width="50" align="right" sortable />
+          <el-table-column v-if="visibleReportColumns.total_population" prop="total_population" label="Всего" width="60" align="right" sortable />
         </el-table>
       </div>
 
@@ -334,7 +339,8 @@ export default {
         id: true,
         revision_year: true,
         revision_number: true,
-        settlement_name: true,
+        settlement_name_old: true,
+        settlement_name_modern: true,
         district_name: true,
         subtype_estate_name: true,
         type_estate_name: true,
@@ -358,7 +364,10 @@ export default {
         lat: true,
         lon: true,
         population_all: true,
-        estates_count: true
+        estates_count: true,
+        total_male: true,
+        total_female: true,
+        total_population: true
       }
     }
   },
@@ -630,7 +639,8 @@ export default {
             id: item.id,
             revision_year: item.Report_record?.Revision_report?.year || null,
             revision_number: item.Report_record?.Revision_report?.number || null,
-            settlement_name: item.Report_record?.Settlement?.name_modern || item.Report_record?.Settlement?.name_old || null,
+            settlement_name_old: item.Report_record?.Settlement?.name_old || null,
+            settlement_name_modern: item.Report_record?.Settlement?.name_modern || null,
             district_name: item.Report_record?.Settlement?.District?.name || null,
             subtype_estate_name: item.Subtype_estate?.name || null,
             type_estate_name: item.Subtype_estate?.Type_estate?.name || null,
@@ -776,10 +786,22 @@ export default {
               .from('Settlement')
               .select('id')
               .in('id_district', this.currentFilters.districts)
-            
+
             if (settlementError) throw settlementError
             settlementIds = settlements.map(s => s.id)
           }
+        }
+
+        // Фильтр по старым названиям населенных пунктов
+        let oldSettlementNames = []
+        if (this.currentFilters && this.currentFilters.settlementNamesOld?.length > 0) {
+          oldSettlementNames = this.currentFilters.settlementNamesOld
+        }
+
+        // Фильтр по современным названиям населенных пунктов
+        let modernSettlementNames = []
+        if (this.currentFilters && this.currentFilters.settlementNamesModern?.length > 0) {
+          modernSettlementNames = this.currentFilters.settlementNamesModern
         }
         
         // Строим основной запрос к Report_record
@@ -801,6 +823,7 @@ export default {
               District(name)
             )
           `)
+          .not('Settlement', 'is', null) // Исключаем записи без населенных пунктов
         
         // Применяем фильтр по Report_record из Estate
         if (reportRecordIdsFromEstates !== null) {
@@ -818,6 +841,16 @@ export default {
         // Применяем фильтр по населенным пунктам
         if (settlementIds.length > 0) {
           query = query.in('id_settlment', settlementIds)
+        }
+
+        // Применяем фильтр по старым названиям населенных пунктов
+        if (oldSettlementNames.length > 0) {
+          query = query.in('Settlement.name_old', oldSettlementNames)
+        }
+
+        // Применяем фильтр по современным названиям населенных пунктов
+        if (modernSettlementNames.length > 0) {
+          query = query.in('Settlement.name_modern', modernSettlementNames)
         }
         
         query = query.order('id', { ascending: false })
@@ -837,21 +870,43 @@ export default {
               lat: item.Settlement?.lat || null,
               lon: item.Settlement?.lon || null,
               population_all: item.population_all,
-              estates_count: 0
+              estates_count: 0,
+              total_male: 0,
+              total_female: 0,
+              total_population: 0
             }))
 
-            // Теперь для каждой записи считаем количество связанных Estate
-            const countPromises = reportData.map(record =>
-                supabase
-                    .from('Estate')
-                    .select('id', {count: 'exact', head: true})
-                    .eq('id_report_record', record.id)
-                    .then(({count, error}) => {
-                      if (error) throw error
-                      record.estates_count = count || 0
-                      return record
-                    })
-            )
+            // Теперь для каждой записи считаем количество связанных Estate и суммируем данные
+            const countPromises = reportData.map(async (record) => {
+                try {
+                    // Получаем суммарные данные из связанных Estate
+                    const { data: estates, error: estatesError } = await supabase
+                        .from('Estate')
+                        .select('male, female')
+                        .eq('id_report_record', record.id)
+
+                    if (estatesError) throw estatesError
+
+                    // Суммируем данные
+                    const totalMale = estates?.reduce((sum, estate) => sum + (estate.male || 0), 0) || 0
+                    const totalFemale = estates?.reduce((sum, estate) => sum + (estate.female || 0), 0) || 0
+                    const totalPopulation = totalMale + totalFemale
+
+                    record.estates_count = estates?.length || 0
+                    record.total_male = totalMale
+                    record.total_female = totalFemale
+                    record.total_population = totalPopulation
+
+                    return record
+                } catch (error) {
+                    console.error('Error calculating totals for record:', record.id, error)
+                    record.estates_count = 0
+                    record.total_male = 0
+                    record.total_female = 0
+                    record.total_population = 0
+                    return record
+                }
+            })
 
         const reportDataWithCounts = await Promise.all(countPromises)
         
@@ -1003,34 +1058,9 @@ export default {
       console.log('Applying filters:', filters)
       this.currentFilters = filters
 
-      // Проверяем, есть ли хоть один активный фильтр
-      const hasActiveFilters =
-        filters.districts?.length > 0 ||
-        filters.settlements?.length > 0 ||
-        filters.typeEstates?.length > 0 ||
-        filters.subtypeEstates?.length > 0 ||
-        filters.religions?.length > 0 ||
-        filters.affiliations?.length > 0 ||
-        filters.volosts?.length > 0 ||
-        filters.landowners?.length > 0 ||
-        filters.militaryUnits?.length > 0 ||
-        filters.maleEnabled ||
-        filters.femaleEnabled ||
-        filters.populationEnabled ||
-        filters.estatesCountEnabled
-
-      if (hasActiveFilters) {
-        // Загружаем данные только если есть активные фильтры
-        this.loadData()
-      } else {
-        // Если фильтров нет, очищаем таблицу
-        this.estateData = []
-        this.reportData = []
-        this.allEstateData = []
-        this.allReportData = []
-        // Обновляем векторные слои при очистке фильтров
-        this.refreshMapLayers()
-      }
+      // Всегда загружаем данные, даже если фильтров нет
+      // Пустые фильтры означают "показать все данные"
+      this.loadData()
     },
 
     filterEstateData() {
@@ -1140,6 +1170,20 @@ export default {
         }
       }
 
+      // Фильтр по старому названию населенного пункта
+      if (this.currentFilters.settlementNamesOld?.length > 0) {
+        filtered = filtered.filter(item =>
+          this.currentFilters.settlementNamesOld.includes(item.settlement_name_old)
+        )
+      }
+
+      // Фильтр по современному названию населенного пункта
+      if (this.currentFilters.settlementNamesModern?.length > 0) {
+        filtered = filtered.filter(item =>
+          this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
+        )
+      }
+
       this.estateData = filtered
     },
 
@@ -1239,7 +1283,8 @@ export default {
   watch: {
     dataMode(newMode) {
       this.$emit('data-mode-change', newMode)
-      this.loadData()
+      // Не загружаем данные автоматически при смене режима
+      // Данные загружаются только при изменении фильтров
       this.$nextTick(() => {
         this.initColumnDragDrop()
       })
