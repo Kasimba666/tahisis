@@ -4,6 +4,13 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import './styles/main.scss'
+
+// Импортируем картографические библиотеки глобально
+import 'leaflet/dist/leaflet.css'
+import 'ol/ol.css'
+import 'leaflet.fullscreen'
+import 'leaflet.fullscreen/Control.FullScreen.css'
+
 import App from './App.vue'
 
 const app = createApp(App)

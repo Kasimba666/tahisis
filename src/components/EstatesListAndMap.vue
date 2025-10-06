@@ -124,13 +124,7 @@
       </div>
 
       <div v-if="viewMode === 'map' || viewMode === 'split'" class="map-section">
-        <div class="map-placeholder">
-          <el-icon :size="48" color="var(--text-muted)">
-            <Location />
-          </el-icon>
-          <p>OpenStreetMap будет здесь</p>
-          <el-button type="primary" size="small">Загрузить карту</el-button>
-        </div>
+        <MapView :settlements="mapSettlements" />
       </div>
     </div>
 
@@ -305,13 +299,15 @@ import { Location, Loading, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import Sortable from 'sortablejs'
+import MapView from './MapView.vue'
 
 export default {
   name: 'EstatesListAndMap',
   components: {
     Location,
     Loading,
-    Setting
+    Setting,
+    MapView
   },
   data() {
     return {
@@ -369,9 +365,64 @@ export default {
   computed: {
     totalRecords() {
       return this.dataMode === 'estate' ? this.estateData.length : this.reportData.length
+    },
+    
+    mapSettlements() {
+      // Собираем уникальные населенные пункты из текущих данных
+      const settlementsMap = new Map()
+      
+      console.log('Computing mapSettlements, dataMode:', this.dataMode)
+      console.log('estateData length:', this.estateData.length)
+      console.log('reportData length:', this.reportData.length)
+      console.log('allSettlements length:', this.allSettlements?.length)
+      
+      if (this.dataMode === 'estate') {
+        this.estateData.forEach(item => {
+          const key = item.settlement_name
+          if (key && !settlementsMap.has(key)) {
+            // Нужно получить координаты из allSettlements
+            const settlement = this.allSettlements?.find(s => 
+              s.name_modern === item.settlement_name || s.name_old === item.settlement_name
+            )
+            if (settlement && settlement.lat && settlement.lon) {
+              console.log('Found settlement with coords:', settlement.name_modern || settlement.name_old, settlement.lat, settlement.lon)
+              settlementsMap.set(key, {
+                name: item.settlement_name,
+                district: item.district_name,
+                lat: settlement.lat,
+                lon: settlement.lon,
+                population: null // Можно посчитать сумму по этому населенному пункту
+              })
+            } else {
+              console.log('Settlement without coords:', key, settlement)
+            }
+          }
+        })
+      } else {
+        this.reportData.forEach(item => {
+          const key = item.settlement_name_modern || item.settlement_name_old
+          if (key && item.lat && item.lon && !settlementsMap.has(key)) {
+            console.log('Report settlement with coords:', key, item.lat, item.lon)
+            settlementsMap.set(key, {
+              name: key,
+              district: item.district_name,
+              lat: item.lat,
+              lon: item.lon,
+              population: item.population_all
+            })
+          }
+        })
+      }
+      
+      const result = Array.from(settlementsMap.values())
+      console.log('Final mapSettlements:', result)
+      return result
     }
   },
-  mounted() {
+  async mounted() {
+    // Загружаем справочник населенных пунктов для режима Estate
+    await this.loadSettlementsReference()
+    
     // Не загружаем данные автоматически, ждем применения фильтров
     this.$nextTick(() => {
       this.initColumnDragDrop()
@@ -383,6 +434,20 @@ export default {
     }
   },
   methods: {
+    async loadSettlementsReference() {
+      try {
+        const { data, error } = await supabase
+          .from('Settlement')
+          .select('id, name_modern, name_old, lat, lon, id_district')
+        
+        if (error) throw error
+        this.allSettlements = data || []
+        console.log('Loaded settlements reference:', this.allSettlements.length)
+      } catch (error) {
+        console.error('Error loading settlements reference:', error)
+      }
+    },
+    
     loadData() {
       if (this.dataMode === 'estate') {
         this.loadEstateData()
@@ -874,7 +939,7 @@ export default {
         const table = document.querySelector('.list-section .el-table__header-wrapper tr')
 
         if (!table) {
-          console.warn('Table header not found')
+          // Таблица скрыта (режим "Карта"), это нормально
           return
         }
 
@@ -1124,7 +1189,13 @@ export default {
     viewMode() {
       this.$nextTick(() => {
         this.initColumnDragDrop()
+        // Триггерим обновление размера карт через изменение ключа
+        this.$forceUpdate()
       })
+      // Даем время на отрисовку, затем обновляем карты
+      setTimeout(() => {
+        this.$forceUpdate()
+      }, 100)
     }
   }
 }
@@ -1163,6 +1234,8 @@ export default {
     min-height: 0;
     display: flex;
     gap: 1rem;
+    height: 100%;
+    min-height: 400px;
 
     &.list {
       .list-section {
@@ -1186,10 +1259,13 @@ export default {
       .list-section {
         flex: 1;
         min-width: 0;
+        min-height: 0;
       }
       .map-section {
         flex: 1;
         min-width: 0;
+        min-height: 0;
+        height: auto;
       }
     }
 
@@ -1233,6 +1309,8 @@ export default {
       border: 1px solid var(--border-color);
       border-radius: 8px;
       overflow: hidden;
+      min-height: 400px;
+      flex: 1;
 
       .map-placeholder {
         flex: 1;
