@@ -5,36 +5,27 @@
         <el-radio-button label="leaflet">Leaflet</el-radio-button>
         <el-radio-button label="openlayers">OpenLayers</el-radio-button>
       </el-radio-group>
+    </div>
 
-      <!-- Панель управления векторными слоями -->
-      <div class="layers-panel">
-        <el-button size="small" type="primary" @click="diagnoseData" style="margin-right: 8px;">
-          Диагностика
-        </el-button>
-        <el-collapse v-model="activePanels" @change="handlePanelChange">
-          <el-collapse-item :title="`Векторные слои ${loadingLayers ? '(Загрузка...)' : ''}`" name="vector-layers">
-            <div class="layers-list">
-              <el-checkbox-group v-model="visibleLayers" @change="updateLayerVisibility">
-                <div v-for="layer in vectorLayers" :key="layer.id" class="layer-item">
-                  <el-checkbox :label="layer.id" class="layer-checkbox">
-                    <div class="layer-info">
-                      <div class="layer-name">{{ layer.name }}</div>
-                      <div class="layer-type">{{ layer.type_vector_layer_name }}</div>
-                      <div class="layer-meta">
-                        {{ formatFileSize(layer.size) }} • {{ layer.feature_count || 0 }} объектов
-                      </div>
-                    </div>
-                  </el-checkbox>
-                </div>
-              </el-checkbox-group>
-
-              <div v-if="vectorLayers.length === 0" class="no-layers">
-                Нет загруженных векторных слоев
+    <!-- Панель управления векторными слоями на карте -->
+    <div class="map-layers-panel">
+      <el-collapse v-model="activePanels" @change="handlePanelChange">
+        <el-collapse-item title="Слои" name="vector-layers">
+          <div class="layers-list">
+            <el-checkbox-group v-model="visibleLayers" @change="updateLayerVisibility">
+              <div v-for="layer in vectorLayers" :key="layer.id" class="layer-item">
+                <el-checkbox :label="layer.id" class="layer-checkbox">
+                  {{ layer.name }}
+                </el-checkbox>
               </div>
+            </el-checkbox-group>
+
+            <div v-if="vectorLayers.length === 0" class="no-layers">
+              Нет загруженных векторных слоев
             </div>
-          </el-collapse-item>
-        </el-collapse>
-      </div>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
     </div>
 
     <div ref="leafletMap" class="map-container" :class="{ hidden: mapProvider !== 'leaflet' }"></div>
@@ -75,12 +66,14 @@ export default {
       olMapInstance: null,
       leafletMarkers: [],
       olVectorLayer: null,
-      initialBounds: null,
-      initialExtent: null,
+      // Исходные параметры вида карт
+      initialCenter: [55.42, 52.68], // [latitude, longitude] для Leaflet
+      initialCenterOl: [52.68, 55.42], // [longitude, latitude] для OpenLayers
+      initialZoom: 8,
       // Данные для векторных слоев
       vectorLayers: [],
       visibleLayers: [],
-      activePanels: ['vector-layers'],
+      activePanels: [],
       leafletVectorLayers: new Map(), // Храним слои Leaflet по ID
       olVectorLayers: new Map() // Храним слои OpenLayers по ID
     }
@@ -181,8 +174,8 @@ export default {
       try {
         // Инициализация Leaflet карты
         this.leafletMapInstance = L.map(this.$refs.leafletMap, {
-          center: [55.7558, 37.6173], // Москва по умолчанию
-          zoom: 6,
+          center: [55.42, 52.68],
+          zoom: 8,
           fullscreenControl: {
             pseudoFullscreen: false
           }
@@ -210,15 +203,27 @@ export default {
             btn.style.cursor = 'pointer'
             btn.style.border = 'none'
             btn.onclick = function() {
-              if (self.initialBounds) {
-                self.leafletMapInstance.fitBounds(self.initialBounds, { padding: [50, 50] })
-              }
+              // Возврат к сохраненным исходным параметрам
+              self.leafletMapInstance.setView(self.initialCenter, self.initialZoom)
             }
             return btn
           }
         })
         
         new L.Control.HomeButton({ position: 'topleft' }).addTo(this.leafletMapInstance)
+
+        // Добавляем синхронизацию с OpenLayers картой
+        this.leafletMapInstance.on('moveend zoomend', () => {
+          if (this.olMapInstance && this.mapProvider === 'leaflet') {
+            const center = this.leafletMapInstance.getCenter()
+            const zoom = this.leafletMapInstance.getZoom()
+
+            // Конвертируем координаты Leaflet в OpenLayers формат
+            const olCenter = fromLonLat([center.lng, center.lat])
+            this.olMapInstance.getView().setCenter(olCenter)
+            this.olMapInstance.getView().setZoom(zoom)
+          }
+        })
 
         console.log('Leaflet map initialized successfully')
 
@@ -258,10 +263,38 @@ export default {
             this.olVectorLayer
           ],
           view: new View({
-            center: fromLonLat([37.6173, 55.7558]), // Москва
-            zoom: 6
+            center: fromLonLat([52.68, 55.42]),
+            zoom: 8,
           })
         })
+
+        // Добавляем кнопку Home для возврата к исходному виду
+        const homeButton = document.createElement('button')
+        homeButton.innerHTML = '🏠'
+        homeButton.title = 'Вернуться к исходному виду'
+        homeButton.style.cssText = `
+          position: absolute;
+          top: 10px;
+          left: 10px;
+          z-index: 1000;
+          background-color: white;
+          width: 30px;
+          height: 30px;
+          font-size: 16px;
+          line-height: 30px;
+          text-align: center;
+          cursor: pointer;
+          border: none;
+          border-radius: 4px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        `
+        homeButton.onclick = () => {
+          // Возврат к сохраненным исходным параметрам для OpenLayers
+          this.olMapInstance.getView().setCenter(fromLonLat(this.initialCenterOl))
+          this.olMapInstance.getView().setZoom(this.initialZoom)
+        }
+
+        this.$refs.olMap.appendChild(homeButton)
 
         console.log('OpenLayers map initialized successfully')
 
@@ -290,8 +323,6 @@ export default {
       console.log('Adding markers for settlements:', this.settlements.length)
 
       // Добавляем новые маркеры
-      const bounds = []
-
       this.settlements.forEach((settlement, index) => {
         if (settlement.lat && settlement.lon) {
           // Координаты уже в EPSG:4326 (WGS84), используем напрямую
@@ -327,23 +358,12 @@ export default {
             .addTo(this.leafletMapInstance)
 
           this.leafletMarkers.push(marker)
-          bounds.push([lat, lon])
         } else {
           console.warn('Settlement without coordinates:', settlement.name)
         }
       })
 
-      // Подгоняем карту под маркеры
-      if (bounds.length > 0) {
-        console.log('Fitting bounds to markers:', bounds.length)
-        this.leafletMapInstance.fitBounds(bounds, { padding: [50, 50] })
-        // Сохраняем исходные границы для кнопки Home
-        if (!this.initialBounds) {
-          this.initialBounds = bounds
-        }
-      } else {
-        console.warn('No valid coordinates found for settlements')
-      }
+      console.log('Added markers for settlements:', this.settlements.length)
     },
 
     updateOpenLayersMarkers() {
@@ -398,19 +418,6 @@ export default {
       if (features.length > 0) {
         source.addFeatures(features)
         console.log(`Added ${features.length} features to OpenLayers`)
-
-        // Подгоняем карту под маркеры
-        const extent = source.getExtent()
-        console.log('Fitting OpenLayers view to extent:', extent)
-        this.olMapInstance.getView().fit(extent, {
-          padding: [50, 50, 50, 50],
-          maxZoom: 15
-        })
-
-        // Сохраняем исходный extent для кнопки Home
-        if (!this.initialExtent) {
-          this.initialExtent = extent
-        }
       } else {
         console.warn('No valid coordinates found for OpenLayers settlements')
       }
@@ -756,6 +763,17 @@ export default {
       console.log('Vector layers count:', this.vectorLayers?.length || 0)
 
       console.log('=== DIAGNOSIS COMPLETED ===')
+    },
+
+    // Метод для возврата карт к исходным параметрам
+    resetMapViews() {
+      if (this.leafletMapInstance) {
+        this.leafletMapInstance.setView(this.initialCenter, this.initialZoom)
+      }
+      if (this.olMapInstance) {
+        this.olMapInstance.getView().setCenter(fromLonLat(this.initialCenterOl))
+        this.olMapInstance.getView().setZoom(this.initialZoom)
+      }
     }
   },
   watch: {
@@ -772,7 +790,10 @@ export default {
 
         this.updateLeafletMarkers()
         this.updateOpenLayersMarkers()
-        
+
+        // Возвращаем карты к исходным параметрам при обновлении данных
+        this.resetMapViews()
+
         // Обновляем размер карт после добавления маркеров
         this.$nextTick(() => {
           if (this.leafletMapInstance && this.$refs.leafletMap) {
@@ -850,100 +871,137 @@ export default {
     align-items: center;
     flex-shrink: 0;
     z-index: 1000;
+  }
 
-    .layers-panel {
-      margin-left: 1rem;
+  // Панель управления слоями на карте
+  .map-layers-panel {
+    position: absolute;
+    top: 35px;
+    right: 10px;
+    z-index: 1000;
+    background: var(--bg-secondary);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    opacity: 0.8;
+    transition: background-color 0.3s ease, border-color 0.3s ease, opacity 0.2s ease;
 
-      :deep(.el-collapse) {
-        border: none;
-        background: transparent;
+    &:hover {
+      opacity: 1;
+    }
+
+    :deep(.el-collapse) {
+      border: none;
+      background: transparent;
+    }
+
+    :deep(.el-collapse-item__header) {
+      background-color: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 2px 8px 2px 20px !important;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      height: auto !important;
+      line-height: 1 !important;
+      min-width: 70px;
+      position: relative;
+      transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+
+      &:hover {
+        background-color: var(--bg-hover);
       }
 
-      :deep(.el-collapse-item__header) {
-        background-color: var(--bg-tertiary);
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        padding: 8px 12px;
-        font-size: 12px;
-        font-weight: 500;
+      .el-collapse-item__arrow {
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 10px;
+        left: 6px !important;
+        right: auto !important;
+        top: 50% !important;
+        transform: translateY(-50%) rotate(90deg);
+        position: absolute;
         color: var(--text-primary);
-        height: auto;
-        line-height: 1.2;
-
-        &:hover {
-          background-color: var(--bg-hover);
-        }
-
-        .el-collapse-item__arrow {
-          margin: 0;
-          font-size: 10px;
-        }
+        transition: transform 0.3s ease, color 0.3s ease;
       }
+    }
 
-      :deep(.el-collapse-item__wrap) {
-        background: transparent;
-        border: none;
+    :deep(.el-collapse-item__header.is-active) {
+      .el-collapse-item__arrow {
+        transform: translateY(-50%) rotate(-90deg);
       }
+    }
 
-      :deep(.el-collapse-item__content) {
-        padding: 8px 0 0 0;
-        background: transparent;
-      }
+    :deep(.el-collapse-item__wrap) {
+      background: var(--bg-secondary);
+      border: none;
+      border-radius: 0 0 6px 6px;
+      margin-top: 4px;
+      margin-right: 0;
+      transition: background-color 0.3s ease;
+    }
 
-      .layers-list {
-        max-height: 200px;
-        overflow-y: auto;
+    :deep(.el-collapse-item__content) {
+      padding: 8px;
+      background: transparent;
+      margin-right: 0;
+    }
 
-        .layer-item {
-          margin-bottom: 4px;
+    .layers-list {
+      max-height: 200px;
+      overflow-y: auto;
 
-          :deep(.el-checkbox) {
+      .layer-item {
+        margin-bottom: 0px;
+
+        :deep(.el-checkbox) {
+          width: 100%;
+
+          .el-checkbox__input {
+            margin-right: 8px;
+          }
+
+          .el-checkbox__label {
             width: 100%;
+            padding: 0 8px;
+            border-radius: 4px;
+            cursor: pointer;
 
-            .el-checkbox__input {
-              margin-right: 8px;
-            }
-
-            .el-checkbox__label {
-              width: 100%;
-              padding: 6px 8px;
-              border-radius: 4px;
-              cursor: pointer;
-
-              &:hover {
-                background-color: var(--bg-hover);
-              }
-            }
-          }
-
-          .layer-info {
-            .layer-name {
-              font-size: 12px;
-              font-weight: 500;
-              color: var(--text-primary);
-              margin-bottom: 2px;
-            }
-
-            .layer-type {
-              font-size: 10px;
-              color: var(--text-secondary);
-              margin-bottom: 2px;
-            }
-
-            .layer-meta {
-              font-size: 10px;
-              color: var(--text-muted);
+            &:hover {
+              background-color: var(--bg-hover);
             }
           }
         }
 
-        .no-layers {
-          padding: 12px;
-          text-align: center;
-          color: var(--text-muted);
-          font-size: 12px;
-          font-style: italic;
+        .layer-info {
+          .layer-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+          }
+
+          .layer-type {
+            font-size: 10px;
+            color: var(--text-secondary);
+            margin-bottom: 2px;
+          }
+
+          .layer-meta {
+            font-size: 10px;
+            color: var(--text-muted);
+          }
         }
+      }
+
+      .no-layers {
+        padding: 12px;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-style: italic;
       }
     }
   }

@@ -64,7 +64,7 @@ export default {
 
 <style scoped lang="scss">
 .pg-estates-list {
-  padding: 1rem;
+  padding: 3px;
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -83,7 +83,7 @@ export default {
   .content-layout {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 3px;
     flex: 1;
     min-height: 0;
 
@@ -91,7 +91,7 @@ export default {
       background-color: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 1rem;
+      //padding: 1rem;
     }
 
     .main-panel {
@@ -100,7 +100,7 @@ export default {
       background-color: var(--bg-secondary);
       border: 1px solid var(--border-color);
       border-radius: 8px;
-      padding: 1rem;
+      //padding: 1rem;
       overflow: hidden;
       display: flex;
       flex-direction: column;

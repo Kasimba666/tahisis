@@ -87,7 +87,7 @@
           {{ row.volost_name || '-' }}
         </template>
       </el-table-column>
-      <el-table-column label="Землевладелец">
+      <el-table-column label="Помещик">
         <template #default="{ row }">
           {{ row.landowner_description || '-' }}
         </template>

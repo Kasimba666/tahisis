@@ -44,7 +44,7 @@
               <el-checkbox v-model="visibleEstateColumns.female">Ж</el-checkbox>
               <el-checkbox v-model="visibleEstateColumns.total">Всего</el-checkbox>
               <el-checkbox v-model="visibleEstateColumns.volost_name">Волость</el-checkbox>
-              <el-checkbox v-model="visibleEstateColumns.landowner_description">Землевладелец</el-checkbox>
+              <el-checkbox v-model="visibleEstateColumns.landowner_description">Помещик</el-checkbox>
               <el-checkbox v-model="visibleEstateColumns.military_unit_description">Воинская часть</el-checkbox>
             </div>
             <div v-else class="columns-list">
@@ -179,7 +179,7 @@
             <el-descriptions-item label="Волость">
               {{ selectedRecord.volost_name || '—' }}
             </el-descriptions-item>
-            <el-descriptions-item label="Землевладелец">
+            <el-descriptions-item label="Помещик">
               {{ selectedRecord.landowner_description || '—' }}
             </el-descriptions-item>
             <el-descriptions-item label="Воинская часть">
@@ -268,7 +268,7 @@
                   <el-descriptions-item label="Волость">
                     {{ estate.volost_name }}
                   </el-descriptions-item>
-                  <el-descriptions-item label="Землевладелец">
+                  <el-descriptions-item label="Помещик">
                     {{ estate.landowner_description }}
                   </el-descriptions-item>
                   <el-descriptions-item label="Воинская часть">

@@ -3,7 +3,7 @@
     <div class="filters-row">
       <!-- Dropdown фильтры -->
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
-        <el-button size="small">
+        <el-button size="large">
           Район ({{ filters.districts.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -31,7 +31,7 @@
       </el-dropdown>
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown" :disabled="filters.districts.length === 0">
-        <el-button size="small" :disabled="filters.districts.length === 0">
+        <el-button size="large" :disabled="filters.districts.length === 0">
           Населенный пункт ({{ filters.settlements.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -59,7 +59,7 @@
       </el-dropdown>
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
-        <el-button size="small">
+        <el-button size="large">
           Сословие ({{ filters.typeEstates.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -84,7 +84,7 @@
       </el-dropdown>
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown" :disabled="filters.typeEstates.length === 0">
-        <el-button size="small" :disabled="filters.typeEstates.length === 0">
+        <el-button size="large" :disabled="filters.typeEstates.length === 0">
           Подтип сословия ({{ filters.subtypeEstates.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -109,7 +109,7 @@
       </el-dropdown>
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
-        <el-button size="small">
+        <el-button size="large">
           Религия ({{ filters.religions.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -134,7 +134,7 @@
       </el-dropdown>
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
-        <el-button size="small">
+        <el-button size="large">
           Принадлежность ({{ filters.affiliations.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -159,7 +159,7 @@
       </el-dropdown>
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
-        <el-button size="small">
+        <el-button size="large">
           Волость ({{ filters.volosts.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -184,7 +184,7 @@
       </el-dropdown>
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
-        <el-button size="small">
+        <el-button size="large">
           Помещик ({{ filters.landowners.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -212,7 +212,7 @@
       </el-dropdown>
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
-        <el-button size="small">
+        <el-button size="large">
           Войсковая организация ({{ filters.militaryUnits.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
@@ -242,7 +242,7 @@
       <!-- Фильтры по численности (только для режима estate) -->
       <div v-if="dataMode === 'estate'" class="population-filters">
         <div class="population-filter-group">
-          <el-checkbox v-model="filters.maleEnabled" size="small" />
+          <el-checkbox v-model="filters.maleEnabled" size="large" />
           <label>Мужчины:</label>
           <el-input-number 
             v-model="filters.maleMin" 
@@ -265,7 +265,7 @@
         </div>
         
         <div class="population-filter-group">
-          <el-checkbox v-model="filters.femaleEnabled" size="small" />
+          <el-checkbox v-model="filters.femaleEnabled" size="large" />
           <label>Женщины:</label>
           <el-input-number 
             v-model="filters.femaleMin" 
@@ -288,7 +288,7 @@
         </div>
         
         <div class="population-filter-group">
-          <el-checkbox v-model="filters.populationEnabled" size="small" />
+          <el-checkbox v-model="filters.populationEnabled" size="large" />
           <label>Всего:</label>
           <el-input-number 
             v-model="filters.populationMin" 
@@ -314,7 +314,7 @@
       <!-- Фильтры для режима report -->
       <div v-if="dataMode === 'report'" class="population-filters">
         <div class="population-filter-group">
-          <el-checkbox v-model="filters.estatesCountEnabled" size="small" />
+          <el-checkbox v-model="filters.estatesCountEnabled" size="large" />
           <label>Количество сословий:</label>
           <el-input-number 
             v-model="filters.estatesCountMin" 
@@ -339,10 +339,10 @@
 
       <!-- Кнопки действий -->
       <div class="filter-actions">
-        <el-button type="primary" size="small" @click="applyFilters">
+        <el-button type="primary" size="large" @click="applyFilters">
           Применить
         </el-button>
-        <el-button size="small" @click="resetFilters">
+        <el-button size="large" @click="resetFilters">
           Сбросить значения
         </el-button>
       </div>
@@ -757,6 +757,7 @@ export default {
   .filter-dropdown {
     :deep(.el-button) {
       width: 100%;
+      height: 32px;
       justify-content: space-between;
       background-color: hsl(220, 15%, 18%);
       border-color: hsl(220, 15%, 30%);
@@ -780,7 +781,7 @@ export default {
     grid-column: 1 / -1;
     display: flex;
     gap: 8px;
-    padding: 3px;
+    padding: 0 3px;
     background-color: var(--bg-tertiary);
     border-radius: 4px;
     flex-wrap: wrap;
@@ -828,8 +829,9 @@ export default {
     gap: 3px;
     margin-top: 3px;
     
-    .el-button {
+    :deep(.el-button) {
       flex: 1;
+      height: 32px;
       padding: 3px 8px;
       font-size: 12px;
     }
