@@ -925,8 +925,32 @@ export default {
       console.log('Applying filters:', filters)
       this.currentFilters = filters
       
-      // Всегда загружаем данные заново при применении фильтров
-      this.loadData()
+      // Проверяем, есть ли хоть один активный фильтр
+      const hasActiveFilters = 
+        filters.districts?.length > 0 ||
+        filters.settlements?.length > 0 ||
+        filters.typeEstates?.length > 0 ||
+        filters.subtypeEstates?.length > 0 ||
+        filters.religions?.length > 0 ||
+        filters.affiliations?.length > 0 ||
+        filters.volosts?.length > 0 ||
+        filters.landowners?.length > 0 ||
+        filters.militaryUnits?.length > 0 ||
+        filters.maleEnabled ||
+        filters.femaleEnabled ||
+        filters.populationEnabled ||
+        filters.estatesCountEnabled
+      
+      if (hasActiveFilters) {
+        // Загружаем данные только если есть активные фильтры
+        this.loadData()
+      } else {
+        // Если фильтров нет, очищаем таблицу
+        this.estateData = []
+        this.reportData = []
+        this.allEstateData = []
+        this.allReportData = []
+      }
     },
 
     filterEstateData() {
