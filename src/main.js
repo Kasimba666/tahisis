@@ -11,6 +11,9 @@ import 'ol/ol.css'
 import 'leaflet.fullscreen'
 import 'leaflet.fullscreen/Control.FullScreen.css'
 
+// Импортируем сервисы
+import { initializeVectorLayerService } from '@/services/vectorLayers.js'
+
 import App from './App.vue'
 
 const app = createApp(App)
@@ -22,5 +25,12 @@ app.use(ElementPlus)
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
+
+// Инициализируем сервисы
+initializeVectorLayerService().then(() => {
+  console.log('Vector layer service initialized successfully')
+}).catch(error => {
+  console.error('Failed to initialize vector layer service:', error)
+})
 
 app.mount('#app')

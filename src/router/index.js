@@ -8,6 +8,8 @@ import PgComponentsDemo from '@/pages/PgComponentsDemo.vue'
 import PgEstateTypesUpload from '@/pages/PgEstateTypesUpload.vue'
 import PgRevisionsUpload from '@/pages/PgRevisionsUpload.vue'
 import PgEstatesList from '@/pages/PgEstatesList.vue'
+import PgVectorLayerTypes from '@/pages/PgVectorLayerTypes.vue'
+import PgVectorLayers from '@/pages/PgVectorLayers.vue'
 
 const routes = [
   // {
@@ -58,6 +60,22 @@ const routes = [
     path: '/estates-list',
     name: 'EstatesList',
     component: PgEstatesList
+  },
+  {
+    path: '/vector-layer-types',
+    name: 'VectorLayerTypes',
+    component: PgVectorLayerTypes,
+    meta: {
+      requireAuth: true
+    }
+  },
+  {
+    path: '/vector-layers',
+    name: 'VectorLayers',
+    component: PgVectorLayers,
+    meta: {
+      requireAuth: true
+    }
   }
 ]
 

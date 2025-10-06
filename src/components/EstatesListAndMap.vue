@@ -124,7 +124,7 @@
       </div>
 
       <div v-if="viewMode === 'map' || viewMode === 'split'" class="map-section">
-        <MapView :settlements="mapSettlements" />
+        <MapView ref="mapView" :settlements="mapSettlements" />
       </div>
     </div>
 
@@ -370,11 +370,16 @@ export default {
     mapSettlements() {
       // Собираем уникальные населенные пункты из текущих данных
       const settlementsMap = new Map()
-      
+
+      console.log('=== COMPUTING MAP SETTLEMENTS ===')
       console.log('Computing mapSettlements, dataMode:', this.dataMode)
       console.log('estateData length:', this.estateData.length)
       console.log('reportData length:', this.reportData.length)
       console.log('allSettlements length:', this.allSettlements?.length)
+
+      if (this.allSettlements?.length > 0) {
+        console.log('First few allSettlements:', this.allSettlements.slice(0, 3))
+      }
       
       if (this.dataMode === 'estate') {
         this.estateData.forEach(item => {
@@ -643,6 +648,8 @@ export default {
         this.allEstateData = mappedData
         // Применяем фильтры если они есть
         this.filterEstateData()
+        // Обновляем векторные слои после загрузки данных
+        this.refreshMapLayers()
       } catch (error) {
         console.error('Error loading estate data:', error)
         ElMessage.error('Ошибка загрузки данных о сословиях: ' + error.message)
@@ -848,10 +855,16 @@ export default {
 
         const reportDataWithCounts = await Promise.all(countPromises)
         
-        // Сохраняем все данные
-        this.allReportData = reportDataWithCounts
-        // Применяем фильтры если они есть
-        this.filterReportData()
+      // Сохраняем все данные
+      this.allReportData = reportDataWithCounts
+      // Применяем фильтры если они есть
+      this.filterReportData()
+      // Обновляем векторные слои после загрузки данных
+      this.refreshMapLayers()
+      // Обновляем векторные слои после загрузки данных
+      this.refreshMapLayers()
+        // Обновляем векторные слои после загрузки данных
+        this.refreshMapLayers()
       } catch (error) {
         console.error('Error loading report data:', error)
         ElMessage.error('Ошибка загрузки данных о ревизиях: ' + error.message)
@@ -989,9 +1002,9 @@ export default {
     applyFilters(filters) {
       console.log('Applying filters:', filters)
       this.currentFilters = filters
-      
+
       // Проверяем, есть ли хоть один активный фильтр
-      const hasActiveFilters = 
+      const hasActiveFilters =
         filters.districts?.length > 0 ||
         filters.settlements?.length > 0 ||
         filters.typeEstates?.length > 0 ||
@@ -1005,7 +1018,7 @@ export default {
         filters.femaleEnabled ||
         filters.populationEnabled ||
         filters.estatesCountEnabled
-      
+
       if (hasActiveFilters) {
         // Загружаем данные только если есть активные фильтры
         this.loadData()
@@ -1015,6 +1028,8 @@ export default {
         this.reportData = []
         this.allEstateData = []
         this.allReportData = []
+        // Обновляем векторные слои при очистке фильтров
+        this.refreshMapLayers()
       }
     },
 
@@ -1176,6 +1191,49 @@ export default {
       }
 
       this.reportData = filtered
+    },
+
+    // Обновляем векторные слои на картах
+    refreshMapLayers() {
+      if (this.$refs.mapView && typeof this.$refs.mapView.refreshVectorLayers === 'function') {
+        console.log('Refreshing map layers from EstatesListAndMap')
+        this.$refs.mapView.refreshVectorLayers()
+      }
+    },
+
+    // Обновляем маркеры на картах при изменении данных
+    updateMapMarkers() {
+      if (this.$refs.mapView) {
+        console.log('Updating map markers from EstatesListAndMap, settlements count:', this.mapSettlements.length)
+
+        // Обновляем маркеры на обеих картах
+        this.$nextTick(() => {
+          if (this.$refs.mapView.updateLeafletMarkers) {
+            console.log('Forcing Leaflet markers update')
+            this.$refs.mapView.updateLeafletMarkers()
+          }
+          if (this.$refs.mapView.updateOpenLayersMarkers) {
+            console.log('Forcing OpenLayers markers update')
+            this.$refs.mapView.updateOpenLayersMarkers()
+          }
+
+          // Обновляем размер карт после добавления маркеров
+          setTimeout(() => {
+            if (this.$refs.mapView.leafletMapInstance && this.$refs.mapView.$refs.leafletMap) {
+              const rect = this.$refs.mapView.$refs.leafletMap.getBoundingClientRect()
+              if (rect.width > 0 && rect.height > 0) {
+                this.$refs.mapView.leafletMapInstance.invalidateSize()
+              }
+            }
+            if (this.$refs.mapView.olMapInstance && this.$refs.mapView.$refs.olMap) {
+              const rect = this.$refs.mapView.$refs.olMap.getBoundingClientRect()
+              if (rect.width > 0 && rect.height > 0) {
+                this.$refs.mapView.olMapInstance.updateSize()
+              }
+            }
+          }, 200)
+        })
+      }
     }
   },
   watch: {
@@ -1195,6 +1253,10 @@ export default {
       // Даем время на отрисовку, затем обновляем карты
       setTimeout(() => {
         this.$forceUpdate()
+        // Обновляем векторные слои при переключении режимов карты
+        if (this.viewMode === 'map' || this.viewMode === 'split') {
+          this.refreshMapLayers()
+        }
       }, 100)
     }
   }

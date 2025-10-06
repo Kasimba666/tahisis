@@ -86,16 +86,28 @@ id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
 name character varying NOT NULL DEFAULT ''::character varying,
 CONSTRAINT Type_religion_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.Type_vector_layer (
+id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+name character varying NOT NULL,
+CONSTRAINT Type_vector_layer_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.Vector_layer (
+id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+name character varying NOT NULL,
+file_path character varying NOT NULL,
+file_url character varying,
+mime_type character varying,
+size bigint,
+feature_count bigint,
+crs character varying DEFAULT 'EPSG:4326'::character varying,
+bbox jsonb,
+tags jsonb,
+id_type_vector_layer bigint,
+CONSTRAINT Vector_layer_pkey PRIMARY KEY (id),
+CONSTRAINT Vector_layer_id_type_vector_layer_fkey FOREIGN KEY (id_type_vector_layer) REFERENCES public.Type_vector_layer(id)
+);
 CREATE TABLE public.Volost (
 id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
 name character varying,
 CONSTRAINT Volost_pkey PRIMARY KEY (id)
-);
-CREATE TABLE public.spatial_ref_sys (
-srid integer NOT NULL CHECK (srid > 0 AND srid <= 998999),
-auth_name character varying,
-auth_srid integer,
-srtext character varying,
-proj4text character varying,
-CONSTRAINT spatial_ref_sys_pkey PRIMARY KEY (srid)
 );

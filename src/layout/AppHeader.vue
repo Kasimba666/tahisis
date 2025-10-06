@@ -38,6 +38,13 @@
               <router-link to="/revisions-upload" class="submenu-item">
                 Ревизии
               </router-link>
+              <div class="submenu-divider"></div>
+              <router-link to="/vector-layer-types" class="submenu-item">
+                Типы векторных слоев
+              </router-link>
+              <router-link to="/vector-layers" class="submenu-item">
+                Векторные слои
+              </router-link>
             </div>
           </div>
           <router-link to="/contact" class="nav-item" :class="{ active: isActive('/contact') }">
@@ -268,11 +275,17 @@ export default {
   white-space: nowrap;
   cursor: pointer;
   @include theme-transition;
-  
+
   &:hover {
     color: var(--accent-primary);
     background-color: var(--bg-secondary);
   }
+}
+
+.submenu-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 2px 0;
 }
 
 .nav-spacer {

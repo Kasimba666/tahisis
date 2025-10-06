@@ -5,8 +5,38 @@
         <el-radio-button label="leaflet">Leaflet</el-radio-button>
         <el-radio-button label="openlayers">OpenLayers</el-radio-button>
       </el-radio-group>
+
+      <!-- Панель управления векторными слоями -->
+      <div class="layers-panel">
+        <el-button size="small" type="primary" @click="diagnoseData" style="margin-right: 8px;">
+          Диагностика
+        </el-button>
+        <el-collapse v-model="activePanels" @change="handlePanelChange">
+          <el-collapse-item :title="`Векторные слои ${loadingLayers ? '(Загрузка...)' : ''}`" name="vector-layers">
+            <div class="layers-list">
+              <el-checkbox-group v-model="visibleLayers" @change="updateLayerVisibility">
+                <div v-for="layer in vectorLayers" :key="layer.id" class="layer-item">
+                  <el-checkbox :label="layer.id" class="layer-checkbox">
+                    <div class="layer-info">
+                      <div class="layer-name">{{ layer.name }}</div>
+                      <div class="layer-type">{{ layer.type_vector_layer_name }}</div>
+                      <div class="layer-meta">
+                        {{ formatFileSize(layer.size) }} • {{ layer.feature_count || 0 }} объектов
+                      </div>
+                    </div>
+                  </el-checkbox>
+                </div>
+              </el-checkbox-group>
+
+              <div v-if="vectorLayers.length === 0" class="no-layers">
+                Нет загруженных векторных слоев
+              </div>
+            </div>
+          </el-collapse-item>
+        </el-collapse>
+      </div>
     </div>
-    
+
     <div ref="leafletMap" class="map-container" :class="{ hidden: mapProvider !== 'leaflet' }"></div>
     <div ref="olMap" class="map-container" :class="{ hidden: mapProvider !== 'openlayers' }"></div>
   </div>
@@ -21,8 +51,14 @@ import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
 import Feature from 'ol/Feature'
 import Point from 'ol/geom/Point'
+import Polygon from 'ol/geom/Polygon'
+import LineString from 'ol/geom/LineString'
+import MultiPoint from 'ol/geom/MultiPoint'
+import MultiPolygon from 'ol/geom/MultiPolygon'
+import MultiLineString from 'ol/geom/MultiLineString'
 import { Style, Circle, Fill, Stroke } from 'ol/style'
 import { fromLonLat, transform } from 'ol/proj'
+import { vectorLayerService } from '@/services/vectorLayers.js'
 
 export default {
   name: 'MapView',
@@ -40,16 +76,22 @@ export default {
       leafletMarkers: [],
       olVectorLayer: null,
       initialBounds: null,
-      initialExtent: null
+      initialExtent: null,
+      // Данные для векторных слоев
+      vectorLayers: [],
+      visibleLayers: [],
+      activePanels: ['vector-layers'],
+      leafletVectorLayers: new Map(), // Храним слои Leaflet по ID
+      olVectorLayers: new Map() // Храним слои OpenLayers по ID
     }
   },
-  mounted() {
+  async mounted() {
     console.log('MapView mounted, checking containers...')
+
     // Даем время на отрисовку контейнеров
     this.$nextTick(() => {
-      // Простая инициализация без ResizeObserver
       setTimeout(() => {
-        console.log('Simple initialization attempt...')
+        console.log('Initializing maps...')
         console.log('Leaflet container:', this.$refs.leafletMap)
         console.log('OpenLayers container:', this.$refs.olMap)
 
@@ -62,6 +104,11 @@ export default {
 
         this.initLeafletMap()
         this.initOpenLayersMap()
+
+        // Загружаем векторные слои после инициализации карт
+        setTimeout(async () => {
+          await this.loadVectorLayers()
+        }, 1000)
       }, 500)
     })
   },
@@ -226,25 +273,39 @@ export default {
     },
 
     updateLeafletMarkers() {
-      if (!this.leafletMapInstance) return
+      if (!this.leafletMapInstance) {
+        console.warn('Leaflet map not initialized yet')
+        return
+      }
 
       // Удаляем старые маркеры
       this.leafletMarkers.forEach(marker => marker.remove())
       this.leafletMarkers = []
 
-      if (this.settlements.length === 0) return
+      if (this.settlements.length === 0) {
+        console.log('No settlements to display')
+        return
+      }
+
+      console.log('Adding markers for settlements:', this.settlements.length)
 
       // Добавляем новые маркеры
       const bounds = []
-      
-      this.settlements.forEach(settlement => {
+
+      this.settlements.forEach((settlement, index) => {
         if (settlement.lat && settlement.lon) {
           // Координаты уже в EPSG:4326 (WGS84), используем напрямую
-          const lat = settlement.lat
-          const lon = settlement.lon
+          const lat = parseFloat(settlement.lat)
+          const lon = parseFloat(settlement.lon)
 
-          console.log('Using coords:', lat, lon)
-          
+          console.log(`Settlement ${index}:`, settlement.name, 'Coords:', lat, lon)
+
+          // Проверяем корректность координат
+          if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            console.warn('Invalid coordinates for settlement:', settlement.name, lat, lon)
+            return
+          }
+
           // Создаем красный круглый маркер
           const redIcon = L.divIcon({
             className: 'custom-marker',
@@ -252,7 +313,7 @@ export default {
             iconSize: [14, 14],
             iconAnchor: [7, 7]
           })
-          
+
           const marker = L.marker([lat, lon], { icon: redIcon })
             .bindPopup(`
               <div class="settlement-popup">
@@ -264,38 +325,62 @@ export default {
               </div>
             `)
             .addTo(this.leafletMapInstance)
-          
+
           this.leafletMarkers.push(marker)
           bounds.push([lat, lon])
+        } else {
+          console.warn('Settlement without coordinates:', settlement.name)
         }
       })
 
       // Подгоняем карту под маркеры
       if (bounds.length > 0) {
+        console.log('Fitting bounds to markers:', bounds.length)
         this.leafletMapInstance.fitBounds(bounds, { padding: [50, 50] })
         // Сохраняем исходные границы для кнопки Home
         if (!this.initialBounds) {
           this.initialBounds = bounds
         }
+      } else {
+        console.warn('No valid coordinates found for settlements')
       }
     },
 
     updateOpenLayersMarkers() {
-      if (!this.olVectorLayer) return
+      if (!this.olVectorLayer || !this.olMapInstance) {
+        console.warn('OpenLayers map or vector layer not initialized')
+        return
+      }
 
       const source = this.olVectorLayer.getSource()
       source.clear()
 
-      if (this.settlements.length === 0) return
+      if (this.settlements.length === 0) {
+        console.log('No settlements to display on OpenLayers')
+        return
+      }
+
+      console.log('Adding OpenLayers markers for settlements:', this.settlements.length)
 
       const features = []
+      const validCoords = []
 
-      this.settlements.forEach(settlement => {
+      this.settlements.forEach((settlement, index) => {
         if (settlement.lat && settlement.lon) {
-          // Конвертируем из EPSG:4326 в EPSG:3857 для OpenLayers
-          const [x, y] = fromLonLat([settlement.lon, settlement.lat])
+          const lat = parseFloat(settlement.lat)
+          const lon = parseFloat(settlement.lon)
 
-          console.log('Converting coords for OpenLayers:', settlement.lat, settlement.lon, '->', y, x)
+          console.log(`OpenLayers Settlement ${index}:`, settlement.name, 'Coords:', lat, lon)
+
+          // Проверяем корректность координат
+          if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            console.warn('Invalid coordinates for OpenLayers settlement:', settlement.name, lat, lon)
+            return
+          }
+
+          // Конвертируем из EPSG:4326 в EPSG:3857 для OpenLayers
+          const [x, y] = fromLonLat([lon, lat])
+          console.log(`Converted coords: ${lon}, ${lat} -> ${x}, ${y}`)
 
           const feature = new Feature({
             geometry: new Point([x, y]),
@@ -304,22 +389,30 @@ export default {
             population: settlement.population
           })
           features.push(feature)
+          validCoords.push([x, y])
+        } else {
+          console.warn('Settlement without coordinates for OpenLayers:', settlement.name)
         }
       })
 
-      source.addFeatures(features)
-
-      // Подгоняем карту под маркеры
       if (features.length > 0) {
+        source.addFeatures(features)
+        console.log(`Added ${features.length} features to OpenLayers`)
+
+        // Подгоняем карту под маркеры
         const extent = source.getExtent()
+        console.log('Fitting OpenLayers view to extent:', extent)
         this.olMapInstance.getView().fit(extent, {
           padding: [50, 50, 50, 50],
-          maxZoom: 12
+          maxZoom: 15
         })
+
         // Сохраняем исходный extent для кнопки Home
         if (!this.initialExtent) {
           this.initialExtent = extent
         }
+      } else {
+        console.warn('No valid coordinates found for OpenLayers settlements')
       }
 
       // Добавляем popup при клике
@@ -330,17 +423,353 @@ export default {
           const name = feature.get('name')
           const district = feature.get('district')
           const population = feature.get('population')
-          
-          // Здесь можно добавить popup, пока просто логируем
-          console.log('Clicked settlement:', { name, district, population })
+
+          console.log('Clicked OpenLayers settlement:', { name, district, population, coordinates })
         }
       })
+    },
+
+    // Методы для работы с векторными слоями
+    async loadVectorLayers() {
+      try {
+        console.log('Loading vector layers...')
+        const layers = await vectorLayerService.getVectorLayers()
+        console.log('Raw loaded vector layers:', layers)
+        console.log('Layers count:', layers?.length || 0)
+
+        this.vectorLayers = layers || []
+        console.log('Final vector layers:', this.vectorLayers)
+
+        // По умолчанию показываем все слои
+        this.visibleLayers = this.vectorLayers.map(layer => layer.id)
+        console.log('Visible layers:', this.visibleLayers)
+
+        // Загружаем и отображаем векторные слои на картах
+        if (this.vectorLayers.length > 0) {
+          this.loadVectorLayersOnMaps()
+        } else {
+          console.warn('No vector layers found to load')
+        }
+      } catch (error) {
+        console.error('Error loading vector layers:', error)
+        this.vectorLayers = []
+      }
+    },
+
+    async loadVectorLayersOnMaps() {
+      if (this.vectorLayers.length === 0) return
+
+      // Загружаем файлы векторных слоев
+      for (const layer of this.vectorLayers) {
+        if (layer.file_url) {
+          try {
+            await this.loadVectorLayerData(layer)
+          } catch (error) {
+            console.error(`Error loading layer ${layer.name}:`, error)
+          }
+        }
+      }
+    },
+
+    async loadVectorLayerData(layer) {
+      try {
+        console.log(`Loading data for layer: ${layer.name}`)
+
+        // Загружаем файл из Supabase Storage
+        const response = await fetch(layer.file_url)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch ${layer.file_url}`)
+        }
+
+        const geoJsonData = await response.json()
+        console.log(`Loaded GeoJSON data for ${layer.name}:`, geoJsonData)
+
+        // Отображаем на обеих картах
+        this.displayVectorLayerOnLeaflet(layer, geoJsonData)
+        this.displayVectorLayerOnOpenLayers(layer, geoJsonData)
+
+      } catch (error) {
+        console.error(`Error loading vector layer data for ${layer.name}:`, error)
+      }
+    },
+
+    displayVectorLayerOnLeaflet(layer, geoJsonData) {
+      if (!this.leafletMapInstance) return
+
+      // Удаляем существующий слой если он есть
+      const existingLayer = this.leafletVectorLayers.get(layer.id)
+      if (existingLayer) {
+        this.leafletMapInstance.removeLayer(existingLayer)
+      }
+
+      try {
+        // Создаем слой GeoJSON для Leaflet
+        const vectorLayer = L.geoJSON(geoJsonData, {
+          style: {
+            color: this.getLayerColor(layer.id),
+            weight: 2,
+            opacity: 0.7,
+            fillOpacity: 0.3
+          },
+          onEachFeature: (feature, layer) => {
+            // Добавляем popup для каждого объекта
+            if (feature.properties) {
+              const popupContent = this.generatePopupContent(feature.properties)
+              layer.bindPopup(popupContent)
+            }
+          }
+        })
+
+        // Сохраняем слой
+        this.leafletVectorLayers.set(layer.id, vectorLayer)
+
+        // Добавляем на карту если слой видим
+        if (this.visibleLayers.includes(layer.id)) {
+          vectorLayer.addTo(this.leafletMapInstance)
+        }
+
+        console.log(`Added vector layer ${layer.name} to Leaflet map`)
+
+      } catch (error) {
+        console.error(`Error displaying layer ${layer.name} on Leaflet:`, error)
+      }
+    },
+
+    displayVectorLayerOnOpenLayers(layer, geoJsonData) {
+      if (!this.olMapInstance) return
+
+      // Удаляем существующий слой если он есть
+      const existingLayer = this.olVectorLayers.get(layer.id)
+      if (existingLayer) {
+        this.olMapInstance.removeLayer(existingLayer)
+      }
+
+      try {
+        // Создаем векторный источник для OpenLayers
+        const vectorSource = new VectorSource({
+          features: []
+        })
+
+        // Определяем цвет для слоя
+        const layerColor = this.getLayerColor(layer.id)
+
+        // Создаем векторный слой
+        const vectorLayer = new VectorLayer({
+          source: vectorSource,
+          style: new Style({
+            stroke: new Stroke({
+              color: layerColor,
+              width: 2
+            }),
+            fill: new Fill({
+              color: this.hexToRgba(layerColor, 0.3)
+            })
+          })
+        })
+
+        // Добавляем features из GeoJSON с правильной конвертацией координат
+        if (geoJsonData.features) {
+          geoJsonData.features.forEach((feature, index) => {
+            try {
+              const olFeature = new Feature({
+                geometry: this.geoJsonGeometryToOpenLayers(feature.geometry),
+                properties: feature.properties || {}
+              })
+              vectorSource.addFeature(olFeature)
+              console.log(`Added feature ${index} from layer ${layer.name} to OpenLayers`)
+            } catch (featureError) {
+              console.error(`Error adding feature ${index} from layer ${layer.name}:`, featureError)
+            }
+          })
+        }
+
+        // Сохраняем слой
+        this.olVectorLayers.set(layer.id, vectorLayer)
+
+        // Добавляем на карту если слой видим
+        if (this.visibleLayers.includes(layer.id)) {
+          this.olMapInstance.addLayer(vectorLayer)
+          console.log(`Added vector layer ${layer.name} to OpenLayers map, features count:`, vectorSource.getFeatures().length)
+        } else {
+          console.log(`Layer ${layer.name} is not visible, not adding to map`)
+        }
+
+      } catch (error) {
+        console.error(`Error displaying layer ${layer.name} on OpenLayers:`, error)
+      }
+    },
+
+    updateLayerVisibility() {
+      console.log('Updating layer visibility:', this.visibleLayers)
+
+      // Обновляем видимость на Leaflet
+      this.leafletVectorLayers.forEach((layer, layerId) => {
+        if (this.visibleLayers.includes(layerId)) {
+          if (!this.leafletMapInstance.hasLayer(layer)) {
+            layer.addTo(this.leafletMapInstance)
+          }
+        } else {
+          if (this.leafletMapInstance.hasLayer(layer)) {
+            this.leafletMapInstance.removeLayer(layer)
+          }
+        }
+      })
+
+      // Обновляем видимость на OpenLayers
+      this.olVectorLayers.forEach((layer, layerId) => {
+        if (this.visibleLayers.includes(layerId)) {
+          if (!this.olMapInstance.getLayers().getArray().includes(layer)) {
+            this.olMapInstance.addLayer(layer)
+          }
+        } else {
+          if (this.olMapInstance.getLayers().getArray().includes(layer)) {
+            this.olMapInstance.removeLayer(layer)
+          }
+        }
+      })
+    },
+
+    getLayerColor(layerId) {
+      // Генерируем цвет на основе ID слоя
+      const colors = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+        '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+      ]
+      return colors[layerId % colors.length]
+    },
+
+    hexToRgba(hex, alpha) {
+      const r = parseInt(hex.slice(1, 3), 16)
+      const g = parseInt(hex.slice(3, 5), 16)
+      const b = parseInt(hex.slice(5, 7), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    },
+
+    geoJsonGeometryToOpenLayers(geometry) {
+      if (!geometry || !geometry.type) {
+        console.warn('Invalid geometry:', geometry)
+        return null
+      }
+
+      try {
+        switch (geometry.type) {
+          case 'Point':
+            return new Point(fromLonLat(geometry.coordinates))
+
+          case 'MultiPoint':
+            return new MultiPoint(geometry.coordinates.map(coords => fromLonLat(coords)))
+
+          case 'LineString':
+            return new LineString(geometry.coordinates.map(coords => fromLonLat(coords)))
+
+          case 'MultiLineString':
+            return new MultiLineString(
+              geometry.coordinates.map(line =>
+                line.map(coords => fromLonLat(coords))
+              )
+            )
+
+          case 'Polygon':
+            return new Polygon(
+              geometry.coordinates.map(ring =>
+                ring.map(coords => fromLonLat(coords))
+              )
+            )
+
+          case 'MultiPolygon':
+            return new MultiPolygon(
+              geometry.coordinates.map(polygon =>
+                polygon.map(ring =>
+                  ring.map(coords => fromLonLat(coords))
+                )
+              )
+            )
+
+          case 'GeometryCollection':
+            console.warn('GeometryCollection not fully supported yet')
+            // Возвращаем первый объект геометрии
+            if (geometry.geometries && geometry.geometries.length > 0) {
+              return this.geoJsonGeometryToOpenLayers(geometry.geometries[0])
+            }
+            return null
+
+          default:
+            console.warn('Unsupported geometry type:', geometry.type)
+            return null
+        }
+      } catch (error) {
+        console.error('Error converting geometry:', error, geometry)
+        return null
+      }
+    },
+
+    generatePopupContent(properties) {
+      // Генерируем содержимое popup из свойств объекта
+      let content = '<div class="vector-layer-popup">'
+
+      Object.keys(properties).forEach(key => {
+        content += `<p><strong>${key}:</strong> ${properties[key]}</p>`
+      })
+
+      content += '</div>'
+      return content
+    },
+
+    handlePanelChange(panels) {
+      console.log('Panel change:', panels)
+    },
+
+    formatFileSize(bytes) {
+      if (bytes === 0) return '0 B'
+      const k = 1024
+      const sizes = ['B', 'KB', 'MB', 'GB']
+      const i = Math.floor(Math.log(bytes) / Math.log(k))
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    },
+
+    // Метод для обновления векторных слоев (вызывается из родительского компонента)
+    async refreshVectorLayers() {
+      console.log('=== REFRESHING VECTOR LAYERS ===')
+      console.log('Refreshing vector layers...')
+      await this.loadVectorLayers()
+    },
+
+    // Диагностический метод для проверки данных
+    async diagnoseData() {
+      console.log('=== DIAGNOSIS STARTED ===')
+
+      // Проверяем векторные слои
+      try {
+        const layers = await vectorLayerService.getVectorLayers()
+        console.log('Vector layers from service:', layers)
+      } catch (error) {
+        console.error('Error getting vector layers:', error)
+      }
+
+      // Проверяем данные о поселениях
+      console.log('Current settlements prop:', this.settlements)
+      console.log('Settlements length:', this.settlements?.length || 0)
+
+      // Проверяем инициализацию карт
+      console.log('Leaflet map initialized:', !!this.leafletMapInstance)
+      console.log('OpenLayers map initialized:', !!this.olMapInstance)
+      console.log('Vector layers count:', this.vectorLayers?.length || 0)
+
+      console.log('=== DIAGNOSIS COMPLETED ===')
     }
   },
   watch: {
     settlements: {
       handler(newVal) {
+        console.log('=== SETTLEMENTS WATCHER ===')
         console.log('Settlements updated:', newVal)
+        console.log('Settlements length:', newVal?.length || 0)
+        console.log('First settlement:', newVal?.[0])
+        if (newVal?.[0]) {
+          console.log('First settlement coords:', newVal[0].lat, newVal[0].lon)
+          console.log('First settlement name:', newVal[0].name)
+        }
+
         this.updateLeafletMarkers()
         this.updateOpenLayersMarkers()
         
@@ -421,6 +850,102 @@ export default {
     align-items: center;
     flex-shrink: 0;
     z-index: 1000;
+
+    .layers-panel {
+      margin-left: 1rem;
+
+      :deep(.el-collapse) {
+        border: none;
+        background: transparent;
+      }
+
+      :deep(.el-collapse-item__header) {
+        background-color: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-primary);
+        height: auto;
+        line-height: 1.2;
+
+        &:hover {
+          background-color: var(--bg-hover);
+        }
+
+        .el-collapse-item__arrow {
+          margin: 0;
+          font-size: 10px;
+        }
+      }
+
+      :deep(.el-collapse-item__wrap) {
+        background: transparent;
+        border: none;
+      }
+
+      :deep(.el-collapse-item__content) {
+        padding: 8px 0 0 0;
+        background: transparent;
+      }
+
+      .layers-list {
+        max-height: 200px;
+        overflow-y: auto;
+
+        .layer-item {
+          margin-bottom: 4px;
+
+          :deep(.el-checkbox) {
+            width: 100%;
+
+            .el-checkbox__input {
+              margin-right: 8px;
+            }
+
+            .el-checkbox__label {
+              width: 100%;
+              padding: 6px 8px;
+              border-radius: 4px;
+              cursor: pointer;
+
+              &:hover {
+                background-color: var(--bg-hover);
+              }
+            }
+          }
+
+          .layer-info {
+            .layer-name {
+              font-size: 12px;
+              font-weight: 500;
+              color: var(--text-primary);
+              margin-bottom: 2px;
+            }
+
+            .layer-type {
+              font-size: 10px;
+              color: var(--text-secondary);
+              margin-bottom: 2px;
+            }
+
+            .layer-meta {
+              font-size: 10px;
+              color: var(--text-muted);
+            }
+          }
+        }
+
+        .no-layers {
+          padding: 12px;
+          text-align: center;
+          color: var(--text-muted);
+          font-size: 12px;
+          font-style: italic;
+        }
+      }
+    }
   }
 
   .map-container {
@@ -458,7 +983,7 @@ export default {
 
 :deep(.settlement-popup) {
   min-width: 200px;
-  
+
   h4 {
     margin: 0 0 8px 0;
     color: var(--text-primary);
@@ -467,13 +992,29 @@ export default {
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 4px;
   }
-  
+
   p {
     margin: 4px 0;
     font-size: 12px;
     color: var(--text-secondary);
     line-height: 1.4;
-    
+
+    strong {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+  }
+}
+
+:deep(.vector-layer-popup) {
+  min-width: 150px;
+
+  p {
+    margin: 4px 0;
+    font-size: 11px;
+    color: var(--text-secondary);
+    line-height: 1.3;
+
     strong {
       color: var(--text-primary);
       font-weight: 500;
