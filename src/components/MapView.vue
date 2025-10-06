@@ -239,10 +239,11 @@ export default {
       
       this.settlements.forEach(settlement => {
         if (settlement.lat && settlement.lon) {
-          // Конвертируем из EPSG:3857 в EPSG:4326 (WGS84)
-          const [lon, lat] = transform([settlement.lon, settlement.lat], 'EPSG:3857', 'EPSG:4326')
-          
-          console.log('Converting coords:', settlement.lat, settlement.lon, '->', lat, lon)
+          // Координаты уже в EPSG:4326 (WGS84), используем напрямую
+          const lat = settlement.lat
+          const lon = settlement.lon
+
+          console.log('Using coords:', lat, lon)
           
           // Создаем красный круглый маркер
           const redIcon = L.divIcon({
@@ -291,9 +292,13 @@ export default {
 
       this.settlements.forEach(settlement => {
         if (settlement.lat && settlement.lon) {
-          // Координаты уже в EPSG:3857, создаем Point напрямую
+          // Конвертируем из EPSG:4326 в EPSG:3857 для OpenLayers
+          const [x, y] = fromLonLat([settlement.lon, settlement.lat])
+
+          console.log('Converting coords for OpenLayers:', settlement.lat, settlement.lon, '->', y, x)
+
           const feature = new Feature({
-            geometry: new Point([settlement.lon, settlement.lat]),
+            geometry: new Point([x, y]),
             name: settlement.name,
             district: settlement.district,
             population: settlement.population
