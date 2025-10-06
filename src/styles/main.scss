@@ -565,6 +565,72 @@ button {
   font-size: $font-size-xs !important;
 }
 
+// Dropdown popper (тёмная тема)
+.el-dropdown__popper {
+  background-color: hsl(220, 15%, 15%) !important;
+  border: 1px solid hsl(220, 15%, 25%) !important;
+  box-shadow: 0 4px 12px hsla(0, 0%, 0%, 0.3) !important;
+  
+  .el-dropdown-menu {
+    background-color: hsl(220, 15%, 15%) !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  
+  .el-dropdown-menu__item {
+    background-color: hsl(220, 15%, 15%) !important;
+    color: hsl(0, 0%, 85%) !important;
+    padding: $spacing-xs $spacing-sm !important;
+    
+    &:hover {
+      background-color: hsl(220, 15%, 22%) !important;
+    }
+  }
+  
+  // Вертикальное расположение чекбоксов
+  .el-checkbox-group {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+    width: 100% !important;
+  }
+  
+  .el-checkbox {
+    display: flex !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 2px 3px !important;
+    border-radius: 3px;
+    
+    &:hover {
+      background-color: hsl(220, 15%, 22%) !important;
+    }
+    
+    .el-checkbox__input {
+      .el-checkbox__inner {
+        background-color: hsl(220, 15%, 25%) !important;
+        border: 2px solid hsl(220, 15%, 40%) !important;
+      }
+      
+      &.is-checked .el-checkbox__inner {
+        background-color: var(--accent-primary) !important;
+        border-color: var(--accent-primary) !important;
+      }
+    }
+    
+    .el-checkbox__label {
+      color: hsl(0, 0%, 85%) !important;
+      font-weight: 400;
+      flex: 1;
+    }
+  }
+  
+  .el-popper__arrow::before {
+    background-color: hsl(220, 15%, 15%) !important;
+    border: 1px solid hsl(220, 15%, 25%) !important;
+  }
+}
+
 // Loading
 .el-loading-mask {
   background-color: hsla(210, 40%, 7%, 0.8) !important;

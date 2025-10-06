@@ -4,11 +4,18 @@
     
     <div class="content-layout">
       <div class="filters-panel">
-        <EstatesFilters />
+        <EstatesFilters 
+          :data-mode="dataMode"
+          @filter-change="handleFilterChange"
+          @options-loaded="handleOptionsLoaded"
+        />
       </div>
       
       <div class="main-panel">
-        <EstatesListAndMap />
+        <EstatesListAndMap 
+          ref="listAndMap"
+          @data-mode-change="handleDataModeChange"
+        />
       </div>
     </div>
   </div>
@@ -23,6 +30,34 @@ export default {
   components: {
     EstatesFilters,
     EstatesListAndMap
+  },
+  data() {
+    return {
+      dataMode: 'estate',
+      currentFilters: null,
+      filterOptions: null
+    }
+  },
+  methods: {
+    handleFilterChange(filters) {
+      console.log('Filters changed:', filters)
+      this.currentFilters = filters
+      if (this.$refs.listAndMap) {
+        this.$refs.listAndMap.applyFilters(filters)
+      }
+    },
+    
+    handleDataModeChange(mode) {
+      this.dataMode = mode
+    },
+    
+    handleOptionsLoaded(options) {
+      console.log('Filter options loaded:', options)
+      this.filterOptions = options
+      if (this.$refs.listAndMap) {
+        this.$refs.listAndMap.setFilterOptions(options)
+      }
+    }
   }
 }
 </script>
