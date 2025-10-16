@@ -501,13 +501,18 @@ export default {
       try {
         console.log('Loading estate data with filters:', this.currentFilters)
 
-        // Строим основной запрос
-        let query = supabase
+        // Загружаем все данные без фильтров сначала
+        const { data, error } = await supabase
           .from('Estate')
           .select(`
             id,
             male,
             female,
+            id_report_record,
+            id_subtype_estate,
+            id_volost,
+            id_landowner,
+            id_military_unit,
             Report_record!Estate_id_report_record_fkey(
               id,
               code,
@@ -518,11 +523,15 @@ export default {
               Settlement!Report_record_id_settlment_fkey(
                 name_old,
                 name_modern,
+                id_district,
                 District(name)
               )
             ),
             Subtype_estate!Estate_id_subtype_estate_fkey(
               name,
+              id_type_estate,
+              id_type_religion,
+              id_type_affiliation,
               Type_estate(name),
               Type_religion(name),
               Type_affiliation(name)
@@ -537,15 +546,8 @@ export default {
               person
             )
           `)
+          .order('id', { ascending: false })
 
-        // Применяем фильтры на уровне SQL для лучшей производительности
-        if (this.currentFilters) {
-          this.applyEstateFiltersToQuery(query)
-        }
-
-        query = query.order('id', { ascending: false })
-
-        const { data, error } = await query
         if (error) throw error
 
         // Преобразуем данные в формат для таблицы
@@ -556,21 +558,29 @@ export default {
             settlement_name_old: item.Report_record?.Settlement?.name_old || null,
             settlement_name_modern: item.Report_record?.Settlement?.name_modern || null,
             district_name: item.Report_record?.Settlement?.District?.name || null,
+            district_id: item.Report_record?.Settlement?.id_district || null,
             subtype_estate_name: item.Subtype_estate?.name || null,
             type_estate_name: item.Subtype_estate?.Type_estate?.name || null,
             type_religion_name: item.Subtype_estate?.Type_religion?.name || null,
             type_affiliation_name: item.Subtype_estate?.Type_affiliation?.name || null,
+            type_estate_id: item.Subtype_estate?.id_type_estate || null,
+            type_religion_id: item.Subtype_estate?.id_type_religion || null,
+            type_affiliation_id: item.Subtype_estate?.id_type_affiliation || null,
+            subtype_estate_id: item.id_subtype_estate,
             male: item.male,
             female: item.female,
             total: (item.male || 0) + (item.female || 0),
             volost_name: item.Volost?.name || null,
+            volost_id: item.id_volost,
             landowner_description: item.Landowner?.description || item.Landowner?.person || null,
-            military_unit_description: item.Military_unit?.description || item.Military_unit?.person || null
+            landowner_id: item.id_landowner,
+            military_unit_description: item.Military_unit?.description || item.Military_unit?.person || null,
+            military_unit_id: item.id_military_unit
         }))
 
-        // Сохраняем все данные и применяем клиентские фильтры
+        // Сохраняем все данные и применяем фильтры на клиентской стороне
         this.allEstateData = mappedData
-        this.estateData = this.applyClientSideEstateFilters(mappedData)
+        this.estateData = this.applyClientSideEstateFiltersImproved(mappedData)
 
         console.log(`Loaded ${mappedData.length} estate records, filtered to ${this.estateData.length}`)
 
@@ -585,13 +595,43 @@ export default {
     applyEstateFiltersToQuery(query) {
       if (!this.currentFilters) return query
 
+      // Фильтр по районам через населенные пункты
+      if (this.currentFilters.districts?.length > 0) {
+        // Получаем ID населенных пунктов для выбранных районов
+        const settlementIds = this.allSettlements
+          ?.filter(s => this.currentFilters.districts.includes(s.id_district))
+          ?.map(s => s.id) || []
+
+        if (settlementIds.length > 0) {
+          // Фильтруем Report_record по населенным пунктам выбранных районов
+          query = query.in('Report_record.id_settlment', settlementIds)
+        } else {
+          // Если нет населенных пунктов для выбранных районов, возвращаем пустой результат
+          query = query.eq('id', -1) // Это гарантированно вернет пустой результат
+        }
+      }
+
+      // Фильтр по старым названиям населенных пунктов
+      if (this.currentFilters.settlementNamesOld?.length > 0) {
+        query = query.in('Report_record.Settlement.name_old', this.currentFilters.settlementNamesOld)
+      }
+
+      // Фильтр по современным названиям населенных пунктов
+      if (this.currentFilters.settlementNamesModern?.length > 0) {
+        query = query.in('Report_record.Settlement.name_modern', this.currentFilters.settlementNamesModern)
+      }
+
       // Фильтр по типам сословий через подтипы
       if (this.currentFilters.typeEstates?.length > 0) {
         const subtypeIds = this.allSubtypeEstates
-          .filter(s => this.currentFilters.typeEstates.includes(s.id_type_estate))
-          .map(s => s.id)
+          ?.filter(s => this.currentFilters.typeEstates.includes(s.id_type_estate))
+          ?.map(s => s.id) || []
+
         if (subtypeIds.length > 0) {
           query = query.in('id_subtype_estate', subtypeIds)
+        } else {
+          // Если нет подтипов для выбранных типов сословий, возвращаем пустой результат
+          query = query.eq('id', -1)
         }
       }
 
@@ -603,20 +643,28 @@ export default {
       // Фильтр по религиям через подтипы
       if (this.currentFilters.religions?.length > 0) {
         const subtypeIds = this.allSubtypeEstates
-          .filter(s => this.currentFilters.religions.includes(s.id_type_religion))
-          .map(s => s.id)
+          ?.filter(s => this.currentFilters.religions.includes(s.id_type_religion))
+          ?.map(s => s.id) || []
+
         if (subtypeIds.length > 0) {
           query = query.in('id_subtype_estate', subtypeIds)
+        } else {
+          // Если нет подтипов для выбранных религий, возвращаем пустой результат
+          query = query.eq('id', -1)
         }
       }
 
       // Фильтр по принадлежностям через подтипы
       if (this.currentFilters.affiliations?.length > 0) {
         const subtypeIds = this.allSubtypeEstates
-          .filter(s => this.currentFilters.affiliations.includes(s.id_type_affiliation))
-          .map(s => s.id)
+          ?.filter(s => this.currentFilters.affiliations.includes(s.id_type_affiliation))
+          ?.map(s => s.id) || []
+
         if (subtypeIds.length > 0) {
           query = query.in('id_subtype_estate', subtypeIds)
+        } else {
+          // Если нет подтипов для выбранных принадлежностей, возвращаем пустой результат
+          query = query.eq('id', -1)
         }
       }
 
@@ -687,6 +735,144 @@ export default {
         }
       }
 
+      return filtered
+    },
+
+    applyClientSideEstateFiltersImproved(data) {
+      if (!this.currentFilters) return data
+
+      console.log('Applying improved client-side filters:', this.currentFilters)
+      let filtered = [...data]
+
+      // Фильтр по районам
+      if (this.currentFilters.districts?.length > 0) {
+        console.log('Filtering by districts:', this.currentFilters.districts)
+        filtered = filtered.filter(item => {
+          if (!item.district_id) return false
+          return this.currentFilters.districts.includes(item.district_id)
+        })
+        console.log('After district filter:', filtered.length)
+      }
+
+      // Фильтр по старым названиям населенных пунктов
+      if (this.currentFilters.settlementNamesOld?.length > 0) {
+        console.log('Filtering by old settlement names:', this.currentFilters.settlementNamesOld)
+        filtered = filtered.filter(item =>
+          item.settlement_name_old && this.currentFilters.settlementNamesOld.includes(item.settlement_name_old)
+        )
+        console.log('After old settlement names filter:', filtered.length)
+      }
+
+      // Фильтр по современным названиям населенных пунктов
+      if (this.currentFilters.settlementNamesModern?.length > 0) {
+        console.log('Filtering by modern settlement names:', this.currentFilters.settlementNamesModern)
+        filtered = filtered.filter(item =>
+          item.settlement_name_modern && this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
+        )
+        console.log('After modern settlement names filter:', filtered.length)
+      }
+
+      // Фильтр по типам сословий
+      if (this.currentFilters.typeEstates?.length > 0) {
+        console.log('Filtering by type estates:', this.currentFilters.typeEstates)
+        filtered = filtered.filter(item => {
+          if (!item.type_estate_id) return false
+          return this.currentFilters.typeEstates.includes(item.type_estate_id)
+        })
+        console.log('After type estates filter:', filtered.length)
+      }
+
+      // Фильтр по подтипам сословий
+      if (this.currentFilters.subtypeEstates?.length > 0) {
+        console.log('Filtering by subtype estates:', this.currentFilters.subtypeEstates)
+        filtered = filtered.filter(item => {
+          if (!item.subtype_estate_id) return false
+          return this.currentFilters.subtypeEstates.includes(item.subtype_estate_id)
+        })
+        console.log('After subtype estates filter:', filtered.length)
+      }
+
+      // Фильтр по религиям
+      if (this.currentFilters.religions?.length > 0) {
+        console.log('Filtering by religions:', this.currentFilters.religions)
+        filtered = filtered.filter(item => {
+          if (!item.type_religion_id) return false
+          return this.currentFilters.religions.includes(item.type_religion_id)
+        })
+        console.log('After religions filter:', filtered.length)
+      }
+
+      // Фильтр по принадлежностям
+      if (this.currentFilters.affiliations?.length > 0) {
+        console.log('Filtering by affiliations:', this.currentFilters.affiliations)
+        filtered = filtered.filter(item => {
+          if (!item.type_affiliation_id) return false
+          return this.currentFilters.affiliations.includes(item.type_affiliation_id)
+        })
+        console.log('After affiliations filter:', filtered.length)
+      }
+
+      // Фильтр по волостям
+      if (this.currentFilters.volosts?.length > 0) {
+        console.log('Filtering by volosts:', this.currentFilters.volosts)
+        filtered = filtered.filter(item => {
+          if (!item.volost_id) return false
+          return this.currentFilters.volosts.includes(item.volost_id)
+        })
+        console.log('After volosts filter:', filtered.length)
+      }
+
+      // Фильтр по помещикам
+      if (this.currentFilters.landowners?.length > 0) {
+        console.log('Filtering by landowners:', this.currentFilters.landowners)
+        filtered = filtered.filter(item => {
+          if (!item.landowner_id) return false
+          return this.currentFilters.landowners.includes(item.landowner_id)
+        })
+        console.log('After landowners filter:', filtered.length)
+      }
+
+      // Фильтр по войсковым организациям
+      if (this.currentFilters.militaryUnits?.length > 0) {
+        console.log('Filtering by military units:', this.currentFilters.militaryUnits)
+        filtered = filtered.filter(item => {
+          if (!item.military_unit_id) return false
+          return this.currentFilters.militaryUnits.includes(item.military_unit_id)
+        })
+        console.log('After military units filter:', filtered.length)
+      }
+
+      // Фильтр по количеству мужчин
+      if (this.currentFilters.maleEnabled) {
+        if (this.currentFilters.maleMin !== null && this.currentFilters.maleMin !== undefined) {
+          filtered = filtered.filter(item => item.male >= this.currentFilters.maleMin)
+        }
+        if (this.currentFilters.maleMax !== null && this.currentFilters.maleMax !== undefined) {
+          filtered = filtered.filter(item => item.male <= this.currentFilters.maleMax)
+        }
+      }
+
+      // Фильтр по количеству женщин
+      if (this.currentFilters.femaleEnabled) {
+        if (this.currentFilters.femaleMin !== null && this.currentFilters.femaleMin !== undefined) {
+          filtered = filtered.filter(item => item.female >= this.currentFilters.femaleMin)
+        }
+        if (this.currentFilters.femaleMax !== null && this.currentFilters.femaleMax !== undefined) {
+          filtered = filtered.filter(item => item.female <= this.currentFilters.femaleMax)
+        }
+      }
+
+      // Фильтр по общему населению
+      if (this.currentFilters.populationEnabled) {
+        if (this.currentFilters.populationMin !== null && this.currentFilters.populationMin !== undefined) {
+          filtered = filtered.filter(item => item.total >= this.currentFilters.populationMin)
+        }
+        if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
+          filtered = filtered.filter(item => item.total <= this.currentFilters.populationMax)
+        }
+      }
+
+      console.log(`Final filtered results: ${filtered.length} from ${data.length}`)
       return filtered
     },
 
