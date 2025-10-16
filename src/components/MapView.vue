@@ -179,7 +179,6 @@ export default {
 
     initOpenLayersMap() {
       if (!this.$refs.olMap) {
-        console.error('OpenLayers map container not found')
         return
       }
       
@@ -283,24 +282,20 @@ export default {
         // Добавляем маркеры если есть данные
         this.updateOpenLayersMarkers()
       } catch (error) {
-        console.error('Error initializing OpenLayers map:', error)
+        // console.error('Error initializing OpenLayers map:', error)
       }
     },
 
     updateLeafletMarkers() {
       if (!this.leafletMapInstance) {
-        console.log('Leaflet map instance not ready')
         return
       }
-
-      console.log('Updating Leaflet markers, settlements count:', this.settlements?.length || 0)
 
       // Удаляем старые маркеры
       this.leafletMarkers.forEach(marker => marker.remove())
       this.leafletMarkers = []
 
       if (this.settlements.length === 0) {
-        console.log('No settlements to display')
         return
       }
 
@@ -314,11 +309,8 @@ export default {
 
           // Проверяем корректность координат
           if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            console.warn(`Invalid coordinates for ${settlement.name}:`, { lat, lon })
             return
           }
-
-          console.log(`Creating marker ${index + 1} for ${settlement.name}:`, { lat, lon })
 
           // Создаем маркер в зависимости от режима отображения
           const markerElement = this.createMarkerElement(settlement)
@@ -345,23 +337,17 @@ export default {
           validMarkers++
         }
       })
-
-      console.log(`Created ${validMarkers} valid markers out of ${this.settlements.length} settlements`)
     },
 
     updateOpenLayersMarkers() {
       if (!this.olVectorLayer || !this.olMapInstance) {
-        console.log('OpenLayers map or vector layer not ready')
         return
       }
-
-      console.log('Updating OpenLayers markers, settlements count:', this.settlements?.length || 0)
 
       const source = this.olVectorLayer.getSource()
       source.clear()
 
       if (this.settlements.length === 0) {
-        console.log('No settlements to display on OpenLayers')
         return
       }
 
@@ -375,11 +361,8 @@ export default {
 
           // Проверяем корректность координат
           if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            console.warn(`Invalid coordinates for ${settlement.name}:`, { lat, lon })
             return
           }
-
-          console.log(`Creating OpenLayers feature ${index + 1} for ${settlement.name}:`, { lat, lon })
 
           // Конвертируем из EPSG:4326 в EPSG:3857 для OpenLayers
           const [x, y] = fromLonLat([lon, lat])

@@ -38,7 +38,6 @@ export default {
   },
   methods: {
     handleFilterChange(filters) {
-      console.log('Filters changed:', filters)
       this.currentFilters = filters
       if (this.$refs.listAndMap) {
         this.$refs.listAndMap.applyFilters(filters)
@@ -50,7 +49,6 @@ export default {
     },
     
     handleOptionsLoaded(options) {
-      console.log('Filter options loaded:', options)
       this.filterOptions = options
       if (this.$refs.listAndMap) {
         this.$refs.listAndMap.setFilterOptions(options)

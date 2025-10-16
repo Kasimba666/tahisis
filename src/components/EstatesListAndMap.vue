@@ -499,8 +499,6 @@ export default {
       this.loading = true
 
       try {
-        console.log('Loading estate data with filters:', this.currentFilters)
-
         // Загружаем все данные без фильтров сначала
         const { data, error } = await supabase
           .from('Estate')
@@ -582,10 +580,7 @@ export default {
         this.allEstateData = mappedData
         this.estateData = this.applyClientSideEstateFiltersImproved(mappedData)
 
-        console.log(`Loaded ${mappedData.length} estate records, filtered to ${this.estateData.length}`)
-
       } catch (error) {
-        console.error('Error loading estate data:', error)
         ElMessage.error('Ошибка загрузки данных о сословиях: ' + error.message)
       } finally {
         this.loading = false
@@ -741,105 +736,84 @@ export default {
     applyClientSideEstateFiltersImproved(data) {
       if (!this.currentFilters) return data
 
-      console.log('Applying improved client-side filters:', this.currentFilters)
       let filtered = [...data]
 
       // Фильтр по районам
       if (this.currentFilters.districts?.length > 0) {
-        console.log('Filtering by districts:', this.currentFilters.districts)
         filtered = filtered.filter(item => {
           if (!item.district_id) return false
           return this.currentFilters.districts.includes(item.district_id)
         })
-        console.log('After district filter:', filtered.length)
       }
 
       // Фильтр по старым названиям населенных пунктов
       if (this.currentFilters.settlementNamesOld?.length > 0) {
-        console.log('Filtering by old settlement names:', this.currentFilters.settlementNamesOld)
         filtered = filtered.filter(item =>
           item.settlement_name_old && this.currentFilters.settlementNamesOld.includes(item.settlement_name_old)
         )
-        console.log('After old settlement names filter:', filtered.length)
       }
 
       // Фильтр по современным названиям населенных пунктов
       if (this.currentFilters.settlementNamesModern?.length > 0) {
-        console.log('Filtering by modern settlement names:', this.currentFilters.settlementNamesModern)
         filtered = filtered.filter(item =>
           item.settlement_name_modern && this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
         )
-        console.log('After modern settlement names filter:', filtered.length)
       }
 
       // Фильтр по типам сословий
       if (this.currentFilters.typeEstates?.length > 0) {
-        console.log('Filtering by type estates:', this.currentFilters.typeEstates)
         filtered = filtered.filter(item => {
           if (!item.type_estate_id) return false
           return this.currentFilters.typeEstates.includes(item.type_estate_id)
         })
-        console.log('After type estates filter:', filtered.length)
       }
 
       // Фильтр по подтипам сословий
       if (this.currentFilters.subtypeEstates?.length > 0) {
-        console.log('Filtering by subtype estates:', this.currentFilters.subtypeEstates)
         filtered = filtered.filter(item => {
           if (!item.subtype_estate_id) return false
           return this.currentFilters.subtypeEstates.includes(item.subtype_estate_id)
         })
-        console.log('After subtype estates filter:', filtered.length)
       }
 
       // Фильтр по религиям
       if (this.currentFilters.religions?.length > 0) {
-        console.log('Filtering by religions:', this.currentFilters.religions)
         filtered = filtered.filter(item => {
           if (!item.type_religion_id) return false
           return this.currentFilters.religions.includes(item.type_religion_id)
         })
-        console.log('After religions filter:', filtered.length)
       }
 
       // Фильтр по принадлежностям
       if (this.currentFilters.affiliations?.length > 0) {
-        console.log('Filtering by affiliations:', this.currentFilters.affiliations)
         filtered = filtered.filter(item => {
           if (!item.type_affiliation_id) return false
           return this.currentFilters.affiliations.includes(item.type_affiliation_id)
         })
-        console.log('After affiliations filter:', filtered.length)
       }
 
       // Фильтр по волостям
       if (this.currentFilters.volosts?.length > 0) {
-        console.log('Filtering by volosts:', this.currentFilters.volosts)
         filtered = filtered.filter(item => {
           if (!item.volost_id) return false
           return this.currentFilters.volosts.includes(item.volost_id)
         })
-        console.log('After volosts filter:', filtered.length)
       }
 
       // Фильтр по помещикам
       if (this.currentFilters.landowners?.length > 0) {
-        console.log('Filtering by landowners:', this.currentFilters.landowners)
         filtered = filtered.filter(item => {
           if (!item.landowner_id) return false
           return this.currentFilters.landowners.includes(item.landowner_id)
         })
-        console.log('After landowners filter:', filtered.length)
       }
 
       // Фильтр по войсковым организациям
       if (this.currentFilters.militaryUnits?.length > 0) {
-        console.log('Filtering by military units:', this.currentFilters.militaryUnits)
         filtered = filtered.filter(item => {
           if (!item.military_unit_id) return false
           return this.currentFilters.militaryUnits.includes(item.military_unit_id)
         })
-        console.log('After military units filter:', filtered.length)
       }
 
       // Фильтр по количеству мужчин
@@ -872,7 +846,6 @@ export default {
         }
       }
 
-      console.log(`Final filtered results: ${filtered.length} from ${data.length}`)
       return filtered
     },
 
@@ -957,21 +930,16 @@ export default {
       this.loading = true
 
       try {
-        console.log('Loading report data with filters:', this.currentFilters)
-        
         // Загружаем allSubtypeEstates если еще не загружены
         if (!this.allSubtypeEstates || this.allSubtypeEstates.length === 0) {
           const { data: subtypes, error: subtypesError } = await supabase
             .from('Subtype_estate')
             .select('id, name, id_type_estate, id_type_religion, id_type_affiliation')
-          
+
           if (subtypesError) throw subtypesError
           this.allSubtypeEstates = subtypes || []
-          console.log('Loaded allSubtypeEstates:', this.allSubtypeEstates.length)
         }
-        
-        console.log('allSubtypeEstates:', this.allSubtypeEstates?.length)
-        
+
         // Если есть фильтры по сословиям, сначала найдем подходящие Report_record через Estate
         let reportRecordIdsFromEstates = null
 
@@ -992,74 +960,64 @@ export default {
             .select('id_report_record')
 
           let hasFilters = false
-          
+
           // Применяем фильтры по сословиям
           if (this.currentFilters.typeEstates?.length > 0 && this.allSubtypeEstates?.length > 0) {
             const subtypeIds = this.allSubtypeEstates
               .filter(s => this.currentFilters.typeEstates.includes(s.id_type_estate))
               .map(s => s.id)
-            console.log('Type estates filter - subtypeIds:', subtypeIds)
             if (subtypeIds.length > 0) {
               estateQuery = estateQuery.in('id_subtype_estate', subtypeIds)
               hasFilters = true
             }
           }
-          
+
           if (this.currentFilters.subtypeEstates?.length > 0) {
-            console.log('Subtype estates filter:', this.currentFilters.subtypeEstates)
             estateQuery = estateQuery.in('id_subtype_estate', this.currentFilters.subtypeEstates)
             hasFilters = true
           }
-          
+
           if (this.currentFilters.religions?.length > 0 && this.allSubtypeEstates?.length > 0) {
             const subtypeIds = this.allSubtypeEstates
               .filter(s => this.currentFilters.religions.includes(s.id_type_religion))
               .map(s => s.id)
-            console.log('Religions filter - subtypeIds:', subtypeIds)
             if (subtypeIds.length > 0) {
               estateQuery = estateQuery.in('id_subtype_estate', subtypeIds)
               hasFilters = true
             }
           }
-          
+
           if (this.currentFilters.affiliations?.length > 0 && this.allSubtypeEstates?.length > 0) {
             const subtypeIds = this.allSubtypeEstates
               .filter(s => this.currentFilters.affiliations.includes(s.id_type_affiliation))
               .map(s => s.id)
-            console.log('Affiliations filter - subtypeIds:', subtypeIds)
             if (subtypeIds.length > 0) {
               estateQuery = estateQuery.in('id_subtype_estate', subtypeIds)
               hasFilters = true
             }
           }
-          
+
           if (this.currentFilters.volosts?.length > 0) {
-            console.log('Volosts filter:', this.currentFilters.volosts)
             estateQuery = estateQuery.in('id_volost', this.currentFilters.volosts)
             hasFilters = true
           }
-          
+
           if (this.currentFilters.landowners?.length > 0) {
-            console.log('Landowners filter:', this.currentFilters.landowners)
             estateQuery = estateQuery.in('id_landowner', this.currentFilters.landowners)
             hasFilters = true
           }
-          
+
           if (this.currentFilters.militaryUnits?.length > 0) {
-            console.log('Military units filter:', this.currentFilters.militaryUnits)
             estateQuery = estateQuery.in('id_military_unit', this.currentFilters.militaryUnits)
             hasFilters = true
           }
-          
+
           if (hasFilters) {
             const { data: estates, error: estatesError } = await estateQuery
             if (estatesError) throw estatesError
-            
-            // console.log('Found estates:', estates?.length)
 
             // Получаем уникальные id_report_record
             reportRecordIdsFromEstates = [...new Set(estates.map(e => e.id_report_record))]
-            // console.log('Unique report record IDs:', reportRecordIdsFromEstates.length)
           }
         }
         
@@ -1196,19 +1154,17 @@ export default {
             })
 
         const reportDataWithCounts = await Promise.all(countPromises)
-        
-      // Сохраняем все данные и применяем клиентские фильтры
-      this.allReportData = reportDataWithCounts
-      this.reportData = this.applyClientSideReportFilters(reportDataWithCounts)
 
-      console.log(`Loaded ${reportDataWithCounts.length} report records, filtered to ${this.reportData.length}`)
+        // Сохраняем все данные и применяем клиентские фильтры
+        this.allReportData = reportDataWithCounts
+        this.reportData = this.applyClientSideReportFilters(reportDataWithCounts)
 
-      // Обновляем маркеры на карте после загрузки данных
-      if (this.viewMode === 'map' || this.viewMode === 'split') {
-        this.$nextTick(() => {
-          this.updateMapMarkers()
-        })
-      }
+        // Обновляем маркеры на карте после загрузки данных
+        if (this.viewMode === 'map' || this.viewMode === 'split') {
+          this.$nextTick(() => {
+            this.updateMapMarkers()
+          })
+        }
       } catch (error) {
         console.error('Error loading report data:', error)
         ElMessage.error('Ошибка загрузки данных о ревизиях: ' + error.message)
@@ -1362,7 +1318,6 @@ export default {
     },
 
     applyFilters(filters) {
-      console.log('Applying filters in EstatesListAndMap:', filters)
       this.currentFilters = filters
 
       // Всегда загружаем данные, даже если фильтров нет
@@ -1382,22 +1337,13 @@ export default {
 
     // Обновляем маркеры на картах при изменении данных
     updateMapMarkers() {
-      console.log('=== UPDATING MAP MARKERS ===')
-      console.log('MapView ref exists:', !!this.$refs.mapView)
-      console.log('Current settlements count:', this.mapSettlements.length)
-      console.log('Current settlements:', this.mapSettlements)
-
       if (this.$refs.mapView) {
-        console.log('Updating map markers from EstatesListAndMap, settlements count:', this.mapSettlements.length)
-
         // Обновляем маркеры на обеих картах
         this.$nextTick(() => {
           if (this.$refs.mapView.updateLeafletMarkers) {
-            console.log('Calling updateLeafletMarkers')
             this.$refs.mapView.updateLeafletMarkers()
           }
           if (this.$refs.mapView.updateOpenLayersMarkers) {
-            console.log('Calling updateOpenLayersMarkers')
             this.$refs.mapView.updateOpenLayersMarkers()
           }
 
@@ -1405,22 +1351,18 @@ export default {
           setTimeout(() => {
             if (this.$refs.mapView.leafletMapInstance && this.$refs.mapView.$refs.leafletMap) {
               const rect = this.$refs.mapView.$refs.leafletMap.getBoundingClientRect()
-              console.log('Leaflet map rect:', rect)
               if (rect.width > 0 && rect.height > 0) {
                 this.$refs.mapView.leafletMapInstance.invalidateSize()
               }
             }
             if (this.$refs.mapView.olMapInstance && this.$refs.mapView.$refs.olMap) {
               const rect = this.$refs.mapView.$refs.olMap.getBoundingClientRect()
-              console.log('OpenLayers map rect:', rect)
               if (rect.width > 0 && rect.height > 0) {
                 this.$refs.mapView.olMapInstance.updateSize()
               }
             }
           }, 200)
         })
-      } else {
-        console.warn('MapView ref not found!')
       }
     }
   },
@@ -1453,7 +1395,6 @@ export default {
     // Отслеживаем изменения данных для обновления маркеров
     estateData: {
       handler() {
-        console.log('Estate data changed, updating map markers')
         if (this.viewMode === 'map' || this.viewMode === 'split') {
           this.updateMapMarkers()
         }
@@ -1462,7 +1403,6 @@ export default {
     },
     reportData: {
       handler() {
-        console.log('Report data changed, updating map markers')
         if (this.viewMode === 'map' || this.viewMode === 'split') {
           this.updateMapMarkers()
         }
@@ -1472,7 +1412,6 @@ export default {
     // Отслеживаем изменения фильтров для принудительного пересчета маркеров
     currentFilters: {
       handler() {
-        console.log('Filters changed, forcing map markers update')
         if (this.viewMode === 'map' || this.viewMode === 'split') {
           this.$nextTick(() => {
             this.updateMapMarkers()

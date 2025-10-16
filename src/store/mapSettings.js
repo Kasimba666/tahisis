@@ -124,12 +124,9 @@ export async function loadEstateTypeColors() {
       }
     })
 
-    console.log('Database colors after validation:', colorsFromDB)
-
     ESTATE_TYPE_COLORS = colorsFromDB
     mapSettings.estateTypeColors = { ...colorsFromDB }
 
-    console.log('Loaded estate type colors:', colorsFromDB)
     return colorsFromDB
   } catch (error) {
     console.error('Error loading estate type colors:', error)
@@ -165,7 +162,6 @@ export async function saveEstateTypeColor(estateTypeName, color) {
     // Обновляем локальный store
     mapSettings.estateTypeColors[estateTypeName] = hslColorForDB
 
-    console.log(`Saved color for ${estateTypeName}: ${hslColorForDB}`)
     return true
   } catch (error) {
     console.error('Error saving estate type color:', error)

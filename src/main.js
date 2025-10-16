@@ -28,9 +28,9 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 
 // Инициализируем сервисы
 initializeVectorLayerService().then(() => {
-  // console.log('Vector layer service initialized successfully')
+
 }).catch(error => {
-  // console.error('Failed to initialize vector layer service:', error)
+
 })
 
 app.mount('#app')
