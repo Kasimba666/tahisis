@@ -5,6 +5,7 @@ import PgAbout from '@/pages/PgAbout.vue'
 import PgServices from '@/pages/PgServices.vue'
 import PgContact from '@/pages/PgContact.vue'
 import PgComponentsDemo from '@/pages/PgComponentsDemo.vue'
+import PgEstateTypes from '@/pages/PgEstateTypes.vue'
 import PgEstateTypesUpload from '@/pages/PgEstateTypesUpload.vue'
 import PgRevisionsUpload from '@/pages/PgRevisionsUpload.vue'
 import PgEstatesList from '@/pages/PgEstatesList.vue'
@@ -12,11 +13,10 @@ import PgVectorLayerTypes from '@/pages/PgVectorLayerTypes.vue'
 import PgVectorLayers from '@/pages/PgVectorLayers.vue'
 
 const routes = [
-  // {
-  //   path: '/',
-  //   name: 'Home',
-  //   component: PgHome
-  // },
+  {
+    path: '/',
+    redirect: {name: 'About'},
+  },
   {
     path: '/about',
     name: 'About',
@@ -36,6 +36,14 @@ const routes = [
     path: '/demo',
     name: 'ComponentsDemo',
     component: PgComponentsDemo,
+    meta: {
+      requireAuth: true
+    }
+  },
+  {
+    path: '/estate-types',
+    name: 'EstateTypes',
+    component: PgEstateTypes,
     meta: {
       requireAuth: true
     }
@@ -93,7 +101,7 @@ router.beforeEach((to, from, next) => {
     // Перенаправляем на главную страницу с сообщением об ошибке
     next('/')
     // Здесь можно добавить показ сообщения об ошибке аутентификации
-    console.log('Доступ запрещен: требуется аутентификация')
+    // console.log('Доступ запрещен: требуется аутентификация')
   } else {
     next()
   }

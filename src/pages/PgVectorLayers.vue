@@ -183,13 +183,13 @@ export default {
         this.tableData = await vectorLayerService.getVectorLayers()
         this.layerTypeOptions = await vectorLayerService.getLayerTypes()
       } catch (error) {
-        console.error("Error fetching data:", error)
+        // console.error("Error fetching data:", error)
         this.$message.error("Ошибка загрузки данных")
       }
     },
 
     handleUploadComplete(result) {
-      console.log('Upload completed:', result)
+      // console.log('Upload completed:', result)
       if (result.success) {
         this.fetchData() // Обновляем таблицу после успешной загрузки
         // Обновляем векторные слои на картах
@@ -226,7 +226,7 @@ export default {
         })
         this.cancelEdit()
       } catch (error) {
-        console.error("Error updating vector layer:", error)
+        // console.error("Error updating vector layer:", error)
         this.$message.error("Ошибка обновления слоя")
       }
     },
@@ -237,7 +237,7 @@ export default {
         this.$message.success("Слой удален")
         this.fetchData()
       } catch (error) {
-        console.error("Error deleting vector layer:", error)
+        // console.error("Error deleting vector layer:", error)
         this.$message.error("Ошибка удаления слоя")
       }
     },
@@ -271,7 +271,7 @@ export default {
         this.startEdit(layerData)
         this.$message.success("Новый слой создан, заполните необходимые поля")
       } catch (error) {
-        console.error("Error adding vector layer:", error)
+        // console.error("Error adding vector layer:", error)
         this.$message.error(`Ошибка добавления слоя: ${error.message}`)
       }
     },
@@ -345,7 +345,7 @@ export default {
             results.push({ success: true, fileName: file.name, layerId: createdLayer.id })
 
           } catch (fileError) {
-            console.error(`Error processing ${file.name}:`, fileError)
+            // console.error(`Error processing ${file.name}:`, fileError)
             results.push({ success: false, fileName: file.name, error: fileError.message })
           }
         }
@@ -371,7 +371,7 @@ export default {
         this.fetchData()
 
       } catch (error) {
-        console.error('Error linking files:', error)
+        // console.error('Error linking files:', error)
         this.$message.error('Ошибка привязки файлов')
       } finally {
         this.linking = false
@@ -379,11 +379,11 @@ export default {
     },
 
     handleLinkUploadSuccess(response, file, fileList) {
-      console.log('Link upload success:', response)
+      // console.log('Link upload success:', response)
     },
 
     handleLinkUploadError(error, file, fileList) {
-      console.error('Link upload error:', error)
+      // console.error('Link upload error:', error)
       this.$message.error(`Ошибка загрузки файла ${file.name}`)
     },
 

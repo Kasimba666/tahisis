@@ -1,28 +1,29 @@
 <template>
   <div class="pg-estate-types-upload">
-    <h3>Типы сословий</h3>
-    <ExcelUpload @dataProcessed="fetchData" />
-
-    <div class="table-info">
-      <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-      >
-        <template #title>
-          Всего записей: {{ totalRecords }}
-        </template>
-      </el-alert>
+    <div class="page-header">
+      <h3>Подтипы сословий</h3>
+      <div class="header-info">
+        <el-alert
+            type="info"
+            :closable="false"
+            show-icon
+        >
+          <template #title>
+            Всего подтипов: {{ totalRecords }}
+          </template>
+        </el-alert>
+      </div>
     </div>
 
-    <div class="table-header">
-      <el-button type="success" size="small" @click="addRow">Добавить</el-button>
+    <div class="controls-section">
+      <ExcelUpload @dataProcessed="fetchData" />
+      <el-button type="success" size="small" @click="addRow">Добавить подтип</el-button>
     </div>
 
     <el-table :data="tableData" style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
 
-      <el-table-column label="Название">
+      <el-table-column label="Название подтипа">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">
             <el-input v-model="editRow.name" />
@@ -33,7 +34,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="Сословие">
+      <el-table-column label="Тип сословия">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">
             <el-select v-model="editRow.id_type_estate" placeholder="Выбрать">
@@ -47,6 +48,18 @@
           </div>
           <div v-else>
             {{ row.type_estate_name }}
+          </div>
+        </template>
+      </el-table-column>
+
+      <el-table-column label="Цвет типа" width="120">
+        <template #default="{ row }">
+          <div class="color-display">
+            <div
+              class="color-preview"
+              :style="{ backgroundColor: row.color || '#808080' }"
+            ></div>
+            <span class="color-value">{{ row.color || '#808080' }}</span>
           </div>
         </template>
       </el-table-column>
@@ -87,7 +100,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="Действия" width="280">
+      <el-table-column label="Действия" width="200">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">
             <el-button type="success" size="small" @click="updateRow(row.id)">Сохранить</el-button>
@@ -134,7 +147,7 @@ export default {
           .from("Subtype_estate")
           .select(`
           id, name, id_type_estate, id_type_religion, id_type_affiliation,
-          Type_estate ( name ),
+          Type_estate ( name, color ),
           Type_religion ( name ),
           Type_affiliation ( name )
         `)
@@ -143,7 +156,8 @@ export default {
         ...e,
         type_estate_name: e.Type_estate?.name || "",
         type_religion_name: e.Type_religion?.name || "",
-        type_affiliation_name: e.Type_affiliation?.name || ""
+        type_affiliation_name: e.Type_affiliation?.name || "",
+        color: e.Type_estate?.color || "#808080"
       }))
 
       // Справочники
@@ -157,14 +171,18 @@ export default {
     },
     startEdit(row) {
       this.editRowId = row.id
-      this.editRow = { ...row }
+      this.editRow = {
+        ...row,
+        color: row.color || "#808080"
+      }
     },
     cancelEdit() {
       this.editRowId = null
       this.editRow = {}
-      this.fetchData()
+      this.fetchData() // Обновляем данные для корректного отображения цветов
     },
     async updateRow(id) {
+      // Обновляем остальные поля в Subtype_estate
       const { error } = await supabase
           .from("Subtype_estate")
           .update({
@@ -203,11 +221,15 @@ export default {
           .select()
 
       if (!error && data?.length) {
+        // Получаем информацию о связанном типе сословия для цвета
+        const selectedEstateType = this.typeEstateOptions.find(estate => estate.id === data[0].id_type_estate)
+
         this.tableData.push({
           ...data[0],
-          type_estate_name: "",
+          type_estate_name: selectedEstateType?.name || "",
           type_religion_name: "",
-          type_affiliation_name: ""
+          type_affiliation_name: "",
+          color: selectedEstateType?.color || "#808080"
         })
         this.startEdit(data[0])
       }
@@ -223,25 +245,54 @@ export default {
 .pg-estate-types-upload {
   padding: 1rem;
 
-  h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0 0 1.5rem 0;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+
+    h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin: 0;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-info {
+      flex-shrink: 0;
+    }
   }
 
-  .table-info {
+  .controls-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 1rem;
+    gap: 1rem;
   }
 
-  .table-header {
-    margin-bottom: 1rem;
-  }
+  .color-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 
+    .color-preview {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 1px solid var(--border-color);
+    }
+
+    .color-value {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+  }
 }
 
 </style>

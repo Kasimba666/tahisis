@@ -79,6 +79,7 @@ CONSTRAINT Type_affiliation_pkey PRIMARY KEY (id)
 CREATE TABLE public.Type_estate (
 id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
 name character varying NOT NULL DEFAULT ''::character varying,
+color character varying,
 CONSTRAINT Type_estate_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.Type_religion (

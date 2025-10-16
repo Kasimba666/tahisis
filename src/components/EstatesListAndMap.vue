@@ -24,7 +24,7 @@
           trigger="click"
         >
           <template #reference>
-            <el-button size="small" type="default">
+            <el-button size="large" type="default">
               <el-icon><Setting /></el-icon>
               Столбцы
             </el-button>
@@ -63,19 +63,36 @@
             </div>
           </div>
         </el-popover>
-        <el-tag size="small" type="info">Всего записей: {{ totalRecords }}</el-tag>
+
+        <el-button size="large" type="primary" @click="showColorSettings = true">
+          <el-icon><Brush /></el-icon>
+          Цвета сословий
+        </el-button>
+
+        <el-tag size="large" type="info">Всего записей: {{ totalRecords }}</el-tag>
       </div>
     </div>
 
+    <!-- Drawer для настроек цветов -->
+    <el-drawer
+      v-model="showColorSettings"
+      title="Настройки окраски маркеров"
+      direction="rtl"
+      size="400px"
+      :before-close="closeColorSettings"
+    >
+      <ColorSchemeSelector @settings-change="onColorSettingsChange" />
+    </el-drawer>
+
     <div class="content-area" :class="viewMode">
-      <div v-if="viewMode === 'list' || viewMode === 'split'" class="list-section">
+      <div v-if="viewMode === 'list' || viewMode === 'split'" class="list-section" :class="{ 'split-mode': viewMode === 'split' }">
         <!-- Режим Estate -->
-        <el-table 
+        <el-table
           v-if="dataMode === 'estate'"
-          :data="estateData" 
+          :data="estateData"
           v-loading="loading"
-          style="width: 100%; height: calc(100% + 40px)"
-          border 
+          style="width: 100%; height: 100%"
+          border
           stripe
           size="small"
           @header-dragend="handleHeaderDragEnd"
@@ -95,17 +112,17 @@
           <el-table-column v-if="visibleEstateColumns.female" prop="female" label="Ж" width="50" align="right" sortable />
           <el-table-column v-if="visibleEstateColumns.total" prop="total" label="Всего" width="60" align="right" sortable />
           <el-table-column v-if="visibleEstateColumns.volost_name" prop="volost_name" label="Волость" width="120" sortable />
-          <el-table-column v-if="visibleEstateColumns.landowner_description" prop="landowner_description" label="Землевладелец" width="150" sortable />
+          <el-table-column v-if="visibleEstateColumns.landowner_description" prop="landowner_description" label="Помещик" width="150" sortable />
           <el-table-column v-if="visibleEstateColumns.military_unit_description" prop="military_unit_description" label="Воинская часть" width="150" sortable />
         </el-table>
 
         <!-- Режим Report_record -->
-        <el-table 
+        <el-table
           v-else
-          :data="reportData" 
+          :data="reportData"
           v-loading="loading"
-          style="width: 100%; height: calc(100% + 40px)"
-          border 
+          style="width: 100%; height: 100%"
+          border
           stripe
           size="small"
           @header-dragend="handleHeaderDragEnd"
@@ -154,8 +171,14 @@
             <el-descriptions-item label="Номер ревизии">
               {{ selectedRecord.revision_number || '—' }}
             </el-descriptions-item>
-            <el-descriptions-item label="Населенный пункт">
-              {{ selectedRecord.settlement_name || '—' }}
+            <el-descriptions-item label="Населенный пункт (старый)">
+              {{ selectedRecord.settlement_name_old || '—' }}
+              <span v-if="selectedRecord.settlement_name_modern && selectedRecord.settlement_name_modern !== selectedRecord.settlement_name_old" class="alt-name">
+                ({{ selectedRecord.settlement_name_modern }})
+              </span>
+            </el-descriptions-item>
+            <el-descriptions-item label="Населенный пункт (современный)">
+              {{ selectedRecord.settlement_name_modern || '—' }}
             </el-descriptions-item>
             <el-descriptions-item label="Район">
               {{ selectedRecord.district_name || '—' }}
@@ -300,11 +323,12 @@
 </template>
 
 <script>
-import { Location, Loading, Setting } from '@element-plus/icons-vue'
+import { Location, Loading, Setting, Brush } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import Sortable from 'sortablejs'
 import MapView from './MapView.vue'
+import ColorSchemeSelector from './ColorSchemeSelector.vue'
 
 export default {
   name: 'EstatesListAndMap',
@@ -312,7 +336,8 @@ export default {
     Location,
     Loading,
     Setting,
-    MapView
+    MapView,
+    ColorSchemeSelector
   },
   data() {
     return {
@@ -327,6 +352,7 @@ export default {
       detailsDrawerVisible: false,
       selectedRecord: null,
       columnsPopoverVisible: false,
+      showColorSettings: false,
       currentFilters: null,
       allDistricts: [],
       allSettlements: [],
@@ -336,8 +362,8 @@ export default {
       allAffiliations: [],
       allVolosts: [],
       visibleEstateColumns: {
-        id: true,
-        revision_year: true,
+        id: false,
+        revision_year: false,
         revision_number: true,
         settlement_name_old: true,
         settlement_name_modern: true,
@@ -354,9 +380,9 @@ export default {
         military_unit_description: true
       },
       visibleReportColumns: {
-        id: true,
+        id: false,
         code: true,
-        revision_year: true,
+        revision_year: false,
         revision_number: true,
         settlement_name_old: true,
         settlement_name_modern: true,
@@ -380,43 +406,35 @@ export default {
       // Собираем уникальные населенные пункты из текущих данных
       const settlementsMap = new Map()
 
-      console.log('=== COMPUTING MAP SETTLEMENTS ===')
-      console.log('Computing mapSettlements, dataMode:', this.dataMode)
-      console.log('estateData length:', this.estateData.length)
-      console.log('reportData length:', this.reportData.length)
-      console.log('allSettlements length:', this.allSettlements?.length)
-
-      if (this.allSettlements?.length > 0) {
-        console.log('First few allSettlements:', this.allSettlements.slice(0, 3))
-      }
-      
       if (this.dataMode === 'estate') {
-        this.estateData.forEach(item => {
-          const key = item.settlement_name
+        this.estateData.forEach((item, index) => {
+          const key = item.settlement_name_modern || item.settlement_name_old
+
           if (key && !settlementsMap.has(key)) {
             // Нужно получить координаты из allSettlements
-            const settlement = this.allSettlements?.find(s => 
-              s.name_modern === item.settlement_name || s.name_old === item.settlement_name
+            const settlement = this.allSettlements?.find(s =>
+              s.name_modern === item.settlement_name_modern ||
+              s.name_old === item.settlement_name_old ||
+              s.name_modern === key ||
+              s.name_old === key
             )
+
             if (settlement && settlement.lat && settlement.lon) {
-              console.log('Found settlement with coords:', settlement.name_modern || settlement.name_old, settlement.lat, settlement.lon)
               settlementsMap.set(key, {
-                name: item.settlement_name,
+                name: key,
                 district: item.district_name,
                 lat: settlement.lat,
                 lon: settlement.lon,
-                population: null // Можно посчитать сумму по этому населенному пункту
+                population: null
               })
-            } else {
-              console.log('Settlement without coords:', key, settlement)
             }
           }
         })
       } else {
-        this.reportData.forEach(item => {
+        this.reportData.forEach((item, index) => {
           const key = item.settlement_name_modern || item.settlement_name_old
+
           if (key && item.lat && item.lon && !settlementsMap.has(key)) {
-            console.log('Report settlement with coords:', key, item.lat, item.lon)
             settlementsMap.set(key, {
               name: key,
               district: item.district_name,
@@ -427,9 +445,16 @@ export default {
           }
         })
       }
-      
+
       const result = Array.from(settlementsMap.values())
-      console.log('Final mapSettlements:', result)
+
+      // Обновляем маркеры на карте при изменении данных
+      if (this.viewMode === 'map' || this.viewMode === 'split') {
+        this.$nextTick(() => {
+          this.updateMapMarkers()
+        })
+      }
+
       return result
     }
   },
@@ -456,7 +481,7 @@ export default {
         
         if (error) throw error
         this.allSettlements = data || []
-        console.log('Loaded settlements reference:', this.allSettlements.length)
+        // console.log('Loaded settlements reference:', this.allSettlements.length)
       } catch (error) {
         console.error('Error loading settlements reference:', error)
       }
@@ -472,41 +497,10 @@ export default {
 
     async loadEstateData() {
       this.loading = true
-      
+
       try {
-        // Сначала получаем ID Report_record с учетом фильтров по району/населенному пункту
-        let reportRecordIds = null
-        
-        if (this.currentFilters && (this.currentFilters.districts?.length > 0 || this.currentFilters.settlements?.length > 0)) {
-          let settlementIds = []
-          
-          // Если выбраны конкретные населенные пункты, используем их
-          if (this.currentFilters.settlements?.length > 0) {
-            settlementIds = this.currentFilters.settlements
-          } 
-          // Иначе если выбраны районы, получаем все населенные пункты этих районов
-          else if (this.currentFilters.districts?.length > 0) {
-            const { data: settlements, error: settlementError } = await supabase
-              .from('Settlement')
-              .select('id')
-              .in('id_district', this.currentFilters.districts)
-            
-            if (settlementError) throw settlementError
-            settlementIds = settlements.map(s => s.id)
-          }
-          
-          // Теперь получаем Report_record для этих населенных пунктов
-          if (settlementIds.length > 0) {
-            const { data: reportRecords, error: reportError } = await supabase
-              .from('Report_record')
-              .select('id')
-              .in('id_settlment', settlementIds)
-            
-            if (reportError) throw reportError
-            reportRecordIds = reportRecords.map(r => r.id)
-          }
-        }
-        
+        console.log('Loading estate data with filters:', this.currentFilters)
+
         // Строим основной запрос
         let query = supabase
           .from('Estate')
@@ -543,97 +537,17 @@ export default {
               person
             )
           `)
-        
-        // Применяем фильтры на уровне SQL
+
+        // Применяем фильтры на уровне SQL для лучшей производительности
         if (this.currentFilters) {
-          // Фильтр по Report_record (район/населенный пункт)
-          if (reportRecordIds && reportRecordIds.length > 0) {
-            query = query.in('id_report_record', reportRecordIds)
-          } else if (reportRecordIds && reportRecordIds.length === 0) {
-            // Если фильтр применен но ничего не найдено, возвращаем пустой результат
-            this.allEstateData = []
-            this.estateData = []
-            this.loading = false
-            return
-          }
-          
-          // Фильтр по типам сословий через подтипы
-          if (this.currentFilters.typeEstates?.length > 0) {
-            // Получаем все подтипы, относящиеся к выбранным типам
-            const subtypeIds = this.allSubtypeEstates
-              .filter(s => this.currentFilters.typeEstates.includes(s.id_type_estate))
-              .map(s => s.id)
-            if (subtypeIds.length > 0) {
-              query = query.in('id_subtype_estate', subtypeIds)
-            }
-          }
-          
-          // Фильтр по подтипам сословия (массив)
-          if (this.currentFilters.subtypeEstates?.length > 0) {
-            query = query.in('id_subtype_estate', this.currentFilters.subtypeEstates)
-          }
-          
-          // Фильтр по религиям через подтипы
-          if (this.currentFilters.religions?.length > 0) {
-            const subtypeIds = this.allSubtypeEstates
-              .filter(s => this.currentFilters.religions.includes(s.id_type_religion))
-              .map(s => s.id)
-            if (subtypeIds.length > 0) {
-              query = query.in('id_subtype_estate', subtypeIds)
-            }
-          }
-          
-          // Фильтр по принадлежностям через подтипы
-          if (this.currentFilters.affiliations?.length > 0) {
-            const subtypeIds = this.allSubtypeEstates
-              .filter(s => this.currentFilters.affiliations.includes(s.id_type_affiliation))
-              .map(s => s.id)
-            if (subtypeIds.length > 0) {
-              query = query.in('id_subtype_estate', subtypeIds)
-            }
-          }
-          
-          // Фильтр по волостям (массив)
-          if (this.currentFilters.volosts?.length > 0) {
-            query = query.in('id_volost', this.currentFilters.volosts)
-          }
-          
-          // Фильтр по помещикам (массив)
-          if (this.currentFilters.landowners?.length > 0) {
-            query = query.in('id_landowner', this.currentFilters.landowners)
-          }
-          
-          // Фильтр по войсковым организациям (массив)
-          if (this.currentFilters.militaryUnits?.length > 0) {
-            query = query.in('id_military_unit', this.currentFilters.militaryUnits)
-          }
-          
-          // Фильтр по количеству мужчин (только если включен)
-          if (this.currentFilters.maleEnabled) {
-            if (this.currentFilters.maleMin !== null && this.currentFilters.maleMin !== undefined) {
-              query = query.gte('male', this.currentFilters.maleMin)
-            }
-            if (this.currentFilters.maleMax !== null && this.currentFilters.maleMax !== undefined) {
-              query = query.lte('male', this.currentFilters.maleMax)
-            }
-          }
-          
-          // Фильтр по количеству женщин (только если включен)
-          if (this.currentFilters.femaleEnabled) {
-            if (this.currentFilters.femaleMin !== null && this.currentFilters.femaleMin !== undefined) {
-              query = query.gte('female', this.currentFilters.femaleMin)
-            }
-            if (this.currentFilters.femaleMax !== null && this.currentFilters.femaleMax !== undefined) {
-              query = query.lte('female', this.currentFilters.femaleMax)
-            }
-          }
+          this.applyEstateFiltersToQuery(query)
         }
-        
+
         query = query.order('id', { ascending: false })
-        
+
         const { data, error } = await query
         if (error) throw error
-        
+
         // Преобразуем данные в формат для таблицы
         const mappedData = data.map(item => ({
             id: item.id,
@@ -653,19 +567,204 @@ export default {
             landowner_description: item.Landowner?.description || item.Landowner?.person || null,
             military_unit_description: item.Military_unit?.description || item.Military_unit?.person || null
         }))
-        
-        // Сохраняем все данные
+
+        // Сохраняем все данные и применяем клиентские фильтры
         this.allEstateData = mappedData
-        // Применяем фильтры если они есть
-        this.filterEstateData()
-        // Обновляем векторные слои после загрузки данных
-        this.refreshMapLayers()
+        this.estateData = this.applyClientSideEstateFilters(mappedData)
+
+        console.log(`Loaded ${mappedData.length} estate records, filtered to ${this.estateData.length}`)
+
       } catch (error) {
         console.error('Error loading estate data:', error)
         ElMessage.error('Ошибка загрузки данных о сословиях: ' + error.message)
       } finally {
         this.loading = false
       }
+    },
+
+    applyEstateFiltersToQuery(query) {
+      if (!this.currentFilters) return query
+
+      // Фильтр по типам сословий через подтипы
+      if (this.currentFilters.typeEstates?.length > 0) {
+        const subtypeIds = this.allSubtypeEstates
+          .filter(s => this.currentFilters.typeEstates.includes(s.id_type_estate))
+          .map(s => s.id)
+        if (subtypeIds.length > 0) {
+          query = query.in('id_subtype_estate', subtypeIds)
+        }
+      }
+
+      // Фильтр по подтипам сословия (массив)
+      if (this.currentFilters.subtypeEstates?.length > 0) {
+        query = query.in('id_subtype_estate', this.currentFilters.subtypeEstates)
+      }
+
+      // Фильтр по религиям через подтипы
+      if (this.currentFilters.religions?.length > 0) {
+        const subtypeIds = this.allSubtypeEstates
+          .filter(s => this.currentFilters.religions.includes(s.id_type_religion))
+          .map(s => s.id)
+        if (subtypeIds.length > 0) {
+          query = query.in('id_subtype_estate', subtypeIds)
+        }
+      }
+
+      // Фильтр по принадлежностям через подтипы
+      if (this.currentFilters.affiliations?.length > 0) {
+        const subtypeIds = this.allSubtypeEstates
+          .filter(s => this.currentFilters.affiliations.includes(s.id_type_affiliation))
+          .map(s => s.id)
+        if (subtypeIds.length > 0) {
+          query = query.in('id_subtype_estate', subtypeIds)
+        }
+      }
+
+      // Фильтр по волостям (массив)
+      if (this.currentFilters.volosts?.length > 0) {
+        query = query.in('id_volost', this.currentFilters.volosts)
+      }
+
+      // Фильтр по помещикам (массив)
+      if (this.currentFilters.landowners?.length > 0) {
+        query = query.in('id_landowner', this.currentFilters.landowners)
+      }
+
+      // Фильтр по войсковым организациям (массив)
+      if (this.currentFilters.militaryUnits?.length > 0) {
+        query = query.in('id_military_unit', this.currentFilters.militaryUnits)
+      }
+
+      // Фильтр по количеству мужчин (только если включен)
+      if (this.currentFilters.maleEnabled) {
+        if (this.currentFilters.maleMin !== null && this.currentFilters.maleMin !== undefined) {
+          query = query.gte('male', this.currentFilters.maleMin)
+        }
+        if (this.currentFilters.maleMax !== null && this.currentFilters.maleMax !== undefined) {
+          query = query.lte('male', this.currentFilters.maleMax)
+        }
+      }
+
+      // Фильтр по количеству женщин (только если включен)
+      if (this.currentFilters.femaleEnabled) {
+        if (this.currentFilters.femaleMin !== null && this.currentFilters.femaleMin !== undefined) {
+          query = query.gte('female', this.currentFilters.femaleMin)
+        }
+        if (this.currentFilters.femaleMax !== null && this.currentFilters.femaleMax !== undefined) {
+          query = query.lte('female', this.currentFilters.femaleMax)
+        }
+      }
+
+      return query
+    },
+
+    applyClientSideEstateFilters(data) {
+      if (!this.currentFilters) return data
+
+      let filtered = [...data]
+
+      // Фильтр по старому названию населенного пункта
+      if (this.currentFilters.settlementNamesOld?.length > 0) {
+        filtered = filtered.filter(item =>
+          this.currentFilters.settlementNamesOld.includes(item.settlement_name_old)
+        )
+      }
+
+      // Фильтр по современному названию населенного пункта
+      if (this.currentFilters.settlementNamesModern?.length > 0) {
+        filtered = filtered.filter(item =>
+          this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
+        )
+      }
+
+      // Фильтр по общему населению (только если включен)
+      if (this.currentFilters.populationEnabled) {
+        if (this.currentFilters.populationMin !== null && this.currentFilters.populationMin !== undefined) {
+          filtered = filtered.filter(item => item.total >= this.currentFilters.populationMin)
+        }
+        if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
+          filtered = filtered.filter(item => item.total <= this.currentFilters.populationMax)
+        }
+      }
+
+      return filtered
+    },
+
+    applyClientSideReportFilters(data) {
+      if (!this.currentFilters) return data
+
+      let filtered = [...data]
+
+      // Фильтр по району
+      if (this.currentFilters.district) {
+        const selectedDistrict = this.allDistricts?.find(d => d.id === this.currentFilters.district)
+        if (selectedDistrict) {
+          filtered = filtered.filter(item => item.district_name === selectedDistrict.name)
+        }
+      }
+
+      // Фильтр по населенному пункту
+      if (this.currentFilters.settlement) {
+        const selectedSettlement = this.allSettlements?.find(s => s.id === this.currentFilters.settlement)
+        if (selectedSettlement) {
+          filtered = filtered.filter(item =>
+            item.settlement_name_old === selectedSettlement.name ||
+            item.settlement_name_modern === selectedSettlement.name
+          )
+        }
+      }
+
+      // Фильтр по населению (мин)
+      if (this.currentFilters.populationMin !== null && this.currentFilters.populationMin !== undefined) {
+        filtered = filtered.filter(item => item.population_all >= this.currentFilters.populationMin)
+      }
+
+      // Фильтр по населению (макс)
+      if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
+        filtered = filtered.filter(item => item.population_all <= this.currentFilters.populationMax)
+      }
+
+      // Фильтр по количеству сословий (только если включен)
+      if (this.currentFilters.estatesCountEnabled) {
+        if (this.currentFilters.estatesCountMin !== null && this.currentFilters.estatesCountMin !== undefined) {
+          filtered = filtered.filter(item => item.estates_count >= this.currentFilters.estatesCountMin)
+        }
+        if (this.currentFilters.estatesCountMax !== null && this.currentFilters.estatesCountMax !== undefined) {
+          filtered = filtered.filter(item => item.estates_count <= this.currentFilters.estatesCountMax)
+        }
+      }
+
+      // Фильтр по мужчинам (только если включен) - для суммированных данных
+      if (this.currentFilters.maleEnabled) {
+        if (this.currentFilters.maleMin !== null && this.currentFilters.maleMin !== undefined) {
+          filtered = filtered.filter(item => (item.total_male || 0) >= this.currentFilters.maleMin)
+        }
+        if (this.currentFilters.maleMax !== null && this.currentFilters.maleMax !== undefined) {
+          filtered = filtered.filter(item => (item.total_male || 0) <= this.currentFilters.maleMax)
+        }
+      }
+
+      // Фильтр по женщинам (только если включен) - для суммированных данных
+      if (this.currentFilters.femaleEnabled) {
+        if (this.currentFilters.femaleMin !== null && this.currentFilters.femaleMin !== undefined) {
+          filtered = filtered.filter(item => (item.total_female || 0) >= this.currentFilters.femaleMin)
+        }
+        if (this.currentFilters.femaleMax !== null && this.currentFilters.femaleMax !== undefined) {
+          filtered = filtered.filter(item => (item.total_female || 0) <= this.currentFilters.femaleMax)
+        }
+      }
+
+      // Фильтр по общему населению (только если включен) - для суммированных данных
+      if (this.currentFilters.populationEnabled) {
+        if (this.currentFilters.populationMin !== null && this.currentFilters.populationMin !== undefined) {
+          filtered = filtered.filter(item => (item.total_population || 0) >= this.currentFilters.populationMin)
+        }
+        if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
+          filtered = filtered.filter(item => (item.total_population || 0) <= this.currentFilters.populationMax)
+        }
+      }
+
+      return filtered
     },
 
     async loadReportData() {
@@ -689,21 +788,23 @@ export default {
         
         // Если есть фильтры по сословиям, сначала найдем подходящие Report_record через Estate
         let reportRecordIdsFromEstates = null
-        
-        if (this.currentFilters && (
-          this.currentFilters.typeEstates?.length > 0 ||
-          this.currentFilters.subtypeEstates?.length > 0 ||
-          this.currentFilters.religions?.length > 0 ||
-          this.currentFilters.affiliations?.length > 0 ||
-          this.currentFilters.volosts?.length > 0 ||
-          this.currentFilters.landowners?.length > 0 ||
-          this.currentFilters.militaryUnits?.length > 0
-        )) {
+
+        // Проверяем, есть ли фильтры по сословиям
+        const hasEstateFilters =
+          this.currentFilters?.typeEstates?.length > 0 ||
+          this.currentFilters?.subtypeEstates?.length > 0 ||
+          this.currentFilters?.religions?.length > 0 ||
+          this.currentFilters?.affiliations?.length > 0 ||
+          this.currentFilters?.volosts?.length > 0 ||
+          this.currentFilters?.landowners?.length > 0 ||
+          this.currentFilters?.militaryUnits?.length > 0
+
+        if (hasEstateFilters) {
           // Строим запрос к Estate с фильтрами
           let estateQuery = supabase
             .from('Estate')
             .select('id_report_record')
-          
+
           let hasFilters = false
           
           // Применяем фильтры по сословиям
@@ -768,11 +869,11 @@ export default {
             const { data: estates, error: estatesError } = await estateQuery
             if (estatesError) throw estatesError
             
-            console.log('Found estates:', estates?.length)
-            
+            // console.log('Found estates:', estates?.length)
+
             // Получаем уникальные id_report_record
             reportRecordIdsFromEstates = [...new Set(estates.map(e => e.id_report_record))]
-            console.log('Unique report record IDs:', reportRecordIdsFromEstates.length)
+            // console.log('Unique report record IDs:', reportRecordIdsFromEstates.length)
           }
         }
         
@@ -910,16 +1011,18 @@ export default {
 
         const reportDataWithCounts = await Promise.all(countPromises)
         
-      // Сохраняем все данные
+      // Сохраняем все данные и применяем клиентские фильтры
       this.allReportData = reportDataWithCounts
-      // Применяем фильтры если они есть
-      this.filterReportData()
-      // Обновляем векторные слои после загрузки данных
-      this.refreshMapLayers()
-      // Обновляем векторные слои после загрузки данных
-      this.refreshMapLayers()
-        // Обновляем векторные слои после загрузки данных
-        this.refreshMapLayers()
+      this.reportData = this.applyClientSideReportFilters(reportDataWithCounts)
+
+      console.log(`Loaded ${reportDataWithCounts.length} report records, filtered to ${this.reportData.length}`)
+
+      // Обновляем маркеры на карте после загрузки данных
+      if (this.viewMode === 'map' || this.viewMode === 'split') {
+        this.$nextTick(() => {
+          this.updateMapMarkers()
+        })
+      }
       } catch (error) {
         console.error('Error loading report data:', error)
         ElMessage.error('Ошибка загрузки данных о ревизиях: ' + error.message)
@@ -929,7 +1032,7 @@ export default {
     },
 
     viewDetails(row) {
-      console.log('View details for:', row)
+      // console.log('View details for:', row)
       this.selectedRecord = row
       this.detailsDrawerVisible = true
 
@@ -997,8 +1100,26 @@ export default {
       this.selectedRecord = null
     },
 
+    closeColorSettings() {
+      this.showColorSettings = false
+    },
+
+    onColorSettingsChange() {
+      // Обновляем маркеры на карте при изменении настроек цветов
+      this.$nextTick(() => {
+        if (this.$refs.mapView) {
+          if (this.$refs.mapView.updateLeafletMarkers) {
+            this.$refs.mapView.updateLeafletMarkers()
+          }
+          if (this.$refs.mapView.updateOpenLayersMarkers) {
+            this.$refs.mapView.updateOpenLayersMarkers()
+          }
+        }
+      })
+    },
+
     handleHeaderDragEnd(newWidth, oldWidth, column, event) {
-      console.log('Column resized:', column.label, 'New width:', newWidth)
+      // console.log('Column resized:', column.label, 'New width:', newWidth)
     },
 
     initColumnDragDrop() {
@@ -1028,23 +1149,23 @@ export default {
           fallbackOnBody: true,
           swapThreshold: 0.65,
           onStart: (evt) => {
-            console.log('Drag started', evt.oldIndex)
+            // console.log('Drag started', evt.oldIndex)
           },
           onEnd: (evt) => {
             const {oldIndex, newIndex} = evt
             if (oldIndex !== newIndex) {
-              console.log(`Column moved from ${oldIndex} to ${newIndex}`)
+              // console.log(`Column moved from ${oldIndex} to ${newIndex}`)
               ElMessage.success(`Столбец перемещен с позиции ${oldIndex + 1} на позицию ${newIndex + 1}`)
             }
           }
         })
 
-        console.log('Sortable initialized successfully')
+        // console.log('Sortable initialized successfully')
       }, 300)
     },
 
     setFilterOptions(options) {
-      console.log('Setting filter options:', options)
+      // console.log('Setting filter options:', options)
       this.allDistricts = options.districts || []
       this.allSettlements = options.settlements || []
       this.allTypeEstates = options.typeEstates || []
@@ -1055,7 +1176,7 @@ export default {
     },
 
     applyFilters(filters) {
-      console.log('Applying filters:', filters)
+      console.log('Applying filters in EstatesListAndMap:', filters)
       this.currentFilters = filters
 
       // Всегда загружаем данные, даже если фильтров нет
@@ -1063,201 +1184,34 @@ export default {
       this.loadData()
     },
 
-    filterEstateData() {
-      if (!this.currentFilters) {
-        this.estateData = [...this.allEstateData]
-        return
-      }
-      
-      let filtered = [...this.allEstateData]
 
-      // Фильтр по району - фильтруем по ID из фильтра, сравнивая с названием района
-      if (this.currentFilters.district) {
-        const selectedDistrict = this.allDistricts?.find(d => d.id === this.currentFilters.district)
-        if (selectedDistrict) {
-          filtered = filtered.filter(item => item.district_name === selectedDistrict.name)
-        }
-      }
-
-      // Фильтр по населенному пункту
-      if (this.currentFilters.settlement) {
-        const selectedSettlement = this.allSettlements?.find(s => s.id === this.currentFilters.settlement)
-        if (selectedSettlement) {
-          filtered = filtered.filter(item => 
-            item.settlement_name === selectedSettlement.name_modern || 
-            item.settlement_name === selectedSettlement.name_old
-          )
-        }
-      }
-
-      // Фильтр по типам сословия (массив)
-      if (this.currentFilters.typeEstates?.length > 0) {
-        const selectedTypeNames = this.currentFilters.typeEstates
-          .map(id => this.allTypeEstates?.find(t => t.id === id)?.name)
-          .filter(Boolean)
-        if (selectedTypeNames.length > 0) {
-          filtered = filtered.filter(item => selectedTypeNames.includes(item.type_estate_name))
-        }
-      }
-
-      // Фильтр по подтипам сословия (массив) - уже применен на SQL уровне, но для полноты
-      if (this.currentFilters.subtypeEstates?.length > 0) {
-        const selectedSubtypeNames = this.currentFilters.subtypeEstates
-          .map(id => this.allSubtypeEstates?.find(s => s.id === id)?.name)
-          .filter(Boolean)
-        if (selectedSubtypeNames.length > 0) {
-          filtered = filtered.filter(item => selectedSubtypeNames.includes(item.subtype_estate_name))
-        }
-      }
-
-      // Фильтр по религиям (массив)
-      if (this.currentFilters.religions?.length > 0) {
-        const selectedReligionNames = this.currentFilters.religions
-          .map(id => this.allReligions?.find(r => r.id === id)?.name)
-          .filter(Boolean)
-        if (selectedReligionNames.length > 0) {
-          filtered = filtered.filter(item => selectedReligionNames.includes(item.type_religion_name))
-        }
-      }
-
-      // Фильтр по принадлежностям (массив)
-      if (this.currentFilters.affiliations?.length > 0) {
-        const selectedAffiliationNames = this.currentFilters.affiliations
-          .map(id => this.allAffiliations?.find(a => a.id === id)?.name)
-          .filter(Boolean)
-        if (selectedAffiliationNames.length > 0) {
-          filtered = filtered.filter(item => selectedAffiliationNames.includes(item.type_affiliation_name))
-        }
-      }
-
-      // Фильтр по волостям (массив) - уже применен на SQL уровне, но для полноты
-      if (this.currentFilters.volosts?.length > 0) {
-        const selectedVolostNames = this.currentFilters.volosts
-          .map(id => this.allVolosts?.find(v => v.id === id)?.name)
-          .filter(Boolean)
-        if (selectedVolostNames.length > 0) {
-          filtered = filtered.filter(item => selectedVolostNames.includes(item.volost_name))
-        }
-      }
-
-      // Фильтр по мужчинам (только если включен)
-      if (this.currentFilters.maleEnabled) {
-        if (this.currentFilters.maleMin !== null && this.currentFilters.maleMin !== undefined) {
-          filtered = filtered.filter(item => (item.male || 0) >= this.currentFilters.maleMin)
-        }
-        if (this.currentFilters.maleMax !== null && this.currentFilters.maleMax !== undefined) {
-          filtered = filtered.filter(item => (item.male || 0) <= this.currentFilters.maleMax)
-        }
-      }
-
-      // Фильтр по женщинам (только если включен)
-      if (this.currentFilters.femaleEnabled) {
-        if (this.currentFilters.femaleMin !== null && this.currentFilters.femaleMin !== undefined) {
-          filtered = filtered.filter(item => (item.female || 0) >= this.currentFilters.femaleMin)
-        }
-        if (this.currentFilters.femaleMax !== null && this.currentFilters.femaleMax !== undefined) {
-          filtered = filtered.filter(item => (item.female || 0) <= this.currentFilters.femaleMax)
-        }
-      }
-
-      // Фильтр по общему населению (только если включен)
-      if (this.currentFilters.populationEnabled) {
-        if (this.currentFilters.populationMin !== null && this.currentFilters.populationMin !== undefined) {
-          filtered = filtered.filter(item => item.total >= this.currentFilters.populationMin)
-        }
-        if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
-          filtered = filtered.filter(item => item.total <= this.currentFilters.populationMax)
-        }
-      }
-
-      // Фильтр по старому названию населенного пункта
-      if (this.currentFilters.settlementNamesOld?.length > 0) {
-        filtered = filtered.filter(item =>
-          this.currentFilters.settlementNamesOld.includes(item.settlement_name_old)
-        )
-      }
-
-      // Фильтр по современному названию населенного пункта
-      if (this.currentFilters.settlementNamesModern?.length > 0) {
-        filtered = filtered.filter(item =>
-          this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
-        )
-      }
-
-      this.estateData = filtered
-    },
-
-    filterReportData() {
-      if (!this.currentFilters) {
-        this.reportData = [...this.allReportData]
-        return
-      }
-      
-      let filtered = [...this.allReportData]
-
-      // Фильтр по району
-      if (this.currentFilters.district) {
-        const selectedDistrict = this.allDistricts?.find(d => d.id === this.currentFilters.district)
-        if (selectedDistrict) {
-          filtered = filtered.filter(item => item.district_name === selectedDistrict.name)
-        }
-      }
-
-      // Фильтр по населенному пункту
-      if (this.currentFilters.settlement) {
-        const selectedSettlement = this.allSettlements?.find(s => s.id === this.currentFilters.settlement)
-        if (selectedSettlement) {
-          filtered = filtered.filter(item => 
-            item.settlement_name_old === selectedSettlement.name || 
-            item.settlement_name_modern === selectedSettlement.name
-          )
-        }
-      }
-
-      // Фильтр по населению (мин)
-      if (this.currentFilters.populationMin !== null && this.currentFilters.populationMin !== undefined) {
-        filtered = filtered.filter(item => item.population_all >= this.currentFilters.populationMin)
-      }
-
-      // Фильтр по населению (макс)
-      if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
-        filtered = filtered.filter(item => item.population_all <= this.currentFilters.populationMax)
-      }
-
-      // Фильтр по количеству сословий (только если включен)
-      if (this.currentFilters.estatesCountEnabled) {
-        if (this.currentFilters.estatesCountMin !== null && this.currentFilters.estatesCountMin !== undefined) {
-          filtered = filtered.filter(item => item.estates_count >= this.currentFilters.estatesCountMin)
-        }
-        if (this.currentFilters.estatesCountMax !== null && this.currentFilters.estatesCountMax !== undefined) {
-          filtered = filtered.filter(item => item.estates_count <= this.currentFilters.estatesCountMax)
-        }
-      }
-
-      this.reportData = filtered
-    },
 
     // Обновляем векторные слои на картах
     refreshMapLayers() {
       if (this.$refs.mapView && typeof this.$refs.mapView.refreshVectorLayers === 'function') {
-        console.log('Refreshing map layers from EstatesListAndMap')
+        // console.log('Refreshing map layers from EstatesListAndMap')
         this.$refs.mapView.refreshVectorLayers()
       }
     },
 
     // Обновляем маркеры на картах при изменении данных
     updateMapMarkers() {
+      console.log('=== UPDATING MAP MARKERS ===')
+      console.log('MapView ref exists:', !!this.$refs.mapView)
+      console.log('Current settlements count:', this.mapSettlements.length)
+      console.log('Current settlements:', this.mapSettlements)
+
       if (this.$refs.mapView) {
         console.log('Updating map markers from EstatesListAndMap, settlements count:', this.mapSettlements.length)
 
         // Обновляем маркеры на обеих картах
         this.$nextTick(() => {
           if (this.$refs.mapView.updateLeafletMarkers) {
-            console.log('Forcing Leaflet markers update')
+            console.log('Calling updateLeafletMarkers')
             this.$refs.mapView.updateLeafletMarkers()
           }
           if (this.$refs.mapView.updateOpenLayersMarkers) {
-            console.log('Forcing OpenLayers markers update')
+            console.log('Calling updateOpenLayersMarkers')
             this.$refs.mapView.updateOpenLayersMarkers()
           }
 
@@ -1265,18 +1219,22 @@ export default {
           setTimeout(() => {
             if (this.$refs.mapView.leafletMapInstance && this.$refs.mapView.$refs.leafletMap) {
               const rect = this.$refs.mapView.$refs.leafletMap.getBoundingClientRect()
+              console.log('Leaflet map rect:', rect)
               if (rect.width > 0 && rect.height > 0) {
                 this.$refs.mapView.leafletMapInstance.invalidateSize()
               }
             }
             if (this.$refs.mapView.olMapInstance && this.$refs.mapView.$refs.olMap) {
               const rect = this.$refs.mapView.$refs.olMap.getBoundingClientRect()
+              console.log('OpenLayers map rect:', rect)
               if (rect.width > 0 && rect.height > 0) {
                 this.$refs.mapView.olMapInstance.updateSize()
               }
             }
           }, 200)
         })
+      } else {
+        console.warn('MapView ref not found!')
       }
     }
   },
@@ -1301,8 +1259,41 @@ export default {
         // Обновляем векторные слои при переключении режимов карты
         if (this.viewMode === 'map' || this.viewMode === 'split') {
           this.refreshMapLayers()
+          // Обновляем маркеры при переключении режимов карты
+          this.updateMapMarkers()
         }
       }, 100)
+    },
+    // Отслеживаем изменения данных для обновления маркеров
+    estateData: {
+      handler() {
+        console.log('Estate data changed, updating map markers')
+        if (this.viewMode === 'map' || this.viewMode === 'split') {
+          this.updateMapMarkers()
+        }
+      },
+      deep: true
+    },
+    reportData: {
+      handler() {
+        console.log('Report data changed, updating map markers')
+        if (this.viewMode === 'map' || this.viewMode === 'split') {
+          this.updateMapMarkers()
+        }
+      },
+      deep: true
+    },
+    // Отслеживаем изменения фильтров для принудительного пересчета маркеров
+    currentFilters: {
+      handler() {
+        console.log('Filters changed, forcing map markers update')
+        if (this.viewMode === 'map' || this.viewMode === 'split') {
+          this.$nextTick(() => {
+            this.updateMapMarkers()
+          })
+        }
+      },
+      deep: true
     }
   }
 }
@@ -1347,6 +1338,8 @@ export default {
     &.list {
       .list-section {
         flex: 1;
+        min-height: 0;
+        height: 100%;
       }
       .map-section {
         display: none;
@@ -1367,12 +1360,74 @@ export default {
         flex: 1;
         min-width: 0;
         min-height: 0;
+        max-height: 50vh;
+        min-height: 250px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background-color: var(--bg-secondary);
+        margin-right: 0.5rem;
+
+        // Улучшенные стили скроллбаров для режима split
+        &::-webkit-scrollbar {
+          width: 14px;
+          height: 14px;
+        }
+
+        &::-webkit-scrollbar-track {
+          background: var(--bg-tertiary);
+          border-radius: 8px;
+          margin: 2px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+          background: var(--border-color);
+          border-radius: 8px;
+          border: 2px solid var(--bg-tertiary);
+          min-height: 40px;
+
+          &:hover {
+            background: var(--text-muted);
+            border-color: var(--bg-hover);
+          }
+
+          &:active {
+            background: var(--accent-primary);
+          }
+        }
+
+        &::-webkit-scrollbar-corner {
+          background: var(--bg-tertiary);
+        }
+
+        // Кнопки скроллбара
+        &::-webkit-scrollbar-button {
+          display: none;
+        }
+
+        // Для Firefox
+        scrollbar-width: auto;
+        scrollbar-color: var(--border-color) var(--bg-tertiary);
+
+        // Специальные стили для режима split
+        &.split-mode {
+          overflow-x: auto;
+          overflow-y: auto;
+        }
       }
       .map-section {
         flex: 1;
         min-width: 0;
         min-height: 0;
         height: auto;
+        max-height: 50vh;
+        min-height: 250px;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        background-color: var(--bg-secondary);
+        overflow: hidden;
+        margin-left: 0.5rem;
       }
     }
 
@@ -1380,33 +1435,87 @@ export default {
       display: flex;
       flex-direction: column;
       min-height: 0;
+      height: 100%;
       overflow-x: auto;
       overflow-y: auto;
-      
+
       // Кастомные стили для скроллбара
       &::-webkit-scrollbar {
         width: 16px;
         height: 16px;
       }
-      
+
       &::-webkit-scrollbar-track {
-        background: var(--bg-secondary);
+        background: var(--bg-tertiary);
         border-radius: 8px;
+        margin: 2px;
       }
-      
+
       &::-webkit-scrollbar-thumb {
         background: var(--border-color);
         border-radius: 8px;
-        border: 2px solid var(--bg-secondary);
-        
+        border: 2px solid var(--bg-tertiary);
+        min-height: 40px;
+
         &:hover {
           background: var(--text-muted);
+          border-color: var(--bg-hover);
+        }
+
+        &:active {
+          background: var(--accent-primary);
         }
       }
-      
+
+      &::-webkit-scrollbar-corner {
+        background: var(--bg-tertiary);
+      }
+
+      // Кнопки скроллбара
+      &::-webkit-scrollbar-button {
+        display: none;
+      }
+
       // Для Firefox
       scrollbar-width: auto;
-      scrollbar-color: var(--border-color) var(--bg-secondary);
+      scrollbar-color: var(--border-color) var(--bg-tertiary);
+
+      // Обеспечиваем что таблица занимает всю высоту контейнера
+      :deep(.el-table) {
+        height: 100% !important;
+        flex: 1;
+        min-width: fit-content; // Позволяет таблице быть шире контейнера
+
+        // Обертка таблицы для корректной работы скроллбаров
+        .el-table__body-wrapper {
+          overflow-x: auto !important;
+          overflow-y: auto !important;
+        }
+
+        .el-table__header-wrapper {
+          overflow-x: auto !important;
+        }
+
+        // Стили для горизонтального скроллбара таблицы
+        .el-table__body-wrapper::-webkit-scrollbar {
+          height: 14px;
+        }
+
+        .el-table__body-wrapper::-webkit-scrollbar-track {
+          background: var(--bg-tertiary);
+          border-radius: 6px;
+        }
+
+        .el-table__body-wrapper::-webkit-scrollbar-thumb {
+          background: var(--border-color);
+          border-radius: 6px;
+          border: 2px solid var(--bg-tertiary);
+
+          &:hover {
+            background: var(--text-muted);
+        }
+      }
+    }
     }
 
     .map-section {
@@ -1451,6 +1560,34 @@ export default {
     .content-area {
       &.split {
         flex-direction: column;
+
+        .list-section {
+          max-height: 40vh;
+          min-height: 200px;
+        }
+
+        .map-section {
+          max-height: 40vh;
+          min-height: 250px;
+        }
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .estates-list-and-map {
+    .content-area {
+      &.split {
+        .list-section {
+          max-height: 35vh;
+          min-height: 180px;
+        }
+
+        .map-section {
+          max-height: 35vh;
+          min-height: 220px;
+        }
       }
     }
   }
@@ -1539,14 +1676,22 @@ export default {
     gap: 0.5rem;
     max-height: 400px;
     overflow-y: auto;
-    
+
     :deep(.el-checkbox) {
       margin-right: 0;
-      
+
       .el-checkbox__label {
         color: var(--text-primary);
       }
     }
   }
+}
+
+// Стили для альтернативных названий населенных пунктов
+.alt-name {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-left: 0.25rem;
 }
 </style>

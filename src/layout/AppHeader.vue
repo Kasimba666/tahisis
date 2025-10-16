@@ -30,10 +30,13 @@
             Услуги
           </router-link>
           <div v-if="authState.user" class="nav-item has-submenu">
-            <span class="submenu-trigger">Загрузка данных</span>
+            <span class="submenu-trigger">Управление данными</span>
             <div class="submenu">
-              <router-link to="/estate-types-upload" class="submenu-item">
+              <router-link to="/estate-types" class="submenu-item">
                 Типы сословий
+              </router-link>
+              <router-link to="/estate-types-upload" class="submenu-item">
+                Подтипы сословий
               </router-link>
               <router-link to="/revisions-upload" class="submenu-item">
                 Ревизии

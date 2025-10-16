@@ -50,6 +50,7 @@ import MultiLineString from 'ol/geom/MultiLineString'
 import { Style, Circle, Fill, Stroke } from 'ol/style'
 import { fromLonLat, transform } from 'ol/proj'
 import { vectorLayerService } from '@/services/vectorLayers.js'
+import { mapSettings } from '@/store/mapSettings.js'
 
 export default {
   name: 'MapView',
@@ -66,39 +67,22 @@ export default {
       olMapInstance: null,
       leafletMarkers: [],
       olVectorLayer: null,
-      // Исходные параметры вида карт
-      initialCenter: [55.42, 52.68], // [latitude, longitude] для Leaflet
-      initialCenterOl: [52.68, 55.42], // [longitude, latitude] для OpenLayers
+      initialCenter: [55.42, 52.68], // [lat, lon] для Leaflet
+      initialCenterOl: [52.68, 55.42], // [lon, lat] для OpenLayers (до конвертации)
       initialZoom: 8,
-      // Данные для векторных слоев
       vectorLayers: [],
       visibleLayers: [],
       activePanels: [],
-      leafletVectorLayers: new Map(), // Храним слои Leaflet по ID
-      olVectorLayers: new Map() // Храним слои OpenLayers по ID
+      leafletVectorLayers: new Map(),
+      olVectorLayers: new Map()
     }
   },
   async mounted() {
-    console.log('MapView mounted, checking containers...')
-
-    // Даем время на отрисовку контейнеров
     this.$nextTick(() => {
       setTimeout(() => {
-        console.log('Initializing maps...')
-        console.log('Leaflet container:', this.$refs.leafletMap)
-        console.log('OpenLayers container:', this.$refs.olMap)
-
-        if (this.$refs.leafletMap) {
-          console.log('Leaflet container dimensions:', this.$refs.leafletMap.getBoundingClientRect())
-        }
-        if (this.$refs.olMap) {
-          console.log('OpenLayers container dimensions:', this.$refs.olMap.getBoundingClientRect())
-        }
-
         this.initLeafletMap()
         this.initOpenLayersMap()
 
-        // Загружаем векторные слои после инициализации карт
         setTimeout(async () => {
           await this.loadVectorLayers()
         }, 1000)
@@ -114,124 +98,83 @@ export default {
     }
   },
   methods: {
-    initializeMapsWhenVisible() {
-      const checkVisibility = () => {
-        if (this.$refs.leafletMap && this.$refs.olMap) {
-          const leafletRect = this.$refs.leafletMap.getBoundingClientRect()
-          const olRect = this.$refs.olMap.getBoundingClientRect()
 
-          console.log('Container sizes:', {
-            leaflet: `${leafletRect.width}x${leafletRect.height}`,
-            openlayers: `${olRect.width}x${olRect.height}`
-          })
-
-          // Проверяем что хотя бы один контейнер видим
-          if (leafletRect.width > 0 && leafletRect.height > 0) {
-            console.log('Initializing Leaflet map...')
-            this.initLeafletMap()
-            return true
-          } else if (olRect.width > 0 && olRect.height > 0) {
-            console.log('Initializing OpenLayers map...')
-            this.initOpenLayersMap()
-            return true
-          }
-        }
-        return false
-      }
-
-      // Проверяем сразу
-      if (!checkVisibility()) {
-        // Если не видимы, ждем изменения размеров
-        let attempts = 0
-        const maxAttempts = 50 // 5 секунд максимум
-
-        const observer = new ResizeObserver(() => {
-          attempts++
-          if (checkVisibility() || attempts >= maxAttempts) {
-            observer.disconnect()
-          }
-        })
-
-        if (this.$refs.leafletMap) observer.observe(this.$refs.leafletMap)
-        if (this.$refs.olMap) observer.observe(this.$refs.olMap)
-
-        // Fallback через setTimeout
-        setTimeout(() => {
-          if (attempts < maxAttempts) {
-            checkVisibility()
-            observer.disconnect()
-          }
-        }, 2000)
-      }
-    },
 
     initLeafletMap() {
       if (!this.$refs.leafletMap) {
-        console.error('Leaflet map container not found')
         return
       }
-      
-      try {
-        // Инициализация Leaflet карты
-        this.leafletMapInstance = L.map(this.$refs.leafletMap, {
-          center: [55.42, 52.68],
-          zoom: 8,
-          fullscreenControl: {
-            pseudoFullscreen: false
-          }
-        })
 
-        // Добавляем тайловый слой OpenStreetMap
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-          maxZoom: 19
-        }).addTo(this.leafletMapInstance)
-        
-        // Добавляем кнопку Home для возврата к исходному виду
-        const self = this
-        L.Control.HomeButton = L.Control.extend({
-          onAdd: function(map) {
-            const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control leaflet-control-home')
-            btn.innerHTML = '🏠'
-            btn.title = 'Вернуться к исходному виду'
-            btn.style.backgroundColor = 'white'
-            btn.style.width = '30px'
-            btn.style.height = '30px'
-            btn.style.fontSize = '16px'
-            btn.style.lineHeight = '30px'
-            btn.style.textAlign = 'center'
-            btn.style.cursor = 'pointer'
-            btn.style.border = 'none'
-            btn.onclick = function() {
-              // Возврат к сохраненным исходным параметрам
-              self.leafletMapInstance.setView(self.initialCenter, self.initialZoom)
+      this.leafletMapInstance = L.map(this.$refs.leafletMap, {
+        center: [55.42, 52.68],
+        zoom: 8,
+        fullscreenControl: {
+          pseudoFullscreen: false
+        }
+      })
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(this.leafletMapInstance)
+
+      const self = this
+      L.Control.HomeButton = L.Control.extend({
+        onAdd: function(map) {
+          const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control leaflet-control-home')
+          btn.innerHTML = '🏠'
+          btn.title = 'Вернуться к исходному виду'
+          btn.style.backgroundColor = 'white'
+          btn.style.width = '30px'
+          btn.style.height = '30px'
+          btn.style.fontSize = '16px'
+          btn.style.lineHeight = '30px'
+          btn.style.textAlign = 'center'
+          btn.style.cursor = 'pointer'
+          btn.style.border = 'none'
+          btn.onclick = function() {
+            // Синхронизируем центрирование между картами
+            if (self.mapProvider === 'leaflet') {
+              // Центрируем Leaflet карту
+              self.leafletMapInstance.setView([55.42, 52.68], 8)
+
+              // Синхронизируем с OpenLayers картой
+              if (self.olMapInstance) {
+                self.olMapInstance.getView().setCenter(fromLonLat([52.68, 55.42]))
+                self.olMapInstance.getView().setZoom(8)
+              }
             }
-            return btn
           }
-        })
-        
-        new L.Control.HomeButton({ position: 'topleft' }).addTo(this.leafletMapInstance)
+          return btn
+        }
+      })
 
-        // Добавляем синхронизацию с OpenLayers картой
-        this.leafletMapInstance.on('moveend zoomend', () => {
-          if (this.olMapInstance && this.mapProvider === 'leaflet') {
-            const center = this.leafletMapInstance.getCenter()
-            const zoom = this.leafletMapInstance.getZoom()
+      new L.Control.HomeButton({ position: 'topleft' }).addTo(this.leafletMapInstance)
 
-            // Конвертируем координаты Leaflet в OpenLayers формат
-            const olCenter = fromLonLat([center.lng, center.lat])
-            this.olMapInstance.getView().setCenter(olCenter)
-            this.olMapInstance.getView().setZoom(zoom)
-          }
-        })
+      // Синхронизация перемещения и масштабирования между картами
+      this.leafletMapInstance.on('moveend zoomend', () => {
+        if (this.olMapInstance && this.mapProvider === 'leaflet') {
+          const center = this.leafletMapInstance.getCenter()
+          const zoom = this.leafletMapInstance.getZoom()
+          const olCenter = fromLonLat([center.lng, center.lat])
+          this.olMapInstance.getView().setCenter(olCenter)
+          this.olMapInstance.getView().setZoom(zoom)
+        }
+      })
 
-        console.log('Leaflet map initialized successfully')
-
-        // Добавляем маркеры если есть данные
+      // Обработка перемещения карты для обновления маркеров
+      this.leafletMapInstance.on('move', () => {
+        // Обновляем маркеры при перемещении карты
         this.updateLeafletMarkers()
-      } catch (error) {
-        console.error('Error initializing Leaflet map:', error)
-      }
+      })
+
+      // Обработка изменения масштаба
+      this.leafletMapInstance.on('zoom', () => {
+        // Обновляем маркеры при изменении масштаба
+        this.updateLeafletMarkers()
+      })
+
+      this.updateLeafletMarkers()
     },
 
     initOpenLayersMap() {
@@ -241,19 +184,26 @@ export default {
       }
       
       try {
-        // Создаем векторный слой для маркеров
+        // Создаем векторный слой для маркеров с динамическими стилями
         this.olVectorLayer = new VectorLayer({
           source: new VectorSource(),
-          style: new Style({
-            image: new Circle({
-              radius: 7,
-              fill: new Fill({ color: 'hsl(0, 85%, 55%)' }),
-              stroke: new Stroke({ color: 'white', width: 2 })
+          style: (feature) => {
+            // Получаем цвет для маркера на основе типа сословия
+            const estateType = feature.get('estateType') || 'default'
+            const markerColor = mapSettings.estateTypeColors[estateType] || mapSettings.estateTypeColors.default || 'hsl(0, 85%, 55%)'
+
+            return new Style({
+              image: new Circle({
+                radius: 8,
+                fill: new Fill({ color: markerColor }),
+                stroke: new Stroke({ color: 'white', width: 2 })
+              })
             })
-          })
+          }
         })
 
-        // Инициализация OpenLayers карты
+        // Инициализация OpenLayers карты с правильными координатами
+        // fromLonLat([longitude, latitude]) -> [52.68, 55.42]
         this.olMapInstance = new OLMap({
           target: this.$refs.olMap,
           layers: [
@@ -263,7 +213,7 @@ export default {
             this.olVectorLayer
           ],
           view: new View({
-            center: fromLonLat([52.68, 55.42]),
+            center: fromLonLat([52.68, 55.42]), // [lon, lat] -> конвертируется в проекцию карты
             zoom: 8,
           })
         })
@@ -289,14 +239,46 @@ export default {
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         `
         homeButton.onclick = () => {
-          // Возврат к сохраненным исходным параметрам для OpenLayers
-          this.olMapInstance.getView().setCenter(fromLonLat(this.initialCenterOl))
-          this.olMapInstance.getView().setZoom(this.initialZoom)
+          // Синхронизируем центрирование между картами
+          if (this.mapProvider === 'openlayers') {
+            // Центрируем OpenLayers карту
+            this.olMapInstance.getView().setCenter(fromLonLat([52.68, 55.42]))
+            this.olMapInstance.getView().setZoom(8)
+
+            // Синхронизируем с Leaflet картой
+            if (this.leafletMapInstance) {
+              this.leafletMapInstance.setView([55.42, 52.68], 8)
+            }
+          }
         }
 
         this.$refs.olMap.appendChild(homeButton)
 
-        console.log('OpenLayers map initialized successfully')
+        // Синхронизация перемещения и масштабирования между картами
+        this.olMapInstance.getView().on('change:center', () => {
+          if (this.leafletMapInstance && this.mapProvider === 'openlayers') {
+            const center = this.olMapInstance.getView().getCenter()
+            const zoom = this.olMapInstance.getView().getZoom()
+            // Конвертируем из проекции карты обратно в географические координаты
+            const geoCenter = transform(center, 'EPSG:3857', 'EPSG:4326')
+            this.leafletMapInstance.setView([geoCenter[1], geoCenter[0]], zoom)
+          }
+        })
+
+        this.olMapInstance.getView().on('change:zoom', () => {
+          if (this.leafletMapInstance && this.mapProvider === 'openlayers') {
+            const center = this.olMapInstance.getView().getCenter()
+            const zoom = this.olMapInstance.getView().getZoom()
+            // Конвертируем из проекции карты обратно в географические координаты
+            const geoCenter = transform(center, 'EPSG:3857', 'EPSG:4326')
+            this.leafletMapInstance.setView([geoCenter[1], geoCenter[0]], zoom)
+          }
+        })
+
+        // Обработка перемещения карты для обновления маркеров
+        this.olMapInstance.on('moveend', () => {
+          this.updateOpenLayersMarkers()
+        })
 
         // Добавляем маркеры если есть данные
         this.updateOpenLayersMarkers()
@@ -307,9 +289,11 @@ export default {
 
     updateLeafletMarkers() {
       if (!this.leafletMapInstance) {
-        console.warn('Leaflet map not initialized yet')
+        console.log('Leaflet map instance not ready')
         return
       }
+
+      console.log('Updating Leaflet markers, settlements count:', this.settlements?.length || 0)
 
       // Удаляем старые маркеры
       this.leafletMarkers.forEach(marker => marker.remove())
@@ -320,57 +304,58 @@ export default {
         return
       }
 
-      console.log('Adding markers for settlements:', this.settlements.length)
+      let validMarkers = 0
 
       // Добавляем новые маркеры
       this.settlements.forEach((settlement, index) => {
         if (settlement.lat && settlement.lon) {
-          // Координаты уже в EPSG:4326 (WGS84), используем напрямую
           const lat = parseFloat(settlement.lat)
           const lon = parseFloat(settlement.lon)
 
-          console.log(`Settlement ${index}:`, settlement.name, 'Coords:', lat, lon)
-
           // Проверяем корректность координат
           if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            console.warn('Invalid coordinates for settlement:', settlement.name, lat, lon)
+            console.warn(`Invalid coordinates for ${settlement.name}:`, { lat, lon })
             return
           }
 
-          // Создаем красный круглый маркер
-          const redIcon = L.divIcon({
+          console.log(`Creating marker ${index + 1} for ${settlement.name}:`, { lat, lon })
+
+          // Создаем маркер в зависимости от режима отображения
+          const markerElement = this.createMarkerElement(settlement)
+
+          const customIcon = L.divIcon({
             className: 'custom-marker',
-            html: '<div class="marker-circle"></div>',
-            iconSize: [14, 14],
-            iconAnchor: [7, 7]
+            html: markerElement,
+            iconSize: this.getMarkerSize(),
+            iconAnchor: [this.getMarkerSize()[0] / 2, this.getMarkerSize()[1] / 2]
           })
 
-          const marker = L.marker([lat, lon], { icon: redIcon })
+          const marker = L.marker([lat, lon], { icon: customIcon })
             .bindPopup(`
               <div class="settlement-popup">
                 <h4>${settlement.name}</h4>
                 <p><strong>Регион:</strong> Татарстан</p>
                 <p><strong>Район:</strong> ${settlement.district || '—'}</p>
-                ${settlement.population ? `<p><strong>Административная единица 1:</strong> Актанышская волость 3-го приписного участка</p>` : ''}
                 ${settlement.population ? `<p><strong>Население:</strong> ${settlement.population}</p>` : ''}
               </div>
             `)
             .addTo(this.leafletMapInstance)
 
           this.leafletMarkers.push(marker)
-        } else {
-          console.warn('Settlement without coordinates:', settlement.name)
+          validMarkers++
         }
       })
 
-      console.log('Added markers for settlements:', this.settlements.length)
+      console.log(`Created ${validMarkers} valid markers out of ${this.settlements.length} settlements`)
     },
 
     updateOpenLayersMarkers() {
       if (!this.olVectorLayer || !this.olMapInstance) {
-        console.warn('OpenLayers map or vector layer not initialized')
+        console.log('OpenLayers map or vector layer not ready')
         return
       }
+
+      console.log('Updating OpenLayers markers, settlements count:', this.settlements?.length || 0)
 
       const source = this.olVectorLayer.getSource()
       source.clear()
@@ -380,60 +365,43 @@ export default {
         return
       }
 
-      console.log('Adding OpenLayers markers for settlements:', this.settlements.length)
-
       const features = []
-      const validCoords = []
+      let validMarkers = 0
 
       this.settlements.forEach((settlement, index) => {
         if (settlement.lat && settlement.lon) {
           const lat = parseFloat(settlement.lat)
           const lon = parseFloat(settlement.lon)
 
-          console.log(`OpenLayers Settlement ${index}:`, settlement.name, 'Coords:', lat, lon)
-
           // Проверяем корректность координат
           if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            console.warn('Invalid coordinates for OpenLayers settlement:', settlement.name, lat, lon)
+            console.warn(`Invalid coordinates for ${settlement.name}:`, { lat, lon })
             return
           }
 
+          console.log(`Creating OpenLayers feature ${index + 1} for ${settlement.name}:`, { lat, lon })
+
           // Конвертируем из EPSG:4326 в EPSG:3857 для OpenLayers
           const [x, y] = fromLonLat([lon, lat])
-          console.log(`Converted coords: ${lon}, ${lat} -> ${x}, ${y}`)
 
           const feature = new Feature({
             geometry: new Point([x, y]),
             name: settlement.name,
             district: settlement.district,
-            population: settlement.population
+            population: settlement.population,
+            estateType: 'default' // В будущем здесь будет определение типа сословия
           })
           features.push(feature)
-          validCoords.push([x, y])
-        } else {
-          console.warn('Settlement without coordinates for OpenLayers:', settlement.name)
+          validMarkers++
         }
       })
 
       if (features.length > 0) {
         source.addFeatures(features)
-        console.log(`Added ${features.length} features to OpenLayers`)
+        console.log(`Added ${validMarkers} features to OpenLayers map`)
       } else {
-        console.warn('No valid coordinates found for OpenLayers settlements')
+        console.log('No valid features to add to OpenLayers map')
       }
-
-      // Добавляем popup при клике
-      this.olMapInstance.on('click', (evt) => {
-        const feature = this.olMapInstance.forEachFeatureAtPixel(evt.pixel, (f) => f)
-        if (feature) {
-          const coordinates = feature.getGeometry().getCoordinates()
-          const name = feature.get('name')
-          const district = feature.get('district')
-          const population = feature.get('population')
-
-          console.log('Clicked OpenLayers settlement:', { name, district, population, coordinates })
-        }
-      })
     },
 
     // Методы для работы с векторными слоями
@@ -637,10 +605,10 @@ export default {
     },
 
     getLayerColor(layerId) {
-      // Генерируем цвет на основе ID слоя
+      // Генерируем цвет на основе ID слоя в HSL формате
       const colors = [
-        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-        '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9'
+        'hsl(0, 85%, 55%)', 'hsl(178, 63%, 52%)', 'hsl(197, 65%, 55%)', 'hsl(136, 33%, 65%)', 'hsl(48, 100%, 67%)',
+        'hsl(282, 44%, 70%)', 'hsl(174, 38%, 70%)', 'hsl(48, 100%, 67%)', 'hsl(262, 41%, 68%)', 'hsl(204, 70%, 67%)'
       ]
       return colors[layerId % colors.length]
     },
@@ -726,73 +694,155 @@ export default {
       console.log('Panel change:', panels)
     },
 
-    formatFileSize(bytes) {
-      if (bytes === 0) return '0 B'
-      const k = 1024
-      const sizes = ['B', 'KB', 'MB', 'GB']
-      const i = Math.floor(Math.log(bytes) / Math.log(k))
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-    },
 
-    // Метод для обновления векторных слоев (вызывается из родительского компонента)
-    async refreshVectorLayers() {
-      console.log('=== REFRESHING VECTOR LAYERS ===')
-      console.log('Refreshing vector layers...')
-      await this.loadVectorLayers()
-    },
-
-    // Диагностический метод для проверки данных
-    async diagnoseData() {
-      console.log('=== DIAGNOSIS STARTED ===')
-
-      // Проверяем векторные слои
-      try {
-        const layers = await vectorLayerService.getVectorLayers()
-        console.log('Vector layers from service:', layers)
-      } catch (error) {
-        console.error('Error getting vector layers:', error)
-      }
-
-      // Проверяем данные о поселениях
-      console.log('Current settlements prop:', this.settlements)
-      console.log('Settlements length:', this.settlements?.length || 0)
-
-      // Проверяем инициализацию карт
-      console.log('Leaflet map initialized:', !!this.leafletMapInstance)
-      console.log('OpenLayers map initialized:', !!this.olMapInstance)
-      console.log('Vector layers count:', this.vectorLayers?.length || 0)
-
-      console.log('=== DIAGNOSIS COMPLETED ===')
-    },
 
     // Метод для возврата карт к исходным параметрам
     resetMapViews() {
+      // Центрируем Leaflet карту
       if (this.leafletMapInstance) {
-        this.leafletMapInstance.setView(this.initialCenter, this.initialZoom)
+        this.leafletMapInstance.setView([55.42, 52.68], 8)
       }
+
+      // Центрируем OpenLayers карту
       if (this.olMapInstance) {
-        this.olMapInstance.getView().setCenter(fromLonLat(this.initialCenterOl))
-        this.olMapInstance.getView().setZoom(this.initialZoom)
+        this.olMapInstance.getView().setCenter(fromLonLat([52.68, 55.42]))
+        this.olMapInstance.getView().setZoom(8)
       }
+    },
+
+    // Создание элемента маркера в зависимости от режима отображения
+    createMarkerElement(settlement) {
+      // Используем настройки карты для определения режима отображения
+      switch (mapSettings.colorMode) {
+        case 'pie_chart':
+          return this.createPieChartMarker(settlement)
+        case 'concentric_circles':
+          return this.createConcentricCirclesMarker(settlement)
+        default:
+          // Для других режимов возвращаем простой круг
+          return '<div class="marker-circle"></div>'
+      }
+    },
+
+    // Получение размера маркера в зависимости от настроек
+    getMarkerSize() {
+      const baseSize = 14
+      const sizeMultiplier = this.getSizeMultiplier()
+
+      return [baseSize * sizeMultiplier, baseSize * sizeMultiplier]
+    },
+
+    // Получение множителя размера маркера
+    getSizeMultiplier() {
+      // Используем настройки карты для определения размера маркера
+      switch (mapSettings.display.markerSize) {
+        case 'small':
+          return 0.7
+        case 'medium':
+          return 1
+        case 'large':
+          return 1.5
+        default:
+          return 1
+      }
+    },
+
+    // Создание маркера в виде круговой диаграммы
+    createPieChartMarker(settlement) {
+      // Для демонстрации создаем маркер с несколькими цветовыми секторами
+      // В будущем здесь будет логика для анализа данных о типах сословий в поселении
+
+      const colors = ['hsl(0, 85%, 55%)', 'hsl(178, 63%, 52%)', 'hsl(197, 65%, 55%)', 'hsl(136, 33%, 65%)', 'hsl(48, 100%, 67%)']
+      const segments = colors.length
+      const radius = 10
+      const centerX = radius
+      const centerY = radius
+
+      let svg = `<svg width="${radius * 2}" height="${radius * 2}" viewBox="0 0 ${radius * 2} ${radius * 2}">`
+
+      // Создаем сектора круговой диаграммы
+      for (let i = 0; i < segments; i++) {
+        const startAngle = (i / segments) * 360
+        const endAngle = ((i + 1) / segments) * 360
+
+        const startAngleRad = (startAngle - 90) * Math.PI / 180
+        const endAngleRad = (endAngle - 90) * Math.PI / 180
+
+        const x1 = centerX + radius * Math.cos(startAngleRad)
+        const y1 = centerY + radius * Math.sin(startAngleRad)
+        const x2 = centerX + radius * Math.cos(endAngleRad)
+        const y2 = centerY + radius * Math.sin(endAngleRad)
+
+        const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0
+
+        const pathData = [
+          `M ${centerX} ${centerY}`,
+          `L ${x1} ${y1}`,
+          `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+          'Z'
+        ].join(' ')
+
+        svg += `<path d="${pathData}" fill="${colors[i]}" stroke="white" stroke-width="1"/>`
+      }
+
+      // Добавляем центральный круг для лучшего вида
+      svg += `<circle cx="${centerX}" cy="${centerY}" r="2" fill="white" stroke="hsl(0, 0%, 80%)" stroke-width="1"/>`
+
+      svg += '</svg>'
+
+      return `<div class="pie-chart-marker">${svg}</div>`
+    },
+
+    // Создание маркера в виде концентрических окружностей
+    createConcentricCirclesMarker(settlement) {
+      // Для демонстрации создаем маркер с несколькими концентрическими кольцами
+      // В будущем здесь будет логика для анализа данных о типах сословий в поселении
+
+      const colors = ['hsl(0, 85%, 55%)', 'hsl(178, 63%, 52%)', 'hsl(197, 65%, 55%)', 'hsl(136, 33%, 65%)']
+      const ringCount = Math.min(colors.length, 4) // Максимум 4 кольца для наглядности
+      const baseRadius = 8
+      const spacing = 6 // Расстояние между кольцами
+
+      let svg = `<svg width="${(baseRadius + spacing * (ringCount - 1)) * 2}" height="${(baseRadius + spacing * (ringCount - 1)) * 2}" viewBox="0 0 ${(baseRadius + spacing * (ringCount - 1)) * 2} ${(baseRadius + spacing * (ringCount - 1)) * 2}">`
+
+      const centerX = baseRadius + spacing * (ringCount - 1)
+      const centerY = baseRadius + spacing * (ringCount - 1)
+
+      // Создаем концентрические окружности (от внешнего к внутреннему)
+      for (let i = ringCount - 1; i >= 0; i--) {
+        const radius = baseRadius + spacing * i
+        const strokeWidth = Math.max(2, 4 - i) // Уменьшаем толщину для внутренних колец
+
+        svg += `<circle cx="${centerX}" cy="${centerY}" r="${radius}" fill="none" stroke="${colors[ringCount - 1 - i]}" stroke-width="${strokeWidth}" opacity="0.8"/>`
+      }
+
+      // Добавляем центральный круг
+      svg += `<circle cx="${centerX}" cy="${centerY}" r="3" fill="${colors[colors.length - 1]}" stroke="white" stroke-width="2"/>`
+
+      svg += '</svg>'
+
+      return `<div class="concentric-circles-marker">${svg}</div>`
     }
   },
   watch: {
     settlements: {
       handler(newVal) {
-        console.log('=== SETTLEMENTS WATCHER ===')
-        console.log('Settlements updated:', newVal)
-        console.log('Settlements length:', newVal?.length || 0)
-        console.log('First settlement:', newVal?.[0])
-        if (newVal?.[0]) {
-          console.log('First settlement coords:', newVal[0].lat, newVal[0].lon)
-          console.log('First settlement name:', newVal[0].name)
+        console.log('=== MAPVIEW SETTLEMENTS WATCHER ===')
+        console.log('MapView received settlements:', newVal)
+        console.log('Settlements count:', newVal?.length || 0)
+
+        if (newVal && newVal.length > 0) {
+          console.log('First settlement:', newVal[0])
+          console.log('Sample coordinates:', {
+            name: newVal[0].name,
+            lat: newVal[0].lat,
+            lon: newVal[0].lon,
+            district: newVal[0].district
+          })
         }
 
         this.updateLeafletMarkers()
         this.updateOpenLayersMarkers()
-
-        // Возвращаем карты к исходным параметрам при обновлении данных
-        this.resetMapViews()
 
         // Обновляем размер карт после добавления маркеров
         this.$nextTick(() => {
@@ -1011,9 +1061,35 @@ export default {
     min-height: 0;
     position: relative;
     overflow: hidden;
+    height: 100%;
+    width: 100%;
 
     &.hidden {
       display: none;
+    }
+
+    // Обеспечиваем корректное масштабирование карт в ограниченных контейнерах
+    :deep(.leaflet-container),
+    :deep(.ol-viewport) {
+      height: 100% !important;
+      width: 100% !important;
+    }
+
+    // Для Leaflet карты
+    :deep(.leaflet-map-pane),
+    :deep(.leaflet-tile),
+    :deep(.leaflet-marker-icon),
+    :deep(.leaflet-marker-shadow),
+    :deep(.leaflet-tile-container),
+    :deep(.leaflet-pane),
+    :deep(.leaflet-objects-pane) {
+      max-height: none !important;
+    }
+
+    // Для OpenLayers карты
+    :deep(.ol-overlaycontainer-stopevent),
+    :deep(.ol-viewport canvas) {
+      max-height: none !important;
     }
   }
 }
@@ -1022,7 +1098,7 @@ export default {
 :deep(.custom-marker) {
   background: transparent;
   border: none;
-  
+
   .marker-circle {
     width: 14px;
     height: 14px;
@@ -1032,9 +1108,40 @@ export default {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     cursor: pointer;
     transition: transform 0.2s;
-    
+
     &:hover {
       transform: scale(1.2);
+    }
+  }
+
+  .pie-chart-marker {
+    display: block;
+    cursor: pointer;
+    transition: transform 0.2s;
+
+    &:hover {
+      transform: scale(1.2);
+    }
+
+    svg {
+      display: block;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .concentric-circles-marker {
+    display: block;
+    cursor: pointer;
+    transition: transform 0.2s;
+
+    &:hover {
+      transform: scale(1.2);
+    }
+
+    svg {
+      display: block;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
   }
 }

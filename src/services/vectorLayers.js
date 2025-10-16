@@ -28,7 +28,7 @@ export class VectorLayerService {
 
       return { data, error }
     } catch (error) {
-      console.error('Error creating bucket:', error)
+      // console.error('Error creating bucket:', error)
       throw error
     }
   }
@@ -65,7 +65,7 @@ export class VectorLayerService {
         type: file.type
       }
     } catch (error) {
-      console.error('Error uploading file:', error)
+      // console.error('Error uploading file:', error)
       throw error
     }
   }
@@ -81,7 +81,7 @@ export class VectorLayerService {
 
       return data
     } catch (error) {
-      console.error('Error deleting file:', error)
+      // console.error('Error deleting file:', error)
       throw error
     }
   }
@@ -97,7 +97,7 @@ export class VectorLayerService {
 
       return data
     } catch (error) {
-      console.error('Error listing files:', error)
+      // console.error('Error listing files:', error)
       throw error
     }
   }
@@ -114,7 +114,7 @@ export class VectorLayerService {
 
       return data
     } catch (error) {
-      console.error('Error fetching layer types:', error)
+      // console.error('Error fetching layer types:', error)
       throw error
     }
   }
@@ -130,7 +130,7 @@ export class VectorLayerService {
 
       return data[0]
     } catch (error) {
-      console.error('Error creating layer type:', error)
+      // console.error('Error creating layer type:', error)
       throw error
     }
   }
@@ -147,7 +147,7 @@ export class VectorLayerService {
 
       return data[0]
     } catch (error) {
-      console.error('Error updating layer type:', error)
+      // console.error('Error updating layer type:', error)
       throw error
     }
   }
@@ -163,7 +163,7 @@ export class VectorLayerService {
 
       return true
     } catch (error) {
-      console.error('Error deleting layer type:', error)
+      // console.error('Error deleting layer type:', error)
       throw error
     }
   }
@@ -186,7 +186,7 @@ export class VectorLayerService {
         type_vector_layer_name: layer.Type_vector_layer?.name || ""
       }))
     } catch (error) {
-      console.error('Error fetching vector layers:', error)
+      // console.error('Error fetching vector layers:', error)
       throw error
     }
   }
@@ -208,7 +208,7 @@ export class VectorLayerService {
         type_vector_layer_name: data[0].Type_vector_layer?.name || ""
       }
     } catch (error) {
-      console.error('Error creating vector layer:', error)
+      // console.error('Error creating vector layer:', error)
       throw error
     }
   }
@@ -231,7 +231,7 @@ export class VectorLayerService {
         type_vector_layer_name: data[0].Type_vector_layer?.name || ""
       }
     } catch (error) {
-      console.error('Error updating vector layer:', error)
+      // console.error('Error updating vector layer:', error)
       throw error
     }
   }
@@ -259,16 +259,16 @@ export class VectorLayerService {
       if (layerData?.file_path) {
         try {
           await this.deleteFile(layerData.file_path)
-          console.log(`Файл ${layerData.file_path} для слоя "${layerData.name}" удален из storage`)
+          // console.log(`Файл ${layerData.file_path} для слоя "${layerData.name}" удален из storage`)
         } catch (fileError) {
-          console.warn(`Предупреждение: не удалось удалить файл ${layerData.file_path} из storage:`, fileError)
+          // console.warn(`Предупреждение: не удалось удалить файл ${layerData.file_path} из storage:`, fileError)
           // Не прерываем выполнение, если файл не удалось удалить
         }
       }
 
       return true
     } catch (error) {
-      console.error('Error deleting vector layer:', error)
+      // console.error('Error deleting vector layer:', error)
       throw error
     }
   }
@@ -347,8 +347,8 @@ export const vectorLayerService = new VectorLayerService()
 export const initializeVectorLayerService = async () => {
   try {
     await vectorLayerService.createBucket()
-    console.log('Vector layers storage bucket initialized')
+    // console.log('Vector layers storage bucket initialized')
   } catch (error) {
-    console.error('Error initializing vector layers service:', error)
+    // console.error('Error initializing vector layers service:', error)
   }
 }
