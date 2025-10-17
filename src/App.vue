@@ -38,7 +38,7 @@ export default {
   mounted() {
     this.setScreenListener()
   },
-  unmounted() {
+  beforeUnmount() {
     this.removeScreenListener()
   }
 }

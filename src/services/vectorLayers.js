@@ -10,6 +10,28 @@ export class VectorLayerService {
   // Создание storage bucket (если не существует)
   async createBucket() {
     try {
+      // Проверяем, существует ли bucket
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets()
+
+      if (listError) {
+        console.error('Error listing buckets:', listError)
+        // Если ошибка связана с RLS или разрешениями, пропускаем создание bucket
+        if (listError.message?.includes('row-level security') || listError.message?.includes('permission')) {
+          console.warn('Insufficient permissions to list buckets. Bucket creation skipped.')
+          return { data: null, error: null }
+        }
+        throw listError
+      }
+
+      // Проверяем, существует ли наш bucket
+      const bucketExists = buckets?.some(bucket => bucket.name === this.bucketName)
+
+      if (bucketExists) {
+        console.log(`Bucket '${this.bucketName}' already exists`)
+        return { data: { name: this.bucketName }, error: null }
+      }
+
+      // Создаем bucket если он не существует
       const { data, error } = await supabase.storage.createBucket(this.bucketName, {
         public: true,
         allowedMimeTypes: [
@@ -22,12 +44,25 @@ export class VectorLayerService {
         fileSizeLimit: 52428800 // 50MB
       })
 
-      if (error && error.message !== 'The resource already exists') {
+      if (error) {
+        // Обрабатываем ошибку RLS (Row Level Security)
+        if (error.message?.includes('row-level security') || error.message?.includes('permission')) {
+          console.warn(`Insufficient permissions to create bucket '${this.bucketName}'. This is normal if bucket should be created manually in Supabase dashboard.`)
+          return { data: null, error: null }
+        }
+        console.error('Error creating bucket:', error)
         throw error
       }
 
+      console.log(`Bucket '${this.bucketName}' created successfully`)
       return { data, error }
     } catch (error) {
+      // Обрабатываем ошибку RLS в catch блоке тоже
+      if (error.message?.includes('row-level security') || error.message?.includes('permission')) {
+        console.warn(`Insufficient permissions to create bucket '${this.bucketName}'. This is normal if bucket should be created manually in Supabase dashboard.`)
+        return { data: null, error: null }
+      }
+      console.error('Error in createBucket:', error)
       throw error
     }
   }
@@ -333,6 +368,13 @@ export const vectorLayerService = new VectorLayerService()
 export const initializeVectorLayerService = async () => {
   try {
     await vectorLayerService.createBucket()
+    console.log('Vector layer service initialized successfully')
   } catch (error) {
+    // Игнорируем ошибки связанные с RLS и разрешениями
+    if (error.message?.includes('row-level security') || error.message?.includes('permission')) {
+      console.warn('Vector layer service initialized without bucket creation due to permission restrictions. This is normal if bucket should be created manually in Supabase dashboard.')
+    } else {
+      console.error('Error initializing vector layer service:', error)
+    }
   }
 }

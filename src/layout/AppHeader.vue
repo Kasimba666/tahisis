@@ -23,6 +23,9 @@
           <router-link to="/estates-list" class="nav-item" :class="{ active: isActive('/estates-list') }">
             Список сословий
           </router-link>
+          <router-link to="/settings" class="nav-item" :class="{ active: isActive('/settings') }">
+            Настройки
+          </router-link>
           <router-link v-if="authState.user" to="/demo" class="nav-item" :class="{ active: isActive('/demo') }">
             Демо
           </router-link>

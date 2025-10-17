@@ -11,14 +11,15 @@
 
 <script>
 import { Sunny, Moon } from '@element-plus/icons-vue'
+import { markRaw } from 'vue'
 
 export default {
   name: 'ThemeToggle',
   data() {
     return {
       isDark: false,
-      sunnyIcon: Sunny,
-      moonIcon: Moon
+      sunnyIcon: markRaw(Sunny),
+      moonIcon: markRaw(Moon)
     }
   },
   mounted() {

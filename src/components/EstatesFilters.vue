@@ -32,7 +32,7 @@
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown" :disabled="filters.districts.length === 0">
         <el-button size="large" :disabled="filters.districts.length === 0">
-          Нас. пункт (старый) ({{ filters.settlementNamesOld.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          Нас. пункт (старый) ({{ (filters.settlementNamesOld || []).length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
@@ -60,7 +60,7 @@
 
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown" :disabled="filters.districts.length === 0">
         <el-button size="large" :disabled="filters.districts.length === 0">
-          Нас. пункт (совр) ({{ filters.settlementNamesModern.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          Нас. пункт (совр) ({{ (filters.settlementNamesModern || []).length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
@@ -373,6 +373,15 @@
         <el-button size="large" @click="resetFilters">
           Сбросить значения
         </el-button>
+        <el-button size="large" @click="exportFilters" type="success" plain>
+          Экспорт фильтров
+        </el-button>
+        <el-button size="large" @click="importFilters" type="warning" plain>
+          Импорт фильтров
+        </el-button>
+        <el-button size="large" @click="getShareableLink" type="info" plain>
+          Получить ссылку
+        </el-button>
       </div>
     </div>
   </div>
@@ -382,6 +391,7 @@
 import { supabase } from '@/services/supabase'
 import { ElMessage } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
+import { useEstatesFilters } from '@/composables/useStorage.js'
 
 export default {
   name: 'EstatesFilters',
@@ -394,10 +404,18 @@ export default {
       required: true
     }
   },
-  data() {
-    return {
-      filters: {
-        revision: null,
+  setup() {
+    // Используем composable для управления фильтрами с сохранением в localStorage
+    const { filters, resetFilters: resetStoredFilters, applyFilters: applyStoredFilters } = useEstatesFilters()
+
+    // Убеждаемся что filters объект инициализирован с нужными свойствами
+    if (!filters.value) {
+      filters.value = {}
+    }
+
+    // Инициализируем все необходимые свойства фильтров с пустыми массивами по умолчанию
+    const initFilters = () => {
+      const defaultFilters = {
         districts: [],
         settlementNamesOld: [],
         settlementNamesModern: [],
@@ -409,18 +427,37 @@ export default {
         landowners: [],
         militaryUnits: [],
         maleEnabled: false,
+        femaleEnabled: false,
+        populationEnabled: false,
+        estatesCountEnabled: false,
         maleMin: null,
         maleMax: null,
-        femaleEnabled: false,
         femaleMin: null,
         femaleMax: null,
-        populationEnabled: false,
         populationMin: null,
         populationMax: null,
-        estatesCountEnabled: false,
         estatesCountMin: null,
         estatesCountMax: null
-      },
+      }
+
+      Object.keys(defaultFilters).forEach(key => {
+        if (filters.value[key] === undefined) {
+          filters.value[key] = defaultFilters[key]
+        }
+      })
+    }
+
+    // Инициализируем фильтры
+    initFilters()
+
+    return {
+      filters,
+      resetStoredFilters,
+      applyStoredFilters
+    }
+  },
+  data() {
+    return {
       // Все опции из БД
       allRevisions: [],
       allDistricts: [],
@@ -519,7 +556,7 @@ export default {
       }
 
       const oldNames = new Set()
-      const filteredSettlements = this.filters.districts?.length > 0
+      const filteredSettlements = this.filters?.districts?.length > 0
         ? this.allSettlements.filter(s => this.filters.districts.includes(s.id_district))
         : this.allSettlements
 
@@ -536,7 +573,7 @@ export default {
       }
 
       const modernNames = new Set()
-      const filteredSettlements = this.filters.districts?.length > 0
+      const filteredSettlements = this.filters?.districts?.length > 0
         ? this.allSettlements.filter(s => this.filters.districts.includes(s.id_district))
         : this.allSettlements
 
@@ -562,6 +599,7 @@ export default {
   },
   mounted() {
     this.loadFilterOptions()
+    this.loadFiltersFromURL()
   },
   watch: {
     allDistricts() {
@@ -733,6 +771,8 @@ export default {
     onFiltersChange() {
       // Обновляем маркеры при любом изменении фильтров
       this.$emit('filter-change', this.filters)
+      // Обновляем URL с текущими фильтрами
+      this.updateURLWithFilters()
     },
 
     onTypeEstatesChange() {
@@ -789,31 +829,8 @@ export default {
     },
     
     resetFilters() {
-      this.filters = {
-        revision: null,
-        districts: [],
-        settlementNamesOld: [],
-        settlementNamesModern: [],
-        typeEstates: [],
-        subtypeEstates: [],
-        religions: [],
-        affiliations: [],
-        volosts: [],
-        landowners: [],
-        militaryUnits: [],
-        maleEnabled: false,
-        maleMin: null,
-        maleMax: null,
-        femaleEnabled: false,
-        femaleMin: null,
-        femaleMax: null,
-        populationEnabled: false,
-        populationMin: null,
-        populationMax: null,
-        estatesCountEnabled: false,
-        estatesCountMin: null,
-        estatesCountMax: null
-      }
+      // Используем метод из composable для сброса фильтров
+      this.resetStoredFilters()
       this.$emit('filter-change', this.filters)
     },
     
@@ -866,6 +883,208 @@ export default {
 
     selectAllSettlementNamesModern() {
       this.filters.settlementNamesModern = this.filteredSettlementNamesModernSearch
+    },
+
+    // Экспорт фильтров в JSON
+    exportFilters() {
+      try {
+        const filtersToExport = {
+          ...this.filters,
+          // Добавляем метаданные для лучшего понимания
+          exportedAt: new Date().toISOString(),
+          exportedBy: 'Tahisis Estate Filters',
+          version: '1.0'
+        }
+
+        const jsonString = JSON.stringify(filtersToExport, null, 2)
+        const blob = new Blob([jsonString], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `tahisis-filters-${new Date().toISOString().split('T')[0]}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+
+        ElMessage.success('Фильтры успешно экспортированы!')
+      } catch (error) {
+        console.error('Error exporting filters:', error)
+        ElMessage.error('Ошибка при экспорте фильтров')
+      }
+    },
+
+    // Импорт фильтров из JSON
+    importFilters() {
+      try {
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = '.json,application/json'
+
+        input.onchange = (event) => {
+          const file = event.target.files[0]
+          if (!file) return
+
+          const reader = new FileReader()
+          reader.onload = (e) => {
+            try {
+              const importedFilters = JSON.parse(e.target.result)
+
+              // Валидация импортированных данных
+              if (!importedFilters || typeof importedFilters !== 'object') {
+                throw new Error('Неверный формат файла')
+              }
+
+              // Подтверждение импорта
+              this.$confirm(
+                `Импортировать фильтры из файла "${file.name}"? Текущие фильтры будут заменены.`,
+                'Подтверждение импорта',
+                {
+                  confirmButtonText: 'Импортировать',
+                  cancelButtonText: 'Отмена',
+                  type: 'warning',
+                  confirmButtonClass: 'el-button--warning'
+                }
+              ).then(() => {
+                // Импортируем фильтры, сохраняя только нужные поля
+                const allowedFields = [
+                  'districts', 'settlementNamesOld', 'settlementNamesModern',
+                  'typeEstates', 'subtypeEstates', 'religions', 'affiliations',
+                  'volosts', 'landowners', 'militaryUnits',
+                  'maleEnabled', 'femaleEnabled', 'populationEnabled', 'estatesCountEnabled',
+                  'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
+                  'populationMin', 'populationMax', 'estatesCountMin', 'estatesCountMax'
+                ]
+
+                const cleanedFilters = {}
+                allowedFields.forEach(field => {
+                  if (importedFilters.hasOwnProperty(field)) {
+                    cleanedFilters[field] = importedFilters[field]
+                  }
+                })
+
+                // Объединяем с текущими фильтрами
+                Object.assign(this.filters, cleanedFilters)
+
+                // Сохраняем в localStorage
+                this.applyStoredFilters()
+
+                // Уведомляем родительский компонент об изменении фильтров
+                this.$emit('filter-change', this.filters)
+
+                ElMessage.success('Фильтры успешно импортированы!')
+              }).catch(() => {
+                // Пользователь отменил импорт
+              })
+            } catch (parseError) {
+              console.error('Error parsing imported file:', parseError)
+              ElMessage.error('Ошибка при чтении файла. Убедитесь, что файл содержит корректный JSON.')
+            }
+          }
+
+          reader.readAsText(file)
+        }
+
+        input.click()
+      } catch (error) {
+        console.error('Error importing filters:', error)
+        ElMessage.error('Ошибка при импорте фильтров')
+      }
+    },
+
+    // Загрузка фильтров из URL параметров
+    loadFiltersFromURL() {
+      try {
+        const urlParams = new URLSearchParams(window.location.search)
+        const filtersParam = urlParams.get('filters')
+
+        if (filtersParam) {
+          const urlFilters = JSON.parse(decodeURIComponent(filtersParam))
+
+          // Валидация URL фильтров
+          if (urlFilters && typeof urlFilters === 'object') {
+            // Импортируем фильтры из URL, сохраняя только нужные поля
+            const allowedFields = [
+              'districts', 'settlementNamesOld', 'settlementNamesModern',
+              'typeEstates', 'subtypeEstates', 'religions', 'affiliations',
+              'volosts', 'landowners', 'militaryUnits',
+              'maleEnabled', 'femaleEnabled', 'populationEnabled', 'estatesCountEnabled',
+              'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
+              'populationMin', 'populationMax', 'estatesCountMin', 'estatesCountMax'
+            ]
+
+            const cleanedFilters = {}
+            allowedFields.forEach(field => {
+              if (urlFilters.hasOwnProperty(field)) {
+                cleanedFilters[field] = urlFilters[field]
+              }
+            })
+
+            // Объединяем с текущими фильтрами
+            Object.assign(this.filters, cleanedFilters)
+
+            // Сохраняем в localStorage
+            this.applyStoredFilters()
+
+            // Показываем уведомление
+            ElMessage.success('Фильтры загружены из URL!')
+          }
+        }
+      } catch (error) {
+        console.error('Error loading filters from URL:', error)
+        // Не показываем ошибку пользователю, так как это может быть некорректная ссылка
+      }
+    },
+
+    // Обновление URL с текущими фильтрами
+    updateURLWithFilters() {
+      try {
+        // Проверяем, есть ли активные фильтры
+        const hasActiveFilters =
+          this.filters.districts?.length > 0 ||
+          this.filters.settlementNamesOld?.length > 0 ||
+          this.filters.settlementNamesModern?.length > 0 ||
+          this.filters.typeEstates?.length > 0 ||
+          this.filters.subtypeEstates?.length > 0 ||
+          this.filters.religions?.length > 0 ||
+          this.filters.affiliations?.length > 0 ||
+          this.filters.volosts?.length > 0 ||
+          this.filters.landowners?.length > 0 ||
+          this.filters.militaryUnits?.length > 0 ||
+          this.filters.maleEnabled ||
+          this.filters.femaleEnabled ||
+          this.filters.populationEnabled ||
+          this.filters.estatesCountEnabled
+
+        if (hasActiveFilters) {
+          const url = new URL(window.location)
+          url.searchParams.set('filters', encodeURIComponent(JSON.stringify(this.filters)))
+          window.history.replaceState({}, '', url)
+        } else {
+          // Удаляем параметр фильтров если активных фильтров нет
+          const url = new URL(window.location)
+          url.searchParams.delete('filters')
+          window.history.replaceState({}, '', url)
+        }
+      } catch (error) {
+        console.error('Error updating URL with filters:', error)
+      }
+    },
+
+    // Получение ссылки для отправки
+    getShareableLink() {
+      try {
+        const currentUrl = window.location.href
+        navigator.clipboard.writeText(currentUrl).then(() => {
+          ElMessage.success('Ссылка скопирована в буфер обмена!')
+        }).catch(() => {
+          ElMessage.info('Ссылка: ' + currentUrl)
+        })
+      } catch (error) {
+        console.error('Error getting shareable link:', error)
+        ElMessage.error('Ошибка при получении ссылки')
+      }
     }
   }
 }

@@ -329,6 +329,7 @@ import { supabase } from '@/services/supabase'
 import Sortable from 'sortablejs'
 import MapView from './MapView.vue'
 import ColorSchemeSelector from './ColorSchemeSelector.vue'
+import { useTableSorting } from '@/composables/useStorage.js'
 
 export default {
   name: 'EstatesListAndMap',
@@ -338,6 +339,16 @@ export default {
     Setting,
     MapView,
     ColorSchemeSelector
+  },
+  setup() {
+    // Используем composable для управления сортировкой с сохранением в localStorage
+    const { sorting, setSorting, resetSorting } = useTableSorting('settlement_name_modern', 'asc')
+
+    return {
+      sorting,
+      setSorting,
+      resetSorting
+    }
   },
   data() {
     return {
@@ -470,6 +481,7 @@ export default {
   beforeUnmount() {
     if (this.sortableInstance) {
       this.sortableInstance.destroy()
+      this.sortableInstance = null
     }
   },
   methods: {
@@ -1238,24 +1250,36 @@ export default {
     },
 
     closeDetailsDrawer() {
-      this.detailsDrawerVisible = false
-      this.selectedRecord = null
+      try {
+        this.detailsDrawerVisible = false
+        this.selectedRecord = null
+      } catch (error) {
+        console.warn('Error closing details drawer:', error)
+      }
     },
 
     closeColorSettings() {
-      this.showColorSettings = false
+      try {
+        this.showColorSettings = false
+      } catch (error) {
+        console.warn('Error closing color settings:', error)
+      }
     },
 
     onColorSettingsChange() {
       // Обновляем маркеры на карте при изменении настроек цветов
       this.$nextTick(() => {
-        if (this.$refs.mapView) {
-          if (this.$refs.mapView.updateLeafletMarkers) {
-            this.$refs.mapView.updateLeafletMarkers()
+        try {
+          if (this.$refs.mapView && this.$refs.mapView.$el && this.$refs.mapView.$el.parentNode) {
+            if (this.$refs.mapView.updateLeafletMarkers && typeof this.$refs.mapView.updateLeafletMarkers === 'function') {
+              this.$refs.mapView.updateLeafletMarkers()
+            }
+            if (this.$refs.mapView.updateOpenLayersMarkers && typeof this.$refs.mapView.updateOpenLayersMarkers === 'function') {
+              this.$refs.mapView.updateOpenLayersMarkers()
+            }
           }
-          if (this.$refs.mapView.updateOpenLayersMarkers) {
-            this.$refs.mapView.updateOpenLayersMarkers()
-          }
+        } catch (error) {
+          console.warn('Error updating map markers on color settings change:', error)
         }
       })
     },
@@ -1267,42 +1291,51 @@ export default {
     initColumnDragDrop() {
       // Небольшая задержка для полной отрисовки таблицы
       setTimeout(() => {
-        const table = document.querySelector('.list-section .el-table__header-wrapper tr')
-
-        if (!table) {
-          // Таблица скрыта (режим "Карта"), это нормально
-          return
-        }
-
-        if (this.sortableInstance) {
-          this.sortableInstance.destroy()
-          this.sortableInstance = null
-        }
-
-        this.sortableInstance = Sortable.create(table, {
-          animation: 150,
-          delay: 0,
-          handle: '.cell',
-          ghostClass: 'sortable-ghost',
-          chosenClass: 'sortable-chosen',
-          dragClass: 'sortable-drag',
-          forceFallback: true,
-          fallbackClass: 'sortable-fallback',
-          fallbackOnBody: true,
-          swapThreshold: 0.65,
-          onStart: (evt) => {
-            // console.log('Drag started', evt.oldIndex)
-          },
-          onEnd: (evt) => {
-            const {oldIndex, newIndex} = evt
-            if (oldIndex !== newIndex) {
-              // console.log(`Column moved from ${oldIndex} to ${newIndex}`)
-              ElMessage.success(`Столбец перемещен с позиции ${oldIndex + 1} на позицию ${newIndex + 1}`)
-            }
+        try {
+          // Проверяем что компонент еще существует и примонтирован
+          if (!this.$el || !this.$el.parentNode) {
+            return
           }
-        })
 
-        // console.log('Sortable initialized successfully')
+          const table = document.querySelector('.list-section .el-table__header-wrapper tr')
+
+          if (!table) {
+            // Таблица скрыта (режим "Карта"), это нормально
+            return
+          }
+
+          if (this.sortableInstance) {
+            this.sortableInstance.destroy()
+            this.sortableInstance = null
+          }
+
+          this.sortableInstance = Sortable.create(table, {
+            animation: 150,
+            delay: 0,
+            handle: '.cell',
+            ghostClass: 'sortable-ghost',
+            chosenClass: 'sortable-chosen',
+            dragClass: 'sortable-drag',
+            forceFallback: true,
+            fallbackClass: 'sortable-fallback',
+            fallbackOnBody: true,
+            swapThreshold: 0.65,
+            onStart: (evt) => {
+              // console.log('Drag started', evt.oldIndex)
+            },
+            onEnd: (evt) => {
+              const {oldIndex, newIndex} = evt
+              if (oldIndex !== newIndex) {
+                // console.log(`Column moved from ${oldIndex} to ${newIndex}`)
+                ElMessage.success(`Столбец перемещен с позиции ${oldIndex + 1} на позицию ${newIndex + 1}`)
+              }
+            }
+          })
+
+          // console.log('Sortable initialized successfully')
+        } catch (error) {
+          console.warn('Error initializing column drag and drop:', error)
+        }
       }, 300)
     },
 
@@ -1329,39 +1362,51 @@ export default {
 
     // Обновляем векторные слои на картах
     refreshMapLayers() {
-      if (this.$refs.mapView && typeof this.$refs.mapView.refreshVectorLayers === 'function') {
-        // console.log('Refreshing map layers from EstatesListAndMap')
-        this.$refs.mapView.refreshVectorLayers()
+      try {
+        if (this.$refs.mapView && this.$refs.mapView.$el && this.$refs.mapView.$el.parentNode && typeof this.$refs.mapView.refreshVectorLayers === 'function') {
+          // console.log('Refreshing map layers from EstatesListAndMap')
+          this.$refs.mapView.refreshVectorLayers()
+        }
+      } catch (error) {
+        console.warn('Error refreshing map layers:', error)
       }
     },
 
     // Обновляем маркеры на картах при изменении данных
     updateMapMarkers() {
-      if (this.$refs.mapView) {
+      if (this.$refs.mapView && this.$refs.mapView.$el && this.$refs.mapView.$el.parentNode) {
         // Обновляем маркеры на обеих картах
         this.$nextTick(() => {
-          if (this.$refs.mapView.updateLeafletMarkers) {
-            this.$refs.mapView.updateLeafletMarkers()
-          }
-          if (this.$refs.mapView.updateOpenLayersMarkers) {
-            this.$refs.mapView.updateOpenLayersMarkers()
-          }
+          try {
+            if (this.$refs.mapView.updateLeafletMarkers && typeof this.$refs.mapView.updateLeafletMarkers === 'function') {
+              this.$refs.mapView.updateLeafletMarkers()
+            }
+            if (this.$refs.mapView.updateOpenLayersMarkers && typeof this.$refs.mapView.updateOpenLayersMarkers === 'function') {
+              this.$refs.mapView.updateOpenLayersMarkers()
+            }
 
-          // Обновляем размер карт после добавления маркеров
-          setTimeout(() => {
-            if (this.$refs.mapView.leafletMapInstance && this.$refs.mapView.$refs.leafletMap) {
-              const rect = this.$refs.mapView.$refs.leafletMap.getBoundingClientRect()
-              if (rect.width > 0 && rect.height > 0) {
-                this.$refs.mapView.leafletMapInstance.invalidateSize()
+            // Обновляем размер карт после добавления маркеров
+            setTimeout(() => {
+              try {
+                if (this.$refs.mapView.leafletMapInstance && this.$refs.mapView.$refs.leafletMap && this.$refs.mapView.$refs.leafletMap.parentNode) {
+                  const rect = this.$refs.mapView.$refs.leafletMap.getBoundingClientRect()
+                  if (rect.width > 0 && rect.height > 0) {
+                    this.$refs.mapView.leafletMapInstance.invalidateSize()
+                  }
+                }
+                if (this.$refs.mapView.olMapInstance && this.$refs.mapView.$refs.olMap && this.$refs.mapView.$refs.olMap.parentNode) {
+                  const rect = this.$refs.mapView.$refs.olMap.getBoundingClientRect()
+                  if (rect.width > 0 && rect.height > 0) {
+                    this.$refs.mapView.olMapInstance.updateSize()
+                  }
+                }
+              } catch (error) {
+                console.warn('Error updating map size:', error)
               }
-            }
-            if (this.$refs.mapView.olMapInstance && this.$refs.mapView.$refs.olMap) {
-              const rect = this.$refs.mapView.$refs.olMap.getBoundingClientRect()
-              if (rect.width > 0 && rect.height > 0) {
-                this.$refs.mapView.olMapInstance.updateSize()
-              }
-            }
-          }, 200)
+            }, 200)
+          } catch (error) {
+            console.warn('Error updating map markers:', error)
+          }
         })
       }
     }

@@ -9,8 +9,36 @@ import PgEstateTypes from '@/pages/PgEstateTypes.vue'
 import PgEstateTypesUpload from '@/pages/PgEstateTypesUpload.vue'
 import PgRevisionsUpload from '@/pages/PgRevisionsUpload.vue'
 import PgEstatesList from '@/pages/PgEstatesList.vue'
+import PgSettings from '@/pages/PgSettings.vue'
 import PgVectorLayerTypes from '@/pages/PgVectorLayerTypes.vue'
 import PgVectorLayers from '@/pages/PgVectorLayers.vue'
+
+// Вспомогательная функция для работы с URL параметрами фильтров
+const getFiltersFromURL = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const filtersParam = urlParams.get('filters')
+
+  if (filtersParam) {
+    try {
+      return JSON.parse(decodeURIComponent(filtersParam))
+    } catch (error) {
+      console.error('Error parsing filters from URL:', error)
+      return null
+    }
+  }
+
+  return null
+}
+
+const setFiltersInURL = (filters) => {
+  const url = new URL(window.location)
+  if (filters && Object.keys(filters).length > 0) {
+    url.searchParams.set('filters', encodeURIComponent(JSON.stringify(filters)))
+  } else {
+    url.searchParams.delete('filters')
+  }
+  window.history.replaceState({}, '', url)
+}
 
 const routes = [
   {
@@ -68,6 +96,11 @@ const routes = [
     path: '/estates-list',
     name: 'EstatesList',
     component: PgEstatesList
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: PgSettings
   },
   {
     path: '/vector-layer-types',
