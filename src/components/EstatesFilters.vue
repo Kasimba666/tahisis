@@ -373,14 +373,8 @@
         <el-button size="large" @click="resetFilters">
           Сбросить значения
         </el-button>
-        <el-button size="large" @click="exportFilters" type="success" plain>
-          Экспорт фильтров
-        </el-button>
-        <el-button size="large" @click="importFilters" type="warning" plain>
-          Импорт фильтров
-        </el-button>
         <el-button size="large" @click="getShareableLink" type="info" plain>
-          Получить ссылку
+          Получить ссылку с фильтрами
         </el-button>
       </div>
     </div>
@@ -885,113 +879,7 @@ export default {
       this.filters.settlementNamesModern = this.filteredSettlementNamesModernSearch
     },
 
-    // Экспорт фильтров в JSON
-    exportFilters() {
-      try {
-        const filtersToExport = {
-          ...this.filters,
-          // Добавляем метаданные для лучшего понимания
-          exportedAt: new Date().toISOString(),
-          exportedBy: 'Tahisis Estate Filters',
-          version: '1.0'
-        }
 
-        const jsonString = JSON.stringify(filtersToExport, null, 2)
-        const blob = new Blob([jsonString], { type: 'application/json' })
-        const url = URL.createObjectURL(blob)
-
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `tahisis-filters-${new Date().toISOString().split('T')[0]}.json`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        URL.revokeObjectURL(url)
-
-        ElMessage.success('Фильтры успешно экспортированы!')
-      } catch (error) {
-        console.error('Error exporting filters:', error)
-        ElMessage.error('Ошибка при экспорте фильтров')
-      }
-    },
-
-    // Импорт фильтров из JSON
-    importFilters() {
-      try {
-        const input = document.createElement('input')
-        input.type = 'file'
-        input.accept = '.json,application/json'
-
-        input.onchange = (event) => {
-          const file = event.target.files[0]
-          if (!file) return
-
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            try {
-              const importedFilters = JSON.parse(e.target.result)
-
-              // Валидация импортированных данных
-              if (!importedFilters || typeof importedFilters !== 'object') {
-                throw new Error('Неверный формат файла')
-              }
-
-              // Подтверждение импорта
-              this.$confirm(
-                `Импортировать фильтры из файла "${file.name}"? Текущие фильтры будут заменены.`,
-                'Подтверждение импорта',
-                {
-                  confirmButtonText: 'Импортировать',
-                  cancelButtonText: 'Отмена',
-                  type: 'warning',
-                  confirmButtonClass: 'el-button--warning'
-                }
-              ).then(() => {
-                // Импортируем фильтры, сохраняя только нужные поля
-                const allowedFields = [
-                  'districts', 'settlementNamesOld', 'settlementNamesModern',
-                  'typeEstates', 'subtypeEstates', 'religions', 'affiliations',
-                  'volosts', 'landowners', 'militaryUnits',
-                  'maleEnabled', 'femaleEnabled', 'populationEnabled', 'estatesCountEnabled',
-                  'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
-                  'populationMin', 'populationMax', 'estatesCountMin', 'estatesCountMax'
-                ]
-
-                const cleanedFilters = {}
-                allowedFields.forEach(field => {
-                  if (importedFilters.hasOwnProperty(field)) {
-                    cleanedFilters[field] = importedFilters[field]
-                  }
-                })
-
-                // Объединяем с текущими фильтрами
-                Object.assign(this.filters, cleanedFilters)
-
-                // Сохраняем в localStorage
-                this.applyStoredFilters()
-
-                // Уведомляем родительский компонент об изменении фильтров
-                this.$emit('filter-change', this.filters)
-
-                ElMessage.success('Фильтры успешно импортированы!')
-              }).catch(() => {
-                // Пользователь отменил импорт
-              })
-            } catch (parseError) {
-              console.error('Error parsing imported file:', parseError)
-              ElMessage.error('Ошибка при чтении файла. Убедитесь, что файл содержит корректный JSON.')
-            }
-          }
-
-          reader.readAsText(file)
-        }
-
-        input.click()
-      } catch (error) {
-        console.error('Error importing filters:', error)
-        ElMessage.error('Ошибка при импорте фильтров')
-      }
-    },
 
     // Загрузка фильтров из URL параметров
     loadFiltersFromURL() {
