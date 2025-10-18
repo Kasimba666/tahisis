@@ -888,7 +888,8 @@ export default {
         const filtersParam = urlParams.get('filters')
 
         if (filtersParam) {
-          const urlFilters = JSON.parse(decodeURIComponent(filtersParam))
+          // Используем прямой JSON.parse без decodeURIComponent
+          const urlFilters = JSON.parse(filtersParam)
 
           // Валидация URL фильтров
           if (urlFilters && typeof urlFilters === 'object') {
@@ -947,7 +948,8 @@ export default {
 
         if (hasActiveFilters) {
           const url = new URL(window.location)
-          url.searchParams.set('filters', encodeURIComponent(JSON.stringify(this.filters)))
+          // Используем прямой JSON без encodeURIComponent для читаемости
+          url.searchParams.set('filters', JSON.stringify(this.filters))
           window.history.replaceState({}, '', url)
         } else {
           // Удаляем параметр фильтров если активных фильтров нет
