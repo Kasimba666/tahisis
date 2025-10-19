@@ -330,6 +330,16 @@ import Sortable from 'sortablejs'
 import MapView from './MapView.vue'
 import ColorSchemeSelector from './ColorSchemeSelector.vue'
 import { useTableSorting } from '@/composables/useStorage.js'
+import {
+  getModeFromURL,
+  setModeInURL,
+  getSortingFromURL,
+  setSortingInURL,
+  getFiltersFromURL,
+  setFiltersInURL,
+  getAllParamsFromURL,
+  setAllParamsInURL
+} from '@/router'
 
 export default {
   name: 'EstatesListAndMap',
@@ -470,9 +480,12 @@ export default {
     }
   },
   async mounted() {
+    // Восстанавливаем параметры из URL
+    this.restoreParamsFromURL()
+
     // Загружаем справочник населенных пунктов для режима Estate
     await this.loadSettlementsReference()
-    
+
     // Не загружаем данные автоматически, ждем применения фильтров
     this.$nextTick(() => {
       this.initColumnDragDrop()
@@ -1353,9 +1366,33 @@ export default {
     applyFilters(filters) {
       this.currentFilters = filters
 
+      // Сохраняем фильтры в URL
+      setFiltersInURL(filters)
+
       // Всегда загружаем данные, даже если фильтров нет
       // Пустые фильтры означают "показать все данные"
       this.loadData()
+    },
+
+    // Восстанавливаем параметры из URL
+    restoreParamsFromURL() {
+      const urlParams = getAllParamsFromURL()
+
+      // Восстанавливаем режим данных
+      if (urlParams.mode) {
+        this.dataMode = urlParams.mode
+      }
+
+      // Восстанавливаем фильтры
+      if (urlParams.filters) {
+        this.currentFilters = urlParams.filters
+      }
+
+      // Восстанавливаем сортировку
+      if (urlParams.sorting) {
+        this.sorting.column = urlParams.sorting.column
+        this.sorting.order = urlParams.sorting.order
+      }
     },
 
 
@@ -1414,11 +1451,23 @@ export default {
   watch: {
     dataMode(newMode) {
       this.$emit('data-mode-change', newMode)
+
+      // Сохраняем режим в URL
+      setModeInURL(newMode)
+
       // Не загружаем данные автоматически при смене режима
       // Данные загружаются только при изменении фильтров
       this.$nextTick(() => {
         this.initColumnDragDrop()
       })
+    },
+
+    sorting: {
+      handler(newSorting) {
+        // Сохраняем сортировку в URL
+        setSortingInURL(newSorting)
+      },
+      deep: true
     },
     viewMode() {
       this.$nextTick(() => {

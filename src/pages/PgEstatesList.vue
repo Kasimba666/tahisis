@@ -43,11 +43,11 @@ export default {
         this.$refs.listAndMap.applyFilters(filters)
       }
     },
-    
+
     handleDataModeChange(mode) {
       this.dataMode = mode
     },
-    
+
     handleOptionsLoaded(options) {
       this.filterOptions = options
       if (this.$refs.listAndMap) {

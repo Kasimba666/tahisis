@@ -40,6 +40,85 @@ const setFiltersInURL = (filters) => {
   window.history.replaceState({}, '', url)
 }
 
+// Функции для работы с параметрами mode и sorting
+const getModeFromURL = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  return urlParams.get('mode') || 'estate' // По умолчанию 'estate' (По сословиям)
+}
+
+const setModeInURL = (mode) => {
+  const url = new URL(window.location)
+  if (mode && mode !== 'estate') {
+    url.searchParams.set('mode', mode)
+  } else {
+    url.searchParams.delete('mode')
+  }
+  window.history.replaceState({}, '', url)
+}
+
+const getSortingFromURL = () => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const sortingParam = urlParams.get('sorting')
+
+  if (sortingParam) {
+    try {
+      return JSON.parse(decodeURIComponent(sortingParam))
+    } catch (error) {
+      console.error('Error parsing sorting from URL:', error)
+      return null
+    }
+  }
+
+  return null
+}
+
+const setSortingInURL = (sorting) => {
+  const url = new URL(window.location)
+  if (sorting && sorting.column && sorting.order) {
+    url.searchParams.set('sorting', encodeURIComponent(JSON.stringify(sorting)))
+  } else {
+    url.searchParams.delete('sorting')
+  }
+  window.history.replaceState({}, '', url)
+}
+
+// Функция для получения всех параметров из URL
+const getAllParamsFromURL = () => {
+  return {
+    filters: getFiltersFromURL(),
+    mode: getModeFromURL(),
+    sorting: getSortingFromURL()
+  }
+}
+
+// Функция для установки всех параметров в URL
+const setAllParamsInURL = (params) => {
+  const url = new URL(window.location)
+
+  // Устанавливаем фильтры
+  if (params.filters && Object.keys(params.filters).length > 0) {
+    url.searchParams.set('filters', encodeURIComponent(JSON.stringify(params.filters)))
+  } else {
+    url.searchParams.delete('filters')
+  }
+
+  // Устанавливаем режим
+  if (params.mode && params.mode !== 'estate') {
+    url.searchParams.set('mode', params.mode)
+  } else {
+    url.searchParams.delete('mode')
+  }
+
+  // Устанавливаем сортировку
+  if (params.sorting && params.sorting.column && params.sorting.order) {
+    url.searchParams.set('sorting', encodeURIComponent(JSON.stringify(params.sorting)))
+  } else {
+    url.searchParams.delete('sorting')
+  }
+
+  window.history.replaceState({}, '', url)
+}
+
 const routes = [
   {
     path: '/',
@@ -141,3 +220,15 @@ router.beforeEach((to, from, next) => {
 })
 
 export default router
+
+// Экспортируем функции для работы с URL параметрами
+export {
+  getFiltersFromURL,
+  setFiltersInURL,
+  getModeFromURL,
+  setModeInURL,
+  getSortingFromURL,
+  setSortingInURL,
+  getAllParamsFromURL,
+  setAllParamsInURL
+}
