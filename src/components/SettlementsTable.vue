@@ -247,6 +247,65 @@ export default {
 
         if (error) throw error
         this.allSettlements = data || []
+
+        // Диагностика: проверяем данные о районах
+        console.log('=== SETTLEMENTS DEBUG INFO ===')
+        console.log('Total settlements loaded:', this.allSettlements.length)
+        console.log('Sample settlements with district_id:', this.allSettlements.slice(0, 5).map(s => ({
+          id: s.id,
+          name: s.name_old,
+          district_id: s.id_district
+        })))
+
+        // Проверяем таблицу District отдельно
+        const { data: districts, error: districtError } = await supabase
+          .from('District')
+          .select('id, name')
+
+        if (districtError) {
+          console.error('Error loading districts:', districtError)
+        } else {
+          console.log('Available districts:', districts)
+          console.log('Districts count:', districts?.length)
+        }
+
+        // Проверяем связь Settlement -> District
+        const { data: settlementsWithDistricts, error: settlementsError } = await supabase
+          .from('Settlement')
+          .select(`
+            id,
+            name_old,
+            name_modern,
+            id_district,
+            District!Settlement_id_district_fkey(id, name)
+          `)
+          .limit(10)
+
+        if (settlementsError) {
+          console.error('Error loading settlements with districts:', settlementsError)
+        } else {
+          console.log('Sample settlements with district relation:', settlementsWithDistricts?.map(s => ({
+            id: s.id,
+            name: s.name_old,
+            id_district: s.id_district,
+            district_name: s.District?.name || 'NO DISTRICT'
+          })))
+        }
+
+        // Проверяем есть ли вообще данные в таблице Settlement
+        const { data: allSettlements, error: allError } = await supabase
+          .from('Settlement')
+          .select('id, name_old, id_district')
+
+        if (allError) {
+          console.error('Error loading all settlements:', allError)
+        } else {
+          console.log('All settlements count:', allSettlements?.length)
+          const withDistrict = allSettlements?.filter(s => s.id_district !== null) || []
+          const withoutDistrict = allSettlements?.filter(s => s.id_district === null) || []
+          console.log('Settlements with district:', withDistrict.length)
+          console.log('Settlements without district:', withoutDistrict.length)
+        }
       } catch (error) {
         console.error('Error loading settlements reference:', error)
       }
@@ -279,10 +338,168 @@ export default {
       }
     },
 
+    // Применение фильтров к данным
+    applyFiltersToData(data) {
+      if (!this.currentFilters) return data
+
+      let filtered = [...data]
+      console.log('=== SETTLEMENTS FILTER DEBUG ===')
+      console.log('Current filters object:', this.currentFilters)
+      console.log('Initial settlements count:', filtered.length)
+
+      // Проверяем каждый тип фильтра
+      console.log('Filter checks:')
+      console.log('- districts:', this.currentFilters.districts, 'length:', this.currentFilters.districts?.length)
+      console.log('- settlementNamesOld:', this.currentFilters.settlementNamesOld, 'length:', this.currentFilters.settlementNamesOld?.length)
+      console.log('- settlementNamesModern:', this.currentFilters.settlementNamesModern, 'length:', this.currentFilters.settlementNamesModern?.length)
+      console.log('- typeEstates:', this.currentFilters.typeEstates, 'length:', this.currentFilters.typeEstates?.length)
+      console.log('- subtypeEstates:', this.currentFilters.subtypeEstates, 'length:', this.currentFilters.subtypeEstates?.length)
+      console.log('- religions:', this.currentFilters.religions, 'length:', this.currentFilters.religions?.length)
+      console.log('- affiliations:', this.currentFilters.affiliations, 'length:', this.currentFilters.affiliations?.length)
+      console.log('- volosts:', this.currentFilters.volosts, 'length:', this.currentFilters.volosts?.length)
+      console.log('- landowners:', this.currentFilters.landowners, 'length:', this.currentFilters.landowners?.length)
+      console.log('- militaryUnits:', this.currentFilters.militaryUnits, 'length:', this.currentFilters.militaryUnits?.length)
+
+      // Фильтр по районам
+      if (this.currentFilters.districts?.length > 0) {
+        const beforeCount = filtered.length
+        console.log('District filter IDs:', this.currentFilters.districts)
+        console.log('Sample settlement district_ids:', filtered.slice(0, 3).map(s => s.district_id))
+        filtered = filtered.filter(item => {
+          if (!item.district_id) return false
+          return this.currentFilters.districts.includes(item.district_id)
+        })
+        console.log(`District filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+      }
+
+      // Фильтр по старым названиям населенных пунктов
+      if (this.currentFilters.settlementNamesOld?.length > 0) {
+        const beforeCount = filtered.length
+        filtered = filtered.filter(item =>
+          item.settlement_name_old && this.currentFilters.settlementNamesOld.includes(item.settlement_name_old)
+        )
+        console.log(`Old settlement names filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+      }
+
+      // Фильтр по современным названиям населенных пунктов
+      if (this.currentFilters.settlementNamesModern?.length > 0) {
+        const beforeCount = filtered.length
+        filtered = filtered.filter(item =>
+          item.settlement_name_modern && this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
+        )
+        console.log(`Modern settlement names filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+      }
+
+      // Фильтр по типам сословий
+      if (this.currentFilters.typeEstates?.length > 0) {
+        const beforeCount = filtered.length
+        console.log('=== TYPE ESTATES FILTER DEBUG ===')
+        console.log('Filter typeEstates:', this.currentFilters.typeEstates)
+        console.log('Sample settlement type_estate_ids:', filtered.slice(0, 3).map(s => s.type_estate_ids))
+        filtered = filtered.filter(item => {
+          if (!item.type_estate_ids || item.type_estate_ids.length === 0) return false
+          return this.currentFilters.typeEstates.some(typeId => item.type_estate_ids.includes(typeId))
+        })
+        console.log(`Type estates filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+      }
+
+      // Фильтр по подтипам сословий
+      if (this.currentFilters.subtypeEstates?.length > 0) {
+        const beforeCount = filtered.length
+        console.log('=== SUBTYPE ESTATES FILTER DEBUG ===')
+        console.log('Filter subtypeEstates:', this.currentFilters.subtypeEstates)
+        console.log('Sample settlement subtype_estate_ids:', filtered.slice(0, 3).map(s => s.subtype_estate_ids))
+        filtered = filtered.filter(item => {
+          if (!item.subtype_estate_ids || item.subtype_estate_ids.length === 0) return false
+          return this.currentFilters.subtypeEstates.some(subtypeId => item.subtype_estate_ids.includes(subtypeId))
+        })
+        console.log(`Subtype estates filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+      }
+
+      // Фильтр по религиям (ЭТОТ РАБОТАЕТ!)
+      if (this.currentFilters.religions?.length > 0) {
+        const beforeCount = filtered.length
+        console.log('=== RELIGIONS FILTER DEBUG (THIS WORKS) ===')
+        console.log('Filter religions:', this.currentFilters.religions)
+        console.log('Sample settlement religion_ids:', filtered.slice(0, 3).map(s => s.religion_ids))
+        filtered = filtered.filter(item => {
+          if (!item.religion_ids || item.religion_ids.length === 0) return false
+          return this.currentFilters.religions.some(religionId => item.religion_ids.includes(religionId))
+        })
+        console.log(`Religions filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+      }
+
+      // Фильтр по принадлежностям
+      if (this.currentFilters.affiliations?.length > 0) {
+        filtered = filtered.filter(item => {
+          if (!item.affiliation_ids || item.affiliation_ids.length === 0) return false
+          return this.currentFilters.affiliations.some(affiliationId => item.affiliation_ids.includes(affiliationId))
+        })
+      }
+
+      // Фильтр по волостям
+      if (this.currentFilters.volosts?.length > 0) {
+        filtered = filtered.filter(item => {
+          if (!item.volost_ids || item.volost_ids.length === 0) return false
+          return this.currentFilters.volosts.some(volostId => item.volost_ids.includes(volostId))
+        })
+      }
+
+      // Фильтр по помещикам
+      if (this.currentFilters.landowners?.length > 0) {
+        filtered = filtered.filter(item => {
+          if (!item.landowner_ids || item.landowner_ids.length === 0) return false
+          return this.currentFilters.landowners.some(landownerId => item.landowner_ids.includes(landownerId))
+        })
+      }
+
+      // Фильтр по войсковым организациям
+      if (this.currentFilters.militaryUnits?.length > 0) {
+        filtered = filtered.filter(item => {
+          if (!item.military_unit_ids || item.military_unit_ids.length === 0) return false
+          return this.currentFilters.militaryUnits.some(unitId => item.military_unit_ids.includes(unitId))
+        })
+      }
+
+      // Фильтр по количеству мужчин
+      if (this.currentFilters.maleEnabled) {
+        if (this.currentFilters.maleMin !== null && this.currentFilters.maleMin !== undefined) {
+          filtered = filtered.filter(item => item.male >= this.currentFilters.maleMin)
+        }
+        if (this.currentFilters.maleMax !== null && this.currentFilters.maleMax !== undefined) {
+          filtered = filtered.filter(item => item.male <= this.currentFilters.maleMax)
+        }
+      }
+
+      // Фильтр по количеству женщин
+      if (this.currentFilters.femaleEnabled) {
+        if (this.currentFilters.femaleMin !== null && this.currentFilters.femaleMin !== undefined) {
+          filtered = filtered.filter(item => item.female >= this.currentFilters.femaleMin)
+        }
+        if (this.currentFilters.femaleMax !== null && this.currentFilters.femaleMax !== undefined) {
+          filtered = filtered.filter(item => item.female <= this.currentFilters.femaleMax)
+        }
+      }
+
+      // Фильтр по общему населению
+      if (this.currentFilters.populationEnabled) {
+        if (this.currentFilters.populationMin !== null && this.currentFilters.populationMin !== undefined) {
+          filtered = filtered.filter(item => item.total >= this.currentFilters.populationMin)
+        }
+        if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
+          filtered = filtered.filter(item => item.total <= this.currentFilters.populationMax)
+        }
+      }
+
+      return filtered
+    },
+
     async loadSettlementsData() {
       try {
-        // Загружаем все населённые пункты с их данными
-        const { data, error } = await supabase
+        console.log('=== LOADING SETTLEMENTS DATA ===')
+
+        // Загружаем все населённые пункты с районами
+        const { data: settlements, error: settlementsError } = await supabase
           .from('Settlement')
           .select(`
             id,
@@ -290,25 +507,183 @@ export default {
             name_modern,
             lat,
             lon,
-            District(name)
+            id_district,
+            District!Settlement_id_district_fkey(id, name)
           `)
           .not('name_old', 'is', null)
           .order('name_old', { ascending: true })
 
-        if (error) throw error
+        if (settlementsError) throw settlementsError
+        console.log('Loaded settlements:', settlements?.length)
 
-        // Для каждого населённого пункта рассчитываем агрегированные данные
-        const settlementsWithData = await Promise.all(
-          (data || []).map(async (settlement) => {
-            return await this.calculateSettlementData(settlement)
-          })
-        )
+        // Загружаем все записи ревизий с населенными пунктами
+        const { data: reportRecords, error: reportError } = await supabase
+          .from('Report_record')
+          .select(`
+            id,
+            code,
+            population_all,
+            id_settlment,
+            Revision_report!Report_record_id_revision_report_fkey(id, year, number)
+          `)
+          .not('id_settlment', 'is', null)
 
-        this.settlementsData = settlementsWithData.filter(s => s !== null)
+        if (reportError) throw reportError
+        console.log('Loaded report records:', reportRecords?.length)
+
+        // Загружаем все сословия с полной информацией
+        const { data: estates, error: estatesError } = await supabase
+          .from('Estate')
+          .select(`
+            id,
+            male,
+            female,
+            id_report_record,
+            id_subtype_estate,
+            id_volost,
+            id_landowner,
+            id_military_unit,
+            Subtype_estate!Estate_id_subtype_estate_fkey(
+              id,
+              name,
+              id_type_estate,
+              id_type_religion,
+              id_type_affiliation,
+              Type_estate!Subtype_estate_id_type_estate_fkey(id, name),
+              Type_religion!Subtype_estate_id_type_religion_fkey(id, name),
+              Type_affiliation!Subtype_estate_id_type_affiliation_fkey(id, name)
+            ),
+            Volost!Estate_id_volost_fkey(id, name),
+            Landowner!Estate_id_landowner_fkey(id, description, person),
+            Military_unit!Estate_id_military_unit_fkey(id, description, person)
+          `)
+
+        if (estatesError) throw estatesError
+        console.log('Loaded estates:', estates?.length)
+
+        // Группируем данные по населенным пунктам
+        const settlementsMap = new Map()
+
+        // Обрабатываем каждое поселение
+        settlements?.forEach(settlement => {
+          const settlementId = settlement.id
+          const districtName = settlement.District?.name || '—'
+
+          // Находим все записи ревизий для этого поселения
+          const settlementReportRecords = reportRecords?.filter(rr => rr.id_settlment === settlementId) || []
+
+          // Находим все сословия для этого поселения
+          const settlementEstates = estates?.filter(estate =>
+            settlementReportRecords.some(rr => rr.id === estate.id_report_record)
+          ) || []
+
+          if (settlementReportRecords.length > 0) {
+            // Рассчитываем агрегированные данные
+            const totalMale = settlementEstates.reduce((sum, estate) => sum + (estate.male || 0), 0)
+            const totalFemale = settlementEstates.reduce((sum, estate) => sum + (estate.female || 0), 0)
+            const totalPopulation = totalMale + totalFemale
+
+            // Получаем уникальные значения
+            const uniqueRevisions = new Set(settlementReportRecords.map(rr => rr.Revision_report?.id).filter(id => id))
+            const uniqueReligions = new Set(settlementEstates.map(estate => estate.Subtype_estate?.id_type_religion).filter(id => id))
+            const uniqueTypeEstates = new Set(settlementEstates.map(estate => estate.Subtype_estate?.id_type_estate).filter(id => id))
+            const uniqueSubtypeEstates = new Set(settlementEstates.map(estate => estate.id_subtype_estate).filter(id => id))
+            const uniqueAffiliations = new Set(settlementEstates.map(estate => estate.Subtype_estate?.id_type_affiliation).filter(id => id))
+            const uniqueVolosts = new Set(settlementEstates.map(estate => estate.id_volost).filter(id => id))
+            const uniqueLandowners = new Set(settlementEstates.map(estate => estate.id_landowner).filter(id => id))
+            const uniqueMilitaryUnits = new Set(settlementEstates.map(estate => estate.id_military_unit).filter(id => id))
+
+            settlementsMap.set(settlementId, {
+              settlement_id: settlementId,
+              settlement_name_old: settlement.name_old,
+              settlement_name_modern: settlement.name_modern,
+              district_name: districtName,
+              district_id: settlement.id_district,
+              lat: settlement.lat,
+              lon: settlement.lon,
+              revision_count: uniqueRevisions.size,
+              estates_count: settlementEstates.length,
+              religions_count: uniqueReligions.size,
+              male: totalMale,
+              female: totalFemale,
+              total: totalPopulation,
+              // Данные для фильтрации
+              type_estate_ids: Array.from(uniqueTypeEstates),
+              subtype_estate_ids: Array.from(uniqueSubtypeEstates),
+              religion_ids: Array.from(uniqueReligions),
+              affiliation_ids: Array.from(uniqueAffiliations),
+              volost_ids: Array.from(uniqueVolosts),
+              landowner_ids: Array.from(uniqueLandowners),
+              military_unit_ids: Array.from(uniqueMilitaryUnits),
+              // Детальные данные
+              revisions: settlementReportRecords.map(rr => ({
+                id: rr.id,
+                year: rr.Revision_report?.year || '—',
+                number: rr.Revision_report?.number || '—',
+                male: 0,
+                female: 0,
+                total: rr.population_all || 0
+              })),
+              estates: settlementEstates.map(estate => ({
+                id: estate.id,
+                subtype_estate_name: estate.Subtype_estate?.name || '—',
+                type_estate_name: estate.Subtype_estate?.Type_estate?.name || '—',
+                type_religion_name: estate.Subtype_estate?.Type_religion?.name || '—',
+                type_affiliation_name: estate.Subtype_estate?.Type_affiliation?.name || '—',
+                volost_name: estate.Volost?.name || '—',
+                landowner_description: estate.Landowner?.description || estate.Landowner?.person || '—',
+                military_unit_description: estate.Military_unit?.description || estate.Military_unit?.person || '—',
+                male: estate.male || 0,
+                female: estate.female || 0,
+                total: (estate.male || 0) + (estate.female || 0)
+              }))
+            })
+          }
+        })
+
+        const allData = Array.from(settlementsMap.values())
+        console.log('Processed settlements with data:', allData.length)
+
+        // Сохраняем все данные в localStorage для быстрого доступа
+        this.saveToLocalStorage('settlements_all_data', allData)
+
+        // Применяем фильтры к загруженным данным
+        const filteredData = this.applyFiltersToData(allData)
+
+        this.settlementsData = filteredData
       } catch (error) {
         console.error('Error loading settlements data:', error)
         throw error
       }
+    },
+
+    // Сохранение данных в localStorage
+    saveToLocalStorage(key, data) {
+      try {
+        localStorage.setItem(`settlements_${key}`, JSON.stringify({
+          data: data,
+          timestamp: Date.now()
+        }))
+      } catch (error) {
+        console.warn('Error saving to localStorage:', error)
+      }
+    },
+
+    // Загрузка данных из localStorage
+    loadFromLocalStorage(key) {
+      try {
+        const stored = localStorage.getItem(`settlements_${key}`)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          // Проверяем актуальность данных (5 минут)
+          if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+            return parsed.data
+          }
+        }
+      } catch (error) {
+        console.warn('Error loading from localStorage:', error)
+      }
+      return null
     },
 
     async calculateSettlementData(settlement) {
@@ -373,11 +748,45 @@ export default {
           }
         })
 
+        // Получаем уникальные ID для фильтрации
+        const typeEstateIds = new Set()
+        const subtypeEstateIds = new Set()
+        const religionIds = new Set()
+        const affiliationIds = new Set()
+        const volostIds = new Set()
+        const landownerIds = new Set()
+        const militaryUnitIds = new Set()
+
+        estates?.forEach(estate => {
+          if (estate.Subtype_estate?.id_type_estate) {
+            typeEstateIds.add(estate.Subtype_estate.id_type_estate)
+          }
+          if (estate.id_subtype_estate) {
+            subtypeEstateIds.add(estate.id_subtype_estate)
+          }
+          if (estate.Subtype_estate?.id_type_religion) {
+            religionIds.add(estate.Subtype_estate.id_type_religion)
+          }
+          if (estate.Subtype_estate?.id_type_affiliation) {
+            affiliationIds.add(estate.Subtype_estate.id_type_affiliation)
+          }
+          if (estate.id_volost) {
+            volostIds.add(estate.id_volost)
+          }
+          if (estate.id_landowner) {
+            landownerIds.add(estate.id_landowner)
+          }
+          if (estate.id_military_unit) {
+            militaryUnitIds.add(estate.id_military_unit)
+          }
+        })
+
         return {
           settlement_id: settlement.id,
           settlement_name_old: settlement.name_old,
           settlement_name_modern: settlement.name_modern,
           district_name: settlement.District?.name || '—',
+          district_id: settlement.id_district || null,
           lat: settlement.lat,
           lon: settlement.lon,
           revision_count: uniqueRevisions.size,
@@ -386,12 +795,17 @@ export default {
           male: totalMale,
           female: totalFemale,
           total: totalPopulation,
+          // Данные для фильтрации
+          type_estate_ids: Array.from(typeEstateIds),
+          subtype_estate_ids: Array.from(subtypeEstateIds),
+          religion_ids: Array.from(religionIds),
+          affiliation_ids: Array.from(affiliationIds),
           // Дополнительные данные для детального просмотра
           revisions: reportRecords.map(rr => ({
             id: rr.id,
             year: rr.Revision_report?.year || '—',
             number: rr.Revision_report?.number || '—',
-            male: 0, // Будет рассчитано ниже
+            male: 0,
             female: 0,
             total: rr.population_all || 0
           })),

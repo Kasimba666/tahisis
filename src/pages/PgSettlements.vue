@@ -29,6 +29,11 @@
 <script>
 import EstatesFilters from '@/components/EstatesFilters.vue'
 import SettlementsTable from '@/components/SettlementsTable.vue'
+import {
+  getFiltersFromURL,
+  setFiltersInURL,
+  getAllParamsFromURL
+} from '@/router'
 
 export default {
   name: 'PgSettlements',
@@ -49,6 +54,10 @@ export default {
       allVolosts: [],
       allRevisions: []
     }
+  },
+  mounted() {
+    // Загружаем фильтры из URL при инициализации
+    this.loadFiltersFromURL()
   },
   methods: {
     setFilterOptions(options) {
@@ -83,7 +92,44 @@ export default {
 
     applyFilters(filters) {
       this.currentFilters = filters
+
+      // Сохраняем фильтры в URL
+      setFiltersInURL(filters)
+
       this.$refs.settlementsTable?.applyFilters(filters)
+    },
+
+    // Загрузка фильтров из URL
+    loadFiltersFromURL() {
+      try {
+        const urlParams = getAllParamsFromURL()
+
+        if (urlParams.filters) {
+          // Валидация URL фильтров
+          if (urlParams.filters && typeof urlParams.filters === 'object') {
+            // Импортируем фильтры из URL, сохраняя только нужные поля
+            const allowedFields = [
+              'revision', 'districts', 'settlementNamesOld', 'settlementNamesModern',
+              'typeEstates', 'subtypeEstates', 'religions', 'affiliations',
+              'volosts', 'landowners', 'militaryUnits',
+              'maleEnabled', 'femaleEnabled', 'populationEnabled', 'estatesCountEnabled',
+              'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
+              'populationMin', 'populationMax', 'estatesCountMin', 'estatesCountMax'
+            ]
+
+            const cleanedFilters = {}
+            allowedFields.forEach(field => {
+              if (urlParams.filters.hasOwnProperty(field)) {
+                cleanedFilters[field] = urlParams.filters[field]
+              }
+            })
+
+            this.currentFilters = cleanedFilters
+          }
+        }
+      } catch (error) {
+        console.error('Error loading filters from URL:', error)
+      }
     }
   }
 }
