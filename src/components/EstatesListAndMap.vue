@@ -1538,11 +1538,14 @@ export default {
         const { headers, exportData } = this.prepareExportData(dataToExport)
 
         // Создаем лист с данными
-        const worksheet = XLSX.utils.aoa_to_sheet([headers, ...exportData])
+        const worksheet = XLSX.utils.aoa_to_sheet(exportData)
 
         // Устанавливаем ширину колонок
         const columnWidths = this.getColumnWidths(headers, exportData)
         worksheet['!cols'] = columnWidths
+
+        // Добавляем стили форматирования
+        this.applyExcelStyles(worksheet, exportData.length)
 
         // Добавляем лист в книгу
         XLSX.utils.book_append_sheet(workbook, worksheet, this.dataMode === 'estate' ? 'Сословия' : 'Ревизии')
@@ -1576,18 +1579,18 @@ export default {
         }
       })
 
-      // Добавляем заголовок с информацией о фильтрах
-      const filterInfo = this.getFilterInfo()
-      if (filterInfo.length > 0) {
-        const infoHeaders = new Array(headers.length).fill('')
-        infoHeaders[0] = 'Активные фильтры:'
-        exportData.push(infoHeaders)
+      // Добавляем компактную информацию о фильтрах в одну строку
+      const filterInfo = this.getCompactFilterInfo()
+      if (filterInfo) {
+        const infoRow = new Array(headers.length).fill('')
+        infoRow[0] = filterInfo
 
-        filterInfo.forEach(info => {
-          const infoRow = new Array(headers.length).fill('')
-          infoRow[0] = info
-          exportData.push(infoRow)
-        })
+        // Очищаем все остальные ячейки в строке фильтров
+        for (let i = 1; i < infoRow.length; i++) {
+          infoRow[i] = ''
+        }
+
+        exportData.push(infoRow)
 
         // Пустая строка после информации о фильтрах
         exportData.push(new Array(headers.length).fill(''))
@@ -1611,6 +1614,7 @@ export default {
       // Добавляем строку с суммами (если есть числовые колонки)
       const summaryRow = this.getSummaryRow(headers.length)
       if (summaryRow.some(cell => cell !== '')) {
+        exportData.push(new Array(headers.length).fill('')) // Пустая строка перед итогами
         exportData.push(summaryRow)
       }
 
@@ -1656,132 +1660,236 @@ export default {
       return value !== null && value !== undefined ? value : ''
     },
 
-    // Получение информации о фильтрах
-    getFilterInfo() {
-      const info = []
+    // Получение компактной информации о фильтрах
+    getCompactFilterInfo() {
+      if (!this.currentFilters) return null
 
-      if (this.currentFilters) {
-        // Ревизии
-        if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
-          const revisionNames = this.currentFilters.revision.map(id => {
-            const revision = this.allRevisions?.find(r => r.id === id)
-            return revision ? `${revision.number} ревизия (${revision.year})` : `ID:${id}`
-          })
-          info.push(`Ревизии: ${revisionNames.join(', ')}`)
-        }
+      const activeFilters = []
 
-        // Районы
-        if (this.currentFilters.districts?.length > 0) {
-          const districtNames = this.currentFilters.districts.map(id => {
-            const district = this.allDistricts?.find(d => d.id === id)
-            return district ? district.name : `ID:${id}`
-          })
-          info.push(`Районы: ${districtNames.join(', ')}`)
-        }
+      // Ревизии
+      if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
+        const count = this.currentFilters.revision.length
+        activeFilters.push(`Ревизий: ${count}`)
+      }
 
-        // Населенные пункты (старые)
-        if (this.currentFilters.settlementNamesOld?.length > 0) {
-          info.push(`Населенные пункты (старые): ${this.currentFilters.settlementNamesOld.join(', ')}`)
-        }
+      // Районы
+      if (this.currentFilters.districts?.length > 0) {
+        const count = this.currentFilters.districts.length
+        activeFilters.push(`Районов: ${count}`)
+      }
 
-        // Населенные пункты (современные)
-        if (this.currentFilters.settlementNamesModern?.length > 0) {
-          info.push(`Населенные пункты (современные): ${this.currentFilters.settlementNamesModern.join(', ')}`)
-        }
+      // Населенные пункты (старые)
+      if (this.currentFilters.settlementNamesOld?.length > 0) {
+        const count = this.currentFilters.settlementNamesOld.length
+        activeFilters.push(`Нас.пунктов (стар.): ${count}`)
+      }
 
-        // Типы сословий
-        if (this.currentFilters.typeEstates?.length > 0) {
-          const typeNames = this.currentFilters.typeEstates.map(id => {
-            const type = this.allTypeEstates?.find(t => t.id === id)
-            return type ? type.name : `ID:${id}`
-          })
-          info.push(`Типы сословий: ${typeNames.join(', ')}`)
-        }
+      // Населенные пункты (современные)
+      if (this.currentFilters.settlementNamesModern?.length > 0) {
+        const count = this.currentFilters.settlementNamesModern.length
+        activeFilters.push(`Нас.пунктов (совр.): ${count}`)
+      }
 
-        // Подтипы сословий
-        if (this.currentFilters.subtypeEstates?.length > 0) {
-          const subtypeNames = this.currentFilters.subtypeEstates.map(id => {
-            const subtype = this.allSubtypeEstates?.find(s => s.id === id)
-            return subtype ? subtype.name : `ID:${id}`
-          })
-          info.push(`Подтипы сословий: ${subtypeNames.join(', ')}`)
-        }
+      // Типы сословий
+      if (this.currentFilters.typeEstates?.length > 0) {
+        const count = this.currentFilters.typeEstates.length
+        activeFilters.push(`Типов сословий: ${count}`)
+      }
 
-        // Религии
-        if (this.currentFilters.religions?.length > 0) {
-          const religionNames = this.currentFilters.religions.map(id => {
-            const religion = this.allReligions?.find(r => r.id === id)
-            return religion ? religion.name : `ID:${id}`
-          })
-          info.push(`Религии: ${religionNames.join(', ')}`)
-        }
+      // Подтипы сословий
+      if (this.currentFilters.subtypeEstates?.length > 0) {
+        const count = this.currentFilters.subtypeEstates.length
+        activeFilters.push(`Подтипов сословий: ${count}`)
+      }
 
-        // Принадлежности
-        if (this.currentFilters.affiliations?.length > 0) {
-          const affiliationNames = this.currentFilters.affiliations.map(id => {
-            const affiliation = this.allAffiliations?.find(a => a.id === id)
-            return affiliation ? affiliation.name : `ID:${id}`
-          })
-          info.push(`Принадлежности: ${affiliationNames.join(', ')}`)
-        }
+      // Религии
+      if (this.currentFilters.religions?.length > 0) {
+        const count = this.currentFilters.religions.length
+        activeFilters.push(`Религий: ${count}`)
+      }
 
-        // Волости
-        if (this.currentFilters.volosts?.length > 0) {
-          const volostNames = this.currentFilters.volosts.map(id => {
-            const volost = this.allVolosts?.find(v => v.id === id)
-            return volost ? volost.name : `ID:${id}`
-          })
-          info.push(`Волости: ${volostNames.join(', ')}`)
-        }
+      // Принадлежности
+      if (this.currentFilters.affiliations?.length > 0) {
+        const count = this.currentFilters.affiliations.length
+        activeFilters.push(`Принадлежностей: ${count}`)
+      }
 
-        // Помещики
-        if (this.currentFilters.landowners?.length > 0) {
-          const landownerNames = this.currentFilters.landowners.map(id => {
-            const landowner = this.allLandowners?.find(l => l.id === id)
-            return landowner ? landowner.name : `ID:${id}`
-          })
-          info.push(`Помещики: ${landownerNames.join(', ')}`)
-        }
+      // Волости
+      if (this.currentFilters.volosts?.length > 0) {
+        const count = this.currentFilters.volosts.length
+        activeFilters.push(`Волостей: ${count}`)
+      }
 
-        // Военные организации
-        if (this.currentFilters.militaryUnits?.length > 0) {
-          const unitNames = this.currentFilters.militaryUnits.map(id => {
-            const unit = this.allMilitaryUnits?.find(u => u.id === id)
-            return unit ? unit.name : `ID:${id}`
-          })
-          info.push(`Военные организации: ${unitNames.join(', ')}`)
-        }
+      // Помещики
+      if (this.currentFilters.landowners?.length > 0) {
+        const count = this.currentFilters.landowners.length
+        activeFilters.push(`Помещиков: ${count}`)
+      }
 
-        // Диапазоны населения
-        if (this.currentFilters.maleEnabled) {
-          const min = this.currentFilters.maleMin || 0
-          const max = this.currentFilters.maleMax || '∞'
-          info.push(`Мужчины: ${min} - ${max}`)
-        }
+      // Военные организации
+      if (this.currentFilters.militaryUnits?.length > 0) {
+        const count = this.currentFilters.militaryUnits.length
+        activeFilters.push(`Воен.орг.: ${count}`)
+      }
 
-        if (this.currentFilters.femaleEnabled) {
-          const min = this.currentFilters.femaleMin || 0
-          const max = this.currentFilters.femaleMax || '∞'
-          info.push(`Женщины: ${min} - ${max}`)
-        }
+      // Диапазоны населения
+      if (this.currentFilters.maleEnabled) {
+        const min = this.currentFilters.maleMin || 0
+        const max = this.currentFilters.maleMax || '∞'
+        activeFilters.push(`М: ${min}-${max}`)
+      }
 
-        if (this.currentFilters.populationEnabled) {
-          const min = this.currentFilters.populationMin || 0
-          const max = this.currentFilters.populationMax || '∞'
-          info.push(`Население: ${min} - ${max}`)
-        }
+      if (this.currentFilters.femaleEnabled) {
+        const min = this.currentFilters.femaleMin || 0
+        const max = this.currentFilters.femaleMax || '∞'
+        activeFilters.push(`Ж: ${min}-${max}`)
+      }
 
-        if (this.currentFilters.estatesCountEnabled) {
-          const min = this.currentFilters.estatesCountMin || 0
-          const max = this.currentFilters.estatesCountMax || '∞'
-          info.push(`Количество сословий: ${min} - ${max}`)
+      if (this.currentFilters.populationEnabled) {
+        const min = this.currentFilters.populationMin || 0
+        const max = this.currentFilters.populationMax || '∞'
+        activeFilters.push(`Население: ${min}-${max}`)
+      }
+
+      if (this.currentFilters.estatesCountEnabled) {
+        const min = this.currentFilters.estatesCountMin || 0
+        const max = this.currentFilters.estatesCountMax || '∞'
+        activeFilters.push(`Сословий: ${min}-${max}`)
+      }
+
+      // Если нет активных фильтров, возвращаем null
+      if (activeFilters.length === 0) return null
+
+      // Возвращаем компактную строку с информацией о фильтрах
+      return `Фильтры: ${activeFilters.join(' | ')} | Записей: ${this.totalRecords}`
+    },
+
+    // Применение стилей форматирования к Excel файлу
+    applyExcelStyles(worksheet, dataLength) {
+      // Определяем диапазоны для стилизации
+      const filterRowIndex = 1 // Строка с информацией о фильтрах
+      const headerRowIndex = filterRowIndex + 2 // Строка с заголовками (после пустой строки)
+      const dataStartRow = headerRowIndex + 1 // Начало данных
+      const summaryRowIndex = dataLength // Последняя строка с итогами
+
+      // Стили для разных частей документа
+      const styles = {
+        filterInfo: {
+          font: { bold: true, color: { rgb: '2E75B6' }, sz: 12 },
+          fill: { fgColor: { rgb: 'E7F3FF' } },
+          alignment: { horizontal: 'left', vertical: 'center', wrapText: true }
+        },
+        headers: {
+          font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 12 },
+          fill: { fgColor: { rgb: '4472C4' } },
+          alignment: { horizontal: 'center', vertical: 'center' },
+          border: {
+            top: { style: 'thin', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          }
+        },
+        summary: {
+          font: { bold: true, color: { rgb: '000000' }, sz: 11 },
+          fill: { fgColor: { rgb: 'FFF2CC' } },
+          alignment: { horizontal: 'left', vertical: 'center' },
+          border: {
+            top: { style: 'double', color: { rgb: '000000' } },
+            bottom: { style: 'thin', color: { rgb: '000000' } },
+            left: { style: 'thin', color: { rgb: '000000' } },
+            right: { style: 'thin', color: { rgb: '000000' } }
+          }
         }
       }
 
-      // Добавляем информацию о количестве записей
-      info.push(`Всего записей: ${this.totalRecords}`)
+      // Применяем стили к строке с информацией о фильтрах
+      if (worksheet['A' + filterRowIndex]) {
+        worksheet['A' + filterRowIndex].s = styles.filterInfo
+      }
 
-      return info
+      // Применяем стили к заголовкам
+      const headersRange = this.getHeadersRange(headerRowIndex)
+      for (let col = 0; col < headersRange.length; col++) {
+        const cellRef = headersRange[col] + headerRowIndex
+        if (worksheet[cellRef]) {
+          worksheet[cellRef].s = styles.headers
+        }
+      }
+
+      // Применяем стили к строке с итогами
+      if (worksheet['A' + summaryRowIndex]) {
+        worksheet['A' + summaryRowIndex].s = styles.summary
+      }
+
+      // Применяем стили к числовым колонкам в итоговой строке
+      const visibleColumns = this.dataMode === 'estate' ? this.visibleEstateColumns : this.visibleReportColumns
+      let colIndex = 0
+
+      Object.keys(visibleColumns).forEach(column => {
+        if (visibleColumns[column] && this.isNumericColumn(column)) {
+          const cellRef = this.getColumnLetter(colIndex + 1) + summaryRowIndex
+          if (worksheet[cellRef]) {
+            worksheet[cellRef].s = {
+              ...styles.summary,
+              alignment: { horizontal: 'right', vertical: 'center' }
+            }
+          }
+        }
+        if (visibleColumns[column]) colIndex++
+      })
+
+      // Устанавливаем высоту строк
+      if (!worksheet['!rows']) worksheet['!rows'] = []
+      worksheet['!rows'][filterRowIndex - 1] = { hpt: 18 } // Высота строки с фильтрами
+      worksheet['!rows'][headerRowIndex - 1] = { hpt: 20 } // Высота строки с заголовками
+      worksheet['!rows'][summaryRowIndex - 1] = { hpt: 18 } // Высота строки с итогами
+
+      // Фиксируем ширину первой колонки для строки с фильтрами
+      // Определяем ширину первой колонки на основе заголовка
+      const firstColumnWidth = Math.max(
+        this.getColumnLabel(Object.keys(visibleColumns).find(col => visibleColumns[col])).length,
+        15 // Минимальная ширина
+      )
+
+      // Устанавливаем фиксированную ширину для первой колонки
+      if (!worksheet['!cols']) worksheet['!cols'] = []
+      worksheet['!cols'][0] = { wch: firstColumnWidth }
+
+      // Объединяем ячейки в строке с фильтрами, чтобы текст не переносился
+      // и ячейка не растягивалась за пределы первой колонки
+      if (worksheet['A' + filterRowIndex] && headersRange.length > 1) {
+        // Объединяем только первую ячейку в строке фильтров
+        // Не объединяем с другими колонками, чтобы сохранить структуру таблицы
+        worksheet['A' + filterRowIndex].s = {
+          ...styles.filterInfo,
+          alignment: { horizontal: 'left', vertical: 'center', wrapText: true }
+        }
+      }
+    },
+
+    // Получение диапазона заголовков колонок
+    getHeadersRange(rowIndex) {
+      const visibleColumns = this.dataMode === 'estate' ? this.visibleEstateColumns : this.visibleReportColumns
+      const columnCount = Object.keys(visibleColumns).filter(col => visibleColumns[col]).length
+      const range = []
+
+      for (let i = 1; i <= columnCount; i++) {
+        range.push(this.getColumnLetter(i))
+      }
+
+      return range
+    },
+
+    // Получение буквы колонки по номеру
+    getColumnLetter(colNum) {
+      let result = ''
+      while (colNum > 0) {
+        colNum--
+        result = String.fromCharCode(65 + (colNum % 26)) + result
+        colNum = Math.floor(colNum / 26)
+      }
+      return result
     },
 
     // Получение ширины колонок
