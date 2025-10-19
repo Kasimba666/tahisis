@@ -97,6 +97,9 @@
           size="small"
           @header-dragend="handleHeaderDragEnd"
           @row-dblclick="viewDetails"
+          :show-summary="visibleEstateColumns.male || visibleEstateColumns.female || visibleEstateColumns.total"
+          sum-text="Итого"
+          :summary-method="getEstateSummary"
         >
           <el-table-column v-if="visibleEstateColumns.id" prop="id" label="ID" width="50" sortable />
           <el-table-column v-if="visibleEstateColumns.revision_year" prop="revision_year" label="Год" width="60" sortable />
@@ -421,6 +424,33 @@ export default {
   computed: {
     totalRecords() {
       return this.dataMode === 'estate' ? this.estateData.length : this.reportData.length
+    },
+
+    // Итоговые суммы для режима Estate
+    estateTotals() {
+      if (this.dataMode !== 'estate' || !this.estateData.length) {
+        return { male: 0, female: 0, total: 0 }
+      }
+
+      return this.estateData.reduce((acc, item) => ({
+        male: acc.male + (item.male || 0),
+        female: acc.female + (item.female || 0),
+        total: acc.total + (item.total || 0)
+      }), { male: 0, female: 0, total: 0 })
+    },
+
+    // Итоговые суммы для режима Report
+    reportTotals() {
+      if (this.dataMode !== 'report' || !this.reportData.length) {
+        return { male: 0, female: 0, total: 0, population: 0 }
+      }
+
+      return this.reportData.reduce((acc, item) => ({
+        male: acc.male + (item.total_male || 0),
+        female: acc.female + (item.total_female || 0),
+        total: acc.total + (item.total_population || 0),
+        population: acc.population + (item.population_all || 0)
+      }), { male: 0, female: 0, total: 0, population: 0 })
     },
     
     mapSettlements() {
@@ -1395,6 +1425,33 @@ export default {
       }
     },
 
+    // Метод для расчета итоговой строки таблицы (режим Estate)
+    getEstateSummary() {
+      const sums = this.estateTotals
+      const columns = []
+
+      // Проходим по всем видимым колонкам и добавляем суммы для числовых полей
+      Object.keys(this.visibleEstateColumns).forEach(column => {
+        if (this.visibleEstateColumns[column]) {
+          switch (column) {
+            case 'male':
+              columns.push(sums.male.toLocaleString())
+              break
+            case 'female':
+              columns.push(sums.female.toLocaleString())
+              break
+            case 'total':
+              columns.push(sums.total.toLocaleString())
+              break
+            default:
+              columns.push('')
+          }
+        }
+      })
+
+      return columns
+    },
+
 
 
     // Обновляем векторные слои на картах
@@ -1912,5 +1969,19 @@ export default {
   color: var(--text-muted);
   font-style: italic;
   margin-left: 0.25rem;
+}
+
+// Стили для итоговой строки таблицы
+:deep(.el-table__footer-wrapper) {
+  background-color: var(--bg-tertiary) !important;
+  font-weight: 600;
+  color: var(--text-primary) !important;
+
+  td {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border-top: 2px solid var(--accent-primary) !important;
+    font-weight: 600 !important;
+  }
 }
 </style>
