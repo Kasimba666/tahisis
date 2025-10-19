@@ -1,5 +1,27 @@
 <template>
   <div class="estates-filters">
+    <!-- Активные фильтры -->
+    <div v-if="activeFiltersList.length > 0" class="active-filters">
+      <div class="active-filters-header">
+        <span class="active-filters-title">Активные фильтры:</span>
+        <el-button size="small" text @click="showAllActiveFilters = !showAllActiveFilters">
+          {{ showAllActiveFilters ? 'Скрыть' : `Показать все (${activeFiltersList.length})` }}
+        </el-button>
+      </div>
+      <div class="active-filters-list">
+        <el-tag
+          v-for="(filter, index) in visibleActiveFilters"
+          :key="`${filter.type}-${index}`"
+          size="small"
+          closable
+          @close="removeFilter(filter)"
+          class="active-filter-tag"
+        >
+          {{ filter.label }}
+        </el-tag>
+      </div>
+    </div>
+
     <div class="filters-row">
       <!-- Dropdown фильтры -->
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
@@ -469,7 +491,8 @@ export default {
       searchSettlementModern: '',
       searchLandowner: '',
       searchMilitaryUnit: '',
-
+      // Отображение активных фильтров
+      showAllActiveFilters: false
     }
   },
   computed: {
@@ -589,6 +612,187 @@ export default {
       return this.settlementNamesModern.filter(name =>
         name.toLowerCase().includes(this.searchSettlementModern.toLowerCase())
       )
+    },
+
+    // Список активных фильтров
+    activeFiltersList() {
+      const activeFilters = []
+
+      // Районы
+      if (this.filters.districts?.length > 0) {
+        const districtNames = this.filters.districts.map(id => {
+          const district = this.allDistricts.find(d => d.id === id)
+          return district ? district.name : `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'districts',
+          label: `Районы: ${districtNames.join(', ')}`,
+          value: this.filters.districts
+        })
+      }
+
+      // Старые названия населенных пунктов
+      if (this.filters.settlementNamesOld?.length > 0) {
+        activeFilters.push({
+          type: 'settlementNamesOld',
+          label: `Нас. пункты (старые): ${this.filters.settlementNamesOld.join(', ')}`,
+          value: this.filters.settlementNamesOld
+        })
+      }
+
+      // Современные названия населенных пунктов
+      if (this.filters.settlementNamesModern?.length > 0) {
+        activeFilters.push({
+          type: 'settlementNamesModern',
+          label: `Нас. пункты (совр.): ${this.filters.settlementNamesModern.join(', ')}`,
+          value: this.filters.settlementNamesModern
+        })
+      }
+
+      // Типы сословий
+      if (this.filters.typeEstates?.length > 0) {
+        const typeNames = this.filters.typeEstates.map(id => {
+          const type = this.allTypeEstates.find(t => t.id === id)
+          return type ? type.name : `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'typeEstates',
+          label: `Сословия: ${typeNames.join(', ')}`,
+          value: this.filters.typeEstates
+        })
+      }
+
+      // Подтипы сословий
+      if (this.filters.subtypeEstates?.length > 0) {
+        const subtypeNames = this.filters.subtypeEstates.map(id => {
+          const subtype = this.allSubtypeEstates.find(s => s.id === id)
+          return subtype ? subtype.name : `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'subtypeEstates',
+          label: `Подтипы сословий: ${subtypeNames.join(', ')}`,
+          value: this.filters.subtypeEstates
+        })
+      }
+
+      // Религии
+      if (this.filters.religions?.length > 0) {
+        const religionNames = this.filters.religions.map(id => {
+          const religion = this.allReligions.find(r => r.id === id)
+          return religion ? religion.name : `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'religions',
+          label: `Религии: ${religionNames.join(', ')}`,
+          value: this.filters.religions
+        })
+      }
+
+      // Принадлежности
+      if (this.filters.affiliations?.length > 0) {
+        const affiliationNames = this.filters.affiliations.map(id => {
+          const affiliation = this.allAffiliations.find(a => a.id === id)
+          return affiliation ? affiliation.name : `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'affiliations',
+          label: `Принадлежности: ${affiliationNames.join(', ')}`,
+          value: this.filters.affiliations
+        })
+      }
+
+      // Волости
+      if (this.filters.volosts?.length > 0) {
+        const volostNames = this.filters.volosts.map(id => {
+          const volost = this.allVolosts.find(v => v.id === id)
+          return volost ? volost.name : `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'volosts',
+          label: `Волости: ${volostNames.join(', ')}`,
+          value: this.filters.volosts
+        })
+      }
+
+      // Помещики
+      if (this.filters.landowners?.length > 0) {
+        const landownerNames = this.filters.landowners.map(id => {
+          const landowner = this.allLandowners.find(l => l.id === id)
+          return landowner ? landowner.name : `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'landowners',
+          label: `Помещики: ${landownerNames.join(', ')}`,
+          value: this.filters.landowners
+        })
+      }
+
+      // Военные организации
+      if (this.filters.militaryUnits?.length > 0) {
+        const unitNames = this.filters.militaryUnits.map(id => {
+          const unit = this.allMilitaryUnits.find(u => u.id === id)
+          return unit ? unit.name : `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'militaryUnits',
+          label: `Военные организации: ${unitNames.join(', ')}`,
+          value: this.filters.militaryUnits
+        })
+      }
+
+      // Диапазон мужчин
+      if (this.filters.maleEnabled) {
+        const min = this.filters.maleMin || 0
+        const max = this.filters.maleMax || '∞'
+        activeFilters.push({
+          type: 'maleRange',
+          label: `Мужчины: ${min} - ${max}`,
+          value: { min: this.filters.maleMin, max: this.filters.maleMax, enabled: true }
+        })
+      }
+
+      // Диапазон женщин
+      if (this.filters.femaleEnabled) {
+        const min = this.filters.femaleMin || 0
+        const max = this.filters.femaleMax || '∞'
+        activeFilters.push({
+          type: 'femaleRange',
+          label: `Женщины: ${min} - ${max}`,
+          value: { min: this.filters.femaleMin, max: this.filters.femaleMax, enabled: true }
+        })
+      }
+
+      // Диапазон населения
+      if (this.filters.populationEnabled) {
+        const min = this.filters.populationMin || 0
+        const max = this.filters.populationMax || '∞'
+        activeFilters.push({
+          type: 'populationRange',
+          label: `Население: ${min} - ${max}`,
+          value: { min: this.filters.populationMin, max: this.filters.populationMax, enabled: true }
+        })
+      }
+
+      // Диапазон количества сословий (для режима report)
+      if (this.filters.estatesCountEnabled) {
+        const min = this.filters.estatesCountMin || 0
+        const max = this.filters.estatesCountMax || '∞'
+        activeFilters.push({
+          type: 'estatesCountRange',
+          label: `Количество сословий: ${min} - ${max}`,
+          value: { min: this.filters.estatesCountMin, max: this.filters.estatesCountMax, enabled: true }
+        })
+      }
+
+      return activeFilters
+    },
+
+    // Видимые активные фильтры (с учетом флага showAllActiveFilters)
+    visibleActiveFilters() {
+      if (this.showAllActiveFilters) {
+        return this.activeFiltersList
+      }
+      return this.activeFiltersList.slice(0, 3) // Показываем только первые 3 фильтра
     }
   },
   mounted() {
@@ -975,6 +1179,66 @@ export default {
         console.error('Error getting shareable link:', error)
         ElMessage.error('Ошибка при получении ссылки')
       }
+    },
+
+    // Удаление конкретного фильтра
+    removeFilter(filter) {
+      switch (filter.type) {
+        case 'districts':
+          this.filters.districts = []
+          break
+        case 'settlementNamesOld':
+          this.filters.settlementNamesOld = []
+          break
+        case 'settlementNamesModern':
+          this.filters.settlementNamesModern = []
+          break
+        case 'typeEstates':
+          this.filters.typeEstates = []
+          this.filters.subtypeEstates = [] // Также очищаем подтипы
+          break
+        case 'subtypeEstates':
+          this.filters.subtypeEstates = []
+          break
+        case 'religions':
+          this.filters.religions = []
+          break
+        case 'affiliations':
+          this.filters.affiliations = []
+          break
+        case 'volosts':
+          this.filters.volosts = []
+          break
+        case 'landowners':
+          this.filters.landowners = []
+          break
+        case 'militaryUnits':
+          this.filters.militaryUnits = []
+          break
+        case 'maleRange':
+          this.filters.maleEnabled = false
+          this.filters.maleMin = null
+          this.filters.maleMax = null
+          break
+        case 'femaleRange':
+          this.filters.femaleEnabled = false
+          this.filters.femaleMin = null
+          this.filters.femaleMax = null
+          break
+        case 'populationRange':
+          this.filters.populationEnabled = false
+          this.filters.populationMin = null
+          this.filters.populationMax = null
+          break
+        case 'estatesCountRange':
+          this.filters.estatesCountEnabled = false
+          this.filters.estatesCountMin = null
+          this.filters.estatesCountMax = null
+          break
+      }
+
+      // Обновляем данные и URL
+      this.onFiltersChange()
     }
   }
 }
@@ -1151,16 +1415,66 @@ export default {
     
     .el-button {
       color: hsl(0, 0%, 80%);
-      
+
       &:hover {
         color: var(--accent-primary);
       }
-      
+
       &.el-button--danger {
         color: hsl(0, 70%, 60%);
-        
+
         &:hover {
           color: hsl(0, 70%, 50%);
+        }
+      }
+    }
+  }
+}
+
+// Стили для активных фильтров
+.active-filters {
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: var(--bg-tertiary);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+
+  .active-filters-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+
+    .active-filters-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+  }
+
+  .active-filters-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+
+    .active-filter-tag {
+      background-color: var(--accent-primary) !important;
+      color: white !important;
+      border: none !important;
+      font-size: 11px;
+      max-width: 200px;
+
+      :deep(.el-tag__content) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      :deep(.el-tag__close) {
+        color: white !important;
+
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.2) !important;
         }
       }
     }
