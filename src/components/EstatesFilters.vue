@@ -4,13 +4,10 @@
     <div v-if="activeFiltersList.length > 0" class="active-filters">
       <div class="active-filters-header">
         <span class="active-filters-title">Активные фильтры:</span>
-        <el-button size="small" text @click="showAllActiveFilters = !showAllActiveFilters">
-          {{ showAllActiveFilters ? 'Скрыть' : `Показать все (${activeFiltersList.length})` }}
-        </el-button>
       </div>
       <div class="active-filters-list">
         <el-tag
-          v-for="(filter, index) in visibleActiveFilters"
+          v-for="(filter, index) in activeFiltersList"
           :key="`${filter.type}-${index}`"
           size="small"
           closable
@@ -517,8 +514,7 @@ export default {
       searchSettlementModern: '',
       searchLandowner: '',
       searchMilitaryUnit: '',
-      // Отображение активных фильтров
-      showAllActiveFilters: false
+
     }
   },
   computed: {
@@ -839,12 +835,9 @@ export default {
       return activeFilters
     },
 
-    // Видимые активные фильтры (с учетом флага showAllActiveFilters)
+    // Все активные фильтры всегда видимы
     visibleActiveFilters() {
-      if (this.showAllActiveFilters) {
-        return this.activeFiltersList
-      }
-      return this.activeFiltersList.slice(0, 3) // Показываем только первые 3 фильтра
+      return this.activeFiltersList
     }
   },
   mounted() {
