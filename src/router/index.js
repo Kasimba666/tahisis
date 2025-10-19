@@ -9,6 +9,7 @@ import PgEstateTypes from '@/pages/PgEstateTypes.vue'
 import PgEstateTypesUpload from '@/pages/PgEstateTypesUpload.vue'
 import PgRevisionsUpload from '@/pages/PgRevisionsUpload.vue'
 import PgEstatesList from '@/pages/PgEstatesList.vue'
+import PgSettlements from '@/pages/PgSettlements.vue'
 import PgSettings from '@/pages/PgSettings.vue'
 import PgVectorLayerTypes from '@/pages/PgVectorLayerTypes.vue'
 import PgVectorLayers from '@/pages/PgVectorLayers.vue'
@@ -175,6 +176,11 @@ const routes = [
     path: '/estates-list',
     name: 'EstatesList',
     component: PgEstatesList
+  },
+  {
+    path: '/settlements',
+    name: 'Settlements',
+    component: PgSettlements
   },
   {
     path: '/settings',

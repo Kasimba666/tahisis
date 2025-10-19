@@ -23,6 +23,9 @@
           <router-link to="/estates-list" class="nav-item" :class="{ active: isActive('/estates-list') }">
             Список сословий
           </router-link>
+          <router-link to="/settlements" class="nav-item" :class="{ active: isActive('/settlements') }">
+            Населённые пункты
+          </router-link>
           <router-link to="/settings" class="nav-item" :class="{ active: isActive('/settings') }">
             Настройки
           </router-link>
