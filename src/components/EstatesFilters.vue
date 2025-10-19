@@ -23,6 +23,32 @@
     </div>
 
     <div class="filters-row">
+      <!-- Фильтр по ревизиям -->
+      <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
+        <el-button size="large">
+          Ревизия ({{ (filters.revision && filters.revision.length > 0) ? filters.revision.length : 0 }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="filter-options">
+              <el-checkbox-group v-model="filters.revision" @change="onFiltersChange">
+                <el-checkbox
+                  v-for="revision in allRevisions"
+                  :key="revision.id"
+                  :label="revision.id"
+                >
+                  {{ revision.number }} ревизия ({{ revision.year }})
+                </el-checkbox>
+              </el-checkbox-group>
+            </div>
+            <div class="filter-actions-dropdown">
+              <el-button link size="small" @click="selectAllRevisions">Выбрать все</el-button>
+              <el-button link size="small" type="danger" @click="filters.revision = []">Сбросить</el-button>
+            </div>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
       <!-- Dropdown фильтры -->
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
         <el-button size="large">
@@ -618,6 +644,32 @@ export default {
     activeFiltersList() {
       const activeFilters = []
 
+      // Ревизии
+      if (this.filters.revision && this.filters.revision.length > 0) {
+        if (this.filters.revision.length === 1) {
+          // Одна ревизия
+          const selectedRevision = this.allRevisions.find(r => r.id === this.filters.revision[0])
+          if (selectedRevision) {
+            activeFilters.push({
+              type: 'revision',
+              label: `Ревизия: ${selectedRevision.number} (${selectedRevision.year})`,
+              value: this.filters.revision
+            })
+          }
+        } else {
+          // Несколько ревизий
+          const revisionNames = this.filters.revision.map(id => {
+            const revision = this.allRevisions.find(r => r.id === id)
+            return revision ? `${revision.number} (${revision.year})` : `ID:${id}`
+          })
+          activeFilters.push({
+            type: 'revision',
+            label: `Ревизии: ${revisionNames.join(', ')}`,
+            value: this.filters.revision
+          })
+        }
+      }
+
       // Районы
       if (this.filters.districts?.length > 0) {
         const districtNames = this.filters.districts.map(id => {
@@ -991,6 +1043,7 @@ export default {
     applyFilters() {
       // Проверяем, есть ли активные фильтры
       const hasActiveFilters =
+        this.filters.revision ||
         this.filters.districts?.length > 0 ||
         this.filters.settlementNamesOld?.length > 0 ||
         this.filters.settlementNamesModern?.length > 0 ||
@@ -1065,6 +1118,10 @@ export default {
       this.filters.militaryUnits = this.filteredMilitaryUnitsSearch.map(m => m.id)
     },
 
+    selectAllRevisions() {
+      this.filters.revision = this.allRevisions.map(r => r.id)
+    },
+
     onSettlementNamesOldChange() {
       // Обновляем маркеры при изменении старых названий населенных пунктов
       this.onFiltersChange()
@@ -1099,7 +1156,7 @@ export default {
           if (urlFilters && typeof urlFilters === 'object') {
             // Импортируем фильтры из URL, сохраняя только нужные поля
             const allowedFields = [
-              'districts', 'settlementNamesOld', 'settlementNamesModern',
+              'revision', 'districts', 'settlementNamesOld', 'settlementNamesModern',
               'typeEstates', 'subtypeEstates', 'religions', 'affiliations',
               'volosts', 'landowners', 'militaryUnits',
               'maleEnabled', 'femaleEnabled', 'populationEnabled', 'estatesCountEnabled',
@@ -1135,6 +1192,7 @@ export default {
       try {
         // Проверяем, есть ли активные фильтры
         const hasActiveFilters =
+          this.filters.revision ||
           this.filters.districts?.length > 0 ||
           this.filters.settlementNamesOld?.length > 0 ||
           this.filters.settlementNamesModern?.length > 0 ||
@@ -1184,6 +1242,9 @@ export default {
     // Удаление конкретного фильтра
     removeFilter(filter) {
       switch (filter.type) {
+        case 'revision':
+          this.filters.revision = []
+          break
         case 'districts':
           this.filters.districts = []
           break
@@ -1480,4 +1541,6 @@ export default {
     }
   }
 }
+
+
 </style>

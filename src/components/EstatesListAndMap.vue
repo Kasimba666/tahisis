@@ -645,6 +645,11 @@ export default {
     applyEstateFiltersToQuery(query) {
       if (!this.currentFilters) return query
 
+      // Фильтр по ревизиям
+      if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
+        query = query.in('Report_record.Revision_report.id', this.currentFilters.revision)
+      }
+
       // Фильтр по районам через населенные пункты
       if (this.currentFilters.districts?.length > 0) {
         // Получаем ID населенных пунктов для выбранных районов
@@ -1124,6 +1129,11 @@ export default {
             )
           `)
           .not('Settlement', 'is', null) // Исключаем записи без населенных пунктов
+
+        // Применяем фильтр по ревизиям
+        if (this.currentFilters?.revision && this.currentFilters.revision.length > 0) {
+          query = query.in('id_revision_report', this.currentFilters.revision)
+        }
         
         // Применяем фильтр по Report_record из Estate
         if (reportRecordIdsFromEstates !== null) {
