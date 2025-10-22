@@ -21,6 +21,15 @@
         ref="settlementsTable"
         :filters="currentFilters"
         :loading="loading"
+        :districts="allDistricts"
+        :type-estates="allTypeEstates"
+        :subtype-estates="allSubtypeEstates"
+        :religions="allReligions"
+        :affiliations="allAffiliations"
+        :volosts="allVolosts"
+        :landowners="allLandowners"
+        :military-units="allMilitaryUnits"
+        :revisions="allRevisions"
       />
     </div>
   </div>
@@ -83,6 +92,14 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allRevisions = data || []
+            console.log('=== SETTLEMENTS PAGE DEBUG ===')
+            console.log('Loaded revisions:', this.allRevisions.length)
+            console.log('Sample revisions:', this.allRevisions.slice(0, 3))
+
+            // Обновляем дочерний компонент после загрузки справочников
+            this.$nextTick(() => {
+              this.updateSettlementsTable()
+            })
           })
           .catch(error => {
             console.error('Error loading revisions:', error)
@@ -97,6 +114,21 @@ export default {
       setFiltersInURL(filters)
 
       this.$refs.settlementsTable?.applyFilters(filters)
+    },
+
+    // Метод для передачи справочников в дочерний компонент
+    updateSettlementsTable() {
+      if (this.$refs.settlementsTable) {
+        this.$refs.settlementsTable.districts = this.allDistricts
+        this.$refs.settlementsTable.typeEstates = this.allTypeEstates
+        this.$refs.settlementsTable.subtypeEstates = this.allSubtypeEstates
+        this.$refs.settlementsTable.religions = this.allReligions
+        this.$refs.settlementsTable.affiliations = this.allAffiliations
+        this.$refs.settlementsTable.volosts = this.allVolosts
+        this.$refs.settlementsTable.landowners = this.allLandowners
+        this.$refs.settlementsTable.militaryUnits = this.allMilitaryUnits
+        this.$refs.settlementsTable.revisions = this.allRevisions
+      }
     },
 
     // Загрузка фильтров из URL

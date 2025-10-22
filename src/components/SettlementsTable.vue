@@ -12,6 +12,10 @@
           <el-icon><Download /></el-icon>
           Экспорт в Excel
         </el-button>
+        <el-button size="large" type="success" @click="openGeoJsonViewer">
+          <el-icon><DataBoard /></el-icon>
+          Экспорт в GeoJSON
+        </el-button>
       </div>
     </div>
 
@@ -190,19 +194,24 @@
         <el-button @click="closeDetailsDrawer">Закрыть</el-button>
       </template>
     </el-drawer>
+
+    <!-- GeoJSON Viewer -->
+    <GeoJsonViewer ref="geoJsonViewer" />
   </div>
 </template>
 
 <script>
-import { Download } from '@element-plus/icons-vue'
+import { Download, DataBoard } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import * as XLSX from 'xlsx'
+import GeoJsonViewer from './GeoJsonViewer.vue'
 
 export default {
   name: 'SettlementsTable',
   components: {
-    Download
+    Download,
+    GeoJsonViewer
   },
   props: {
     filters: {
@@ -212,6 +221,42 @@ export default {
     loading: {
       type: Boolean,
       default: false
+    },
+    districts: {
+      type: Array,
+      default: () => []
+    },
+    typeEstates: {
+      type: Array,
+      default: () => []
+    },
+    subtypeEstates: {
+      type: Array,
+      default: () => []
+    },
+    religions: {
+      type: Array,
+      default: () => []
+    },
+    affiliations: {
+      type: Array,
+      default: () => []
+    },
+    volosts: {
+      type: Array,
+      default: () => []
+    },
+    landowners: {
+      type: Array,
+      default: () => []
+    },
+    militaryUnits: {
+      type: Array,
+      default: () => []
+    },
+    revisions: {
+      type: Array,
+      default: () => []
     }
   },
   data() {
@@ -232,10 +277,46 @@ export default {
   async mounted() {
     await this.loadSettlementsReference()
     await this.loadRevisions()
+
+    // Синхронизируем локальные данные с props
+    this.syncWithProps()
+
     if (this.filters) {
       this.applyFilters(this.filters)
     } else {
       this.loadData()
+    }
+  },
+
+  // Синхронизация локальных данных с props
+  syncWithProps() {
+    // Если props не пустые, используем их вместо локальных данных
+    if (this.districts && this.districts.length > 0) {
+      this.allDistricts = this.districts
+    }
+    if (this.typeEstates && this.typeEstates.length > 0) {
+      this.allTypeEstates = this.typeEstates
+    }
+    if (this.subtypeEstates && this.subtypeEstates.length > 0) {
+      this.allSubtypeEstates = this.subtypeEstates
+    }
+    if (this.religions && this.religions.length > 0) {
+      this.allReligions = this.religions
+    }
+    if (this.affiliations && this.affiliations.length > 0) {
+      this.allAffiliations = this.affiliations
+    }
+    if (this.volosts && this.volosts.length > 0) {
+      this.allVolosts = this.volosts
+    }
+    if (this.landowners && this.landowners.length > 0) {
+      this.allLandowners = this.landowners
+    }
+    if (this.militaryUnits && this.militaryUnits.length > 0) {
+      this.allMilitaryUnits = this.militaryUnits
+    }
+    if (this.revisions && this.revisions.length > 0) {
+      this.allRevisions = this.revisions
     }
   },
   methods: {
@@ -981,33 +1062,42 @@ export default {
 
       // Ревизии
       if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
-        const count = this.currentFilters.revision.length
-        activeFilters.push(`Ревизий: ${count}`)
+        const revisionNames = this.currentFilters.revision.map(id => {
+          const revision = this.revisions?.find(r => r.id === id)
+          return revision ? `${revision.number} ревизия (${revision.year})` : `ID:${id}`
+        })
+        activeFilters.push(`Ревизии: ${revisionNames.join(', ')}`)
       }
 
       // Районы
       if (this.currentFilters.districts?.length > 0) {
-        const count = this.currentFilters.districts.length
-        activeFilters.push(`Районов: ${count}`)
+        const districtNames = this.currentFilters.districts.map(id => {
+          const district = this.districts?.find(d => d.id === id)
+          return district ? district.name : `ID:${id}`
+        })
+        activeFilters.push(`Районы: ${districtNames.join(', ')}`)
       }
 
       // Типы сословий
       if (this.currentFilters.typeEstates?.length > 0) {
-        const count = this.currentFilters.typeEstates.length
-        activeFilters.push(`Типов сословий: ${count}`)
+        const typeNames = this.currentFilters.typeEstates.map(id => {
+          const type = this.typeEstates?.find(t => t.id === id)
+          return type ? type.name : `ID:${id}`
+        })
+        activeFilters.push(`Типы сословий: ${typeNames.join(', ')}`)
       }
 
       // Диапазоны населения
       if (this.currentFilters.maleEnabled) {
         const min = this.currentFilters.maleMin || 0
         const max = this.currentFilters.maleMax || '∞'
-        activeFilters.push(`М: ${min}-${max}`)
+        activeFilters.push(`Мужчины: ${min}-${max}`)
       }
 
       if (this.currentFilters.femaleEnabled) {
         const min = this.currentFilters.femaleMin || 0
         const max = this.currentFilters.femaleMax || '∞'
-        activeFilters.push(`Ж: ${min}-${max}`)
+        activeFilters.push(`Женщины: ${min}-${max}`)
       }
 
       if (activeFilters.length === 0) return null
@@ -1080,6 +1170,15 @@ export default {
         colNum = Math.floor(colNum / 26)
       }
       return result
+    },
+
+    // Открытие GeoJSON viewer
+    openGeoJsonViewer() {
+      if (this.$refs.geoJsonViewer) {
+        // Передаем текущие данные в viewer для экспорта с учетом фильтров
+        this.$refs.geoJsonViewer.loadSettlementsData(this.settlementsData)
+        this.$refs.geoJsonViewer.open()
+      }
     }
   }
 }
