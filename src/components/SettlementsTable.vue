@@ -16,6 +16,18 @@
           <el-icon><DataBoard /></el-icon>
           Экспорт в GeoJSON
         </el-button>
+        <el-button
+          size="large"
+          type="success"
+          @click="showOnMap"
+          :disabled="loading || settlementsData.length === 0"
+          class="map-button"
+          title="Показать отфильтрованные поселения на интерактивной карте"
+        >
+          <el-icon class="map-icon"><MapLocation /></el-icon>
+          <span class="button-text">Показать на карте</span>
+          <el-tag size="small" type="info" class="count-badge">{{ settlementsData.length }}</el-tag>
+        </el-button>
       </div>
     </div>
 
@@ -196,7 +208,10 @@
     </el-drawer>
 
     <!-- GeoJSON Viewer -->
-    <GeoJsonViewer ref="geoJsonViewer" />
+    <GeoJsonViewer ref="geoJsonViewer" @show-on-map="handleShowOnMap" />
+
+    <!-- Map Viewer with GeoJSON -->
+    <MapWithGeoJsonViewer ref="mapViewer" />
   </div>
 </template>
 
@@ -206,12 +221,14 @@ import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import * as XLSX from 'xlsx'
 import GeoJsonViewer from './GeoJsonViewer.vue'
+import MapWithGeoJsonViewer from './MapWithGeoJsonViewer.vue'
 
 export default {
   name: 'SettlementsTable',
   components: {
     Download,
-    GeoJsonViewer
+    GeoJsonViewer,
+    MapWithGeoJsonViewer
   },
   props: {
     filters: {
@@ -266,7 +283,8 @@ export default {
       allRevisions: [],
       detailsDrawerVisible: false,
       selectedSettlement: null,
-      internalLoading: false
+      internalLoading: false,
+      currentFilters: null
     }
   },
   computed: {
@@ -288,38 +306,53 @@ export default {
     }
   },
 
-  // Синхронизация локальных данных с props
-  syncWithProps() {
-    // Если props не пустые, используем их вместо локальных данных
-    if (this.districts && this.districts.length > 0) {
-      this.allDistricts = this.districts
-    }
-    if (this.typeEstates && this.typeEstates.length > 0) {
-      this.allTypeEstates = this.typeEstates
-    }
-    if (this.subtypeEstates && this.subtypeEstates.length > 0) {
-      this.allSubtypeEstates = this.subtypeEstates
-    }
-    if (this.religions && this.religions.length > 0) {
-      this.allReligions = this.religions
-    }
-    if (this.affiliations && this.affiliations.length > 0) {
-      this.allAffiliations = this.affiliations
-    }
-    if (this.volosts && this.volosts.length > 0) {
-      this.allVolosts = this.volosts
-    }
-    if (this.landowners && this.landowners.length > 0) {
-      this.allLandowners = this.landowners
-    }
-    if (this.militaryUnits && this.militaryUnits.length > 0) {
-      this.allMilitaryUnits = this.militaryUnits
-    }
-    if (this.revisions && this.revisions.length > 0) {
-      this.allRevisions = this.revisions
+  watch: {
+    filters: {
+      handler(newFilters) {
+        if (newFilters) {
+          this.applyFilters(newFilters)
+        }
+      },
+      deep: true,
+      immediate: true
     }
   },
+
   methods: {
+  },
+
+  methods: {
+    // Синхронизация локальных данных с props
+    syncWithProps() {
+      // Если props не пустые, используем их вместо локальных данных
+      if (this.districts && this.districts.length > 0) {
+        this.allDistricts = this.districts
+      }
+      if (this.typeEstates && this.typeEstates.length > 0) {
+        this.allTypeEstates = this.typeEstates
+      }
+      if (this.subtypeEstates && this.subtypeEstates.length > 0) {
+        this.allSubtypeEstates = this.subtypeEstates
+      }
+      if (this.religions && this.religions.length > 0) {
+        this.allReligions = this.religions
+      }
+      if (this.affiliations && this.affiliations.length > 0) {
+        this.allAffiliations = this.affiliations
+      }
+      if (this.volosts && this.volosts.length > 0) {
+        this.allVolosts = this.volosts
+      }
+      if (this.landowners && this.landowners.length > 0) {
+        this.allLandowners = this.landowners
+      }
+      if (this.militaryUnits && this.militaryUnits.length > 0) {
+        this.allMilitaryUnits = this.militaryUnits
+      }
+      if (this.revisions && this.revisions.length > 0) {
+        this.allRevisions = this.revisions
+      }
+    },
     async loadSettlementsReference() {
       try {
         const { data, error } = await supabase
@@ -330,13 +363,13 @@ export default {
         this.allSettlements = data || []
 
         // Диагностика: проверяем данные о районах
-        console.log('=== SETTLEMENTS DEBUG INFO ===')
-        console.log('Total settlements loaded:', this.allSettlements.length)
-        console.log('Sample settlements with district_id:', this.allSettlements.slice(0, 5).map(s => ({
-          id: s.id,
-          name: s.name_old,
-          district_id: s.id_district
-        })))
+        // console.log('=== SETTLEMENTS DEBUG INFO ===')
+        // console.log('Total settlements loaded:', this.allSettlements.length)
+        // console.log('Sample settlements with district_id:', this.allSettlements.slice(0, 5).map(s => ({
+        //   id: s.id,
+        //   name: s.name_old,
+        //   district_id: s.id_district
+        // })))
 
         // Проверяем таблицу District отдельно
         const { data: districts, error: districtError } = await supabase
@@ -346,8 +379,8 @@ export default {
         if (districtError) {
           console.error('Error loading districts:', districtError)
         } else {
-          console.log('Available districts:', districts)
-          console.log('Districts count:', districts?.length)
+          // console.log('Available districts:', districts)
+          // console.log('Districts count:', districts?.length)
         }
 
         // Проверяем связь Settlement -> District
@@ -365,12 +398,12 @@ export default {
         if (settlementsError) {
           console.error('Error loading settlements with districts:', settlementsError)
         } else {
-          console.log('Sample settlements with district relation:', settlementsWithDistricts?.map(s => ({
-            id: s.id,
-            name: s.name_old,
-            id_district: s.id_district,
-            district_name: s.District?.name || 'NO DISTRICT'
-          })))
+          // console.log('Sample settlements with district relation:', settlementsWithDistricts?.map(s => ({
+          //   id: s.id,
+          //   name: s.name_old,
+          //   id_district: s.id_district,
+          //   district_name: s.District?.name || 'NO DISTRICT'
+          // })))
         }
 
         // Проверяем есть ли вообще данные в таблице Settlement
@@ -381,11 +414,11 @@ export default {
         if (allError) {
           console.error('Error loading all settlements:', allError)
         } else {
-          console.log('All settlements count:', allSettlements?.length)
-          const withDistrict = allSettlements?.filter(s => s.id_district !== null) || []
-          const withoutDistrict = allSettlements?.filter(s => s.id_district === null) || []
-          console.log('Settlements with district:', withDistrict.length)
-          console.log('Settlements without district:', withoutDistrict.length)
+          // console.log('All settlements count:', allSettlements?.length)
+          // const withDistrict = allSettlements?.filter(s => s.id_district !== null) || []
+          // const withoutDistrict = allSettlements?.filter(s => s.id_district === null) || []
+          // console.log('Settlements with district:', withDistrict.length)
+          // console.log('Settlements without district:', withoutDistrict.length)
         }
       } catch (error) {
         console.error('Error loading settlements reference:', error)
@@ -424,33 +457,33 @@ export default {
       if (!this.currentFilters) return data
 
       let filtered = [...data]
-      console.log('=== SETTLEMENTS FILTER DEBUG ===')
-      console.log('Current filters object:', this.currentFilters)
-      console.log('Initial settlements count:', filtered.length)
+      // console.log('=== SETTLEMENTS FILTER DEBUG ===')
+      // console.log('Current filters object:', this.currentFilters)
+      // console.log('Initial settlements count:', filtered.length)
 
       // Проверяем каждый тип фильтра
-      console.log('Filter checks:')
-      console.log('- districts:', this.currentFilters.districts, 'length:', this.currentFilters.districts?.length)
-      console.log('- settlementNamesOld:', this.currentFilters.settlementNamesOld, 'length:', this.currentFilters.settlementNamesOld?.length)
-      console.log('- settlementNamesModern:', this.currentFilters.settlementNamesModern, 'length:', this.currentFilters.settlementNamesModern?.length)
-      console.log('- typeEstates:', this.currentFilters.typeEstates, 'length:', this.currentFilters.typeEstates?.length)
-      console.log('- subtypeEstates:', this.currentFilters.subtypeEstates, 'length:', this.currentFilters.subtypeEstates?.length)
-      console.log('- religions:', this.currentFilters.religions, 'length:', this.currentFilters.religions?.length)
-      console.log('- affiliations:', this.currentFilters.affiliations, 'length:', this.currentFilters.affiliations?.length)
-      console.log('- volosts:', this.currentFilters.volosts, 'length:', this.currentFilters.volosts?.length)
-      console.log('- landowners:', this.currentFilters.landowners, 'length:', this.currentFilters.landowners?.length)
-      console.log('- militaryUnits:', this.currentFilters.militaryUnits, 'length:', this.currentFilters.militaryUnits?.length)
+      // console.log('Filter checks:')
+      // console.log('- districts:', this.currentFilters.districts, 'length:', this.currentFilters.districts?.length)
+      // console.log('- settlementNamesOld:', this.currentFilters.settlementNamesOld, 'length:', this.currentFilters.settlementNamesOld?.length)
+      // console.log('- settlementNamesModern:', this.currentFilters.settlementNamesModern, 'length:', this.currentFilters.settlementNamesModern?.length)
+      // console.log('- typeEstates:', this.currentFilters.typeEstates, 'length:', this.currentFilters.typeEstates?.length)
+      // console.log('- subtypeEstates:', this.currentFilters.subtypeEstates, 'length:', this.currentFilters.subtypeEstates?.length)
+      // console.log('- religions:', this.currentFilters.religions, 'length:', this.currentFilters.religions?.length)
+      // console.log('- affiliations:', this.currentFilters.affiliations, 'length:', this.currentFilters.affiliations?.length)
+      // console.log('- volosts:', this.currentFilters.volosts, 'length:', this.currentFilters.volosts?.length)
+      // console.log('- landowners:', this.currentFilters.landowners, 'length:', this.currentFilters.landowners?.length)
+      // console.log('- militaryUnits:', this.currentFilters.militaryUnits, 'length:', this.currentFilters.militaryUnits?.length)
 
       // Фильтр по районам
       if (this.currentFilters.districts?.length > 0) {
         const beforeCount = filtered.length
-        console.log('District filter IDs:', this.currentFilters.districts)
-        console.log('Sample settlement district_ids:', filtered.slice(0, 3).map(s => s.district_id))
+        // console.log('District filter IDs:', this.currentFilters.districts)
+        // console.log('Sample settlement district_ids:', filtered.slice(0, 3).map(s => s.district_id))
         filtered = filtered.filter(item => {
           if (!item.district_id) return false
           return this.currentFilters.districts.includes(item.district_id)
         })
-        console.log(`District filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+        // console.log(`District filter applied: ${beforeCount} -> ${filtered.length} settlements`)
       }
 
       // Фильтр по старым названиям населенных пунктов
@@ -459,7 +492,7 @@ export default {
         filtered = filtered.filter(item =>
           item.settlement_name_old && this.currentFilters.settlementNamesOld.includes(item.settlement_name_old)
         )
-        console.log(`Old settlement names filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+        // console.log(`Old settlement names filter applied: ${beforeCount} -> ${filtered.length} settlements`)
       }
 
       // Фильтр по современным названиям населенных пунктов
@@ -468,46 +501,46 @@ export default {
         filtered = filtered.filter(item =>
           item.settlement_name_modern && this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
         )
-        console.log(`Modern settlement names filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+        // console.log(`Modern settlement names filter applied: ${beforeCount} -> ${filtered.length} settlements`)
       }
 
       // Фильтр по типам сословий
       if (this.currentFilters.typeEstates?.length > 0) {
         const beforeCount = filtered.length
-        console.log('=== TYPE ESTATES FILTER DEBUG ===')
-        console.log('Filter typeEstates:', this.currentFilters.typeEstates)
-        console.log('Sample settlement type_estate_ids:', filtered.slice(0, 3).map(s => s.type_estate_ids))
+        // console.log('=== TYPE ESTATES FILTER DEBUG ===')
+        // console.log('Filter typeEstates:', this.currentFilters.typeEstates)
+        // console.log('Sample settlement type_estate_ids:', filtered.slice(0, 3).map(s => s.type_estate_ids))
         filtered = filtered.filter(item => {
           if (!item.type_estate_ids || item.type_estate_ids.length === 0) return false
           return this.currentFilters.typeEstates.some(typeId => item.type_estate_ids.includes(typeId))
         })
-        console.log(`Type estates filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+        // console.log(`Type estates filter applied: ${beforeCount} -> ${filtered.length} settlements`)
       }
 
       // Фильтр по подтипам сословий
       if (this.currentFilters.subtypeEstates?.length > 0) {
         const beforeCount = filtered.length
-        console.log('=== SUBTYPE ESTATES FILTER DEBUG ===')
-        console.log('Filter subtypeEstates:', this.currentFilters.subtypeEstates)
-        console.log('Sample settlement subtype_estate_ids:', filtered.slice(0, 3).map(s => s.subtype_estate_ids))
+        // console.log('=== SUBTYPE ESTATES FILTER DEBUG ===')
+        // console.log('Filter subtypeEstates:', this.currentFilters.subtypeEstates)
+        // console.log('Sample settlement subtype_estate_ids:', filtered.slice(0, 3).map(s => s.subtype_estate_ids))
         filtered = filtered.filter(item => {
           if (!item.subtype_estate_ids || item.subtype_estate_ids.length === 0) return false
           return this.currentFilters.subtypeEstates.some(subtypeId => item.subtype_estate_ids.includes(subtypeId))
         })
-        console.log(`Subtype estates filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+        // console.log(`Subtype estates filter applied: ${beforeCount} -> ${filtered.length} settlements`)
       }
 
       // Фильтр по религиям (ЭТОТ РАБОТАЕТ!)
       if (this.currentFilters.religions?.length > 0) {
         const beforeCount = filtered.length
-        console.log('=== RELIGIONS FILTER DEBUG (THIS WORKS) ===')
-        console.log('Filter religions:', this.currentFilters.religions)
-        console.log('Sample settlement religion_ids:', filtered.slice(0, 3).map(s => s.religion_ids))
+        // console.log('=== RELIGIONS FILTER DEBUG (THIS WORKS) ===')
+        // console.log('Filter religions:', this.currentFilters.religions)
+        // console.log('Sample settlement religion_ids:', filtered.slice(0, 3).map(s => s.religion_ids))
         filtered = filtered.filter(item => {
           if (!item.religion_ids || item.religion_ids.length === 0) return false
           return this.currentFilters.religions.some(religionId => item.religion_ids.includes(religionId))
         })
-        console.log(`Religions filter applied: ${beforeCount} -> ${filtered.length} settlements`)
+        // console.log(`Religions filter applied: ${beforeCount} -> ${filtered.length} settlements`)
       }
 
       // Фильтр по принадлежностям
@@ -577,7 +610,7 @@ export default {
 
     async loadSettlementsData() {
       try {
-        console.log('=== LOADING SETTLEMENTS DATA ===')
+        // console.log('=== LOADING SETTLEMENTS DATA ===')
 
         // Загружаем все населённые пункты с районами
         const { data: settlements, error: settlementsError } = await supabase
@@ -595,7 +628,7 @@ export default {
           .order('name_old', { ascending: true })
 
         if (settlementsError) throw settlementsError
-        console.log('Loaded settlements:', settlements?.length)
+        // console.log('Loaded settlements:', settlements?.length)
 
         // Загружаем все записи ревизий с населенными пунктами
         const { data: reportRecords, error: reportError } = await supabase
@@ -610,7 +643,7 @@ export default {
           .not('id_settlment', 'is', null)
 
         if (reportError) throw reportError
-        console.log('Loaded report records:', reportRecords?.length)
+        // console.log('Loaded report records:', reportRecords?.length)
 
         // Загружаем все сословия с полной информацией
         const { data: estates, error: estatesError } = await supabase
@@ -640,7 +673,7 @@ export default {
           `)
 
         if (estatesError) throw estatesError
-        console.log('Loaded estates:', estates?.length)
+        // console.log('Loaded estates:', estates?.length)
 
         // Группируем данные по населенным пунктам
         const settlementsMap = new Map()
@@ -723,13 +756,18 @@ export default {
         })
 
         const allData = Array.from(settlementsMap.values())
-        console.log('Processed settlements with data:', allData.length)
+        // console.log('Processed settlements with data:', allData.length)
 
-        // Сохраняем все данные в localStorage для быстрого доступа
-        this.saveToLocalStorage('settlements_all_data', allData)
+        // НЕ сохраняем в localStorage, чтобы избежать проблем с фильтрацией
+        // this.saveToLocalStorage('settlements_all_data', allData)
 
         // Применяем фильтры к загруженным данным
         const filteredData = this.applyFiltersToData(allData)
+
+        console.log('=== SETTLEMENTS DATA DEBUG ===')
+        console.log('Total settlements loaded:', allData.length)
+        console.log('Filtered settlements:', filteredData.length)
+        console.log('Current filters applied:', this.currentFilters)
 
         this.settlementsData = filteredData
       } catch (error) {
@@ -1175,10 +1213,173 @@ export default {
     // Открытие GeoJSON viewer
     openGeoJsonViewer() {
       if (this.$refs.geoJsonViewer) {
+        // Диагностика: проверяем какие данные передаем
+        console.log('=== GEOJSON EXPORT DEBUG ===')
+        console.log('Total settlements in table:', this.settlementsData.length)
+        console.log('Current filters:', this.currentFilters)
+        console.log('Sample settlements for export:', this.settlementsData.slice(0, 3).map(s => ({
+          name: s.settlement_name_old,
+          district: s.district_name,
+          total: s.total,
+          has_coordinates: !!(s.lat && s.lon)
+        })))
+
         // Передаем текущие данные в viewer для экспорта с учетом фильтров
         this.$refs.geoJsonViewer.loadSettlementsData(this.settlementsData)
         this.$refs.geoJsonViewer.open()
       }
+    },
+
+    // Прямой показ отфильтрованных данных на карте
+    async showOnMap() {
+      if (!this.settlementsData || this.settlementsData.length === 0) {
+        ElMessage.warning('Нет данных для отображения на карте')
+        return
+      }
+
+      try {
+        console.log('=== DIRECT MAP DISPLAY DEBUG ===')
+        console.log('Sending settlements to map viewer:', this.settlementsData.length)
+        console.log('Sample settlements:', this.settlementsData.slice(0, 3).map(s => s.settlement_name_old))
+
+        // Открываем MapWithGeoJsonViewer с отфильтрованными данными
+        if (this.$refs.mapViewer) {
+          this.$refs.mapViewer.open(this.settlementsData)
+          ElMessage.success(`Отфильтрованные поселения (${this.settlementsData.length}) открыты на карте`)
+        } else {
+          ElMessage.error('Компонент карты не найден')
+        }
+      } catch (error) {
+        console.error('Error showing settlements on map:', error)
+        ElMessage.error('Ошибка при отображении данных на карте')
+      }
+    },
+
+    // Конвертация данных в GeoJSON для карты
+    async convertToGeoJsonForMap(settlementsData) {
+      const validSettlements = settlementsData.filter(s => s.lat && s.lon)
+
+      const features = validSettlements.map(settlement => {
+        // Подготавливаем данные о сословиях
+        const estateTypes = this.prepareEstateTypesForMap(settlement)
+
+        return {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [settlement.lon, settlement.lat]
+          },
+          properties: {
+            id: settlement.settlement_id || settlement.id,
+            name_old: settlement.settlement_name_old || settlement.name_old,
+            name_modern: settlement.settlement_name_modern || settlement.name_modern,
+            district_name: settlement.district_name,
+            population: {
+              male: settlement.male || 0,
+              female: settlement.female || 0,
+              total: settlement.total || 0
+            },
+            estate_types: estateTypes,
+            // Добавляем флаг, что это отфильтрованные данные
+            filtered: true
+          }
+        }
+      })
+
+      return {
+        type: 'FeatureCollection',
+        features: features,
+        crs: {
+          type: 'name',
+          properties: {
+            name: 'urn:ogc:def:crs:OGC:1.3:CRS84'
+          }
+        },
+        metadata: {
+          filtered: true,
+          totalCount: settlementsData.length,
+          exportedCount: features.length,
+          exportedAt: new Date().toISOString()
+        }
+      }
+    },
+
+    // Подготовка данных о сословиях для карты
+    prepareEstateTypesForMap(settlement) {
+      if (!settlement.estates || !Array.isArray(settlement.estates)) {
+        return []
+      }
+
+      const estateTypeMap = new Map()
+
+      settlement.estates.forEach(estate => {
+        const typeId = estate.Subtype_estate?.id_type_estate
+        const subtypeId = estate.id_subtype_estate
+        const fallbackTypeKey = estate.type_estate_name || 'Неизвестный тип'
+        const fallbackSubtypeKey = estate.subtype_estate_name || 'Неизвестный подтип'
+        const finalTypeId = typeId || fallbackTypeKey
+        const finalSubtypeId = subtypeId || fallbackSubtypeKey
+        const typeName = estate.type_estate_name || fallbackTypeKey
+        const subtypeName = estate.subtype_estate_name || fallbackSubtypeKey
+
+        if (!estateTypeMap.has(finalTypeId)) {
+          estateTypeMap.set(finalTypeId, {
+            type_id: typeId,
+            type_name: typeName,
+            type_color: estate.Subtype_estate?.Type_estate?.color || null,
+            subtypes: new Map(),
+            total_male: 0,
+            total_female: 0,
+            total_count: 0,
+            religions: new Set()
+          })
+        }
+
+        const typeData = estateTypeMap.get(finalTypeId)
+
+        if (!typeData.subtypes.has(finalSubtypeId)) {
+          typeData.subtypes.set(finalSubtypeId, {
+            subtype_id: subtypeId,
+            subtype_name: subtypeName,
+            male: 0,
+            female: 0,
+            count: 0,
+            religions: new Set()
+          })
+        }
+
+        const subtypeData = typeData.subtypes.get(finalSubtypeId)
+        subtypeData.male += estate.male || 0
+        subtypeData.female += estate.female || 0
+        subtypeData.count += 1
+
+        typeData.total_male += estate.male || 0
+        typeData.total_female += estate.female || 0
+        typeData.total_count += 1
+      })
+
+      return Array.from(estateTypeMap.values()).map(typeData => ({
+        type_id: typeData.type_id,
+        type_name: typeData.type_name,
+        type_color: typeData.type_color,
+        total_male: typeData.total_male,
+        total_female: typeData.total_female,
+        total_count: typeData.total_count,
+        subtypes: Array.from(typeData.subtypes.values()).map(subtypeData => ({
+          subtype_id: subtypeData.subtype_id,
+          subtype_name: subtypeData.subtype_name,
+          male: subtypeData.male,
+          female: subtypeData.female,
+          count: subtypeData.count
+        })).sort((a, b) => b.count - a.count)
+      })).sort((a, b) => b.total_count - a.count)
+    },
+
+    // Обработка события показа данных на карте
+    handleShowOnMap(mapData) {
+      console.log('Handling show on map event:', mapData)
+      // Отправляем событие родительскому компоненту для передачи в MapView
+      this.$emit('show-geojson-on-map', mapData)
     }
   }
 }
@@ -1250,6 +1451,50 @@ export default {
   }
 }
 
+/* Стили для красивой кнопки карты */
+.map-button {
+  position: relative;
+  background: linear-gradient(135deg, #67C23A 0%, #85CE61 100%);
+  border: none;
+  box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
+  transition: all 0.3s ease;
+  overflow: hidden;
+
+  &:hover {
+    background: linear-gradient(135deg, #5CB85C 0%, #7BC96F 100%);
+    box-shadow: 0 6px 20px rgba(103, 194, 58, 0.4);
+    transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(103, 194, 58, 0.3);
+  }
+
+  .map-icon {
+    font-size: 16px;
+    margin-right: 8px;
+  }
+
+  .button-text {
+    font-weight: 500;
+    margin-right: 8px;
+  }
+
+  .count-badge {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    font-weight: 600;
+    min-width: 24px;
+    height: 18px;
+    line-height: 16px;
+    text-align: center;
+    border-radius: 10px;
+    padding: 0 6px;
+  }
+}
+
 @media (max-width: 768px) {
   .settlements-table {
     .table-controls {
@@ -1262,6 +1507,11 @@ export default {
 
       .table-actions {
         justify-content: center;
+
+        .map-button {
+          width: 100%;
+          margin-top: 0.5rem;
+        }
       }
     }
   }

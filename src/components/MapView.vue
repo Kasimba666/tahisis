@@ -58,6 +58,10 @@ export default {
     settlements: {
       type: Array,
       default: () => []
+    },
+    geoJsonData: {
+      type: Object,
+      default: null
     }
   },
   data() {
@@ -805,6 +809,298 @@ export default {
       svg += '</svg>'
 
       return `<div class="concentric-circles-marker">${svg}</div>`
+    },
+
+    // Отображение GeoJSON данных на Leaflet карте
+    displayGeoJsonOnLeaflet(geoJsonData) {
+      if (!this.leafletMapInstance || !geoJsonData) return
+
+      // Удаляем существующие маркеры GeoJSON
+      this.clearGeoJsonMarkers()
+
+      try {
+        console.log('Displaying GeoJSON on Leaflet:', geoJsonData)
+
+        // Создаем слой GeoJSON для Leaflet
+        this.leafletGeoJsonLayer = L.geoJSON(geoJsonData, {
+          style: (feature) => {
+            // Определяем цвет на основе типа сословия
+            const estateTypes = feature.properties.estate_types || []
+            const dominantType = estateTypes[0] // Берем первый тип как доминирующий
+            const color = this.getEstateTypeColor(dominantType?.type_name || 'default')
+
+            return {
+              color: color,
+              weight: 2,
+              opacity: 0.8,
+              fillOpacity: 0.4,
+              fillColor: color
+            }
+          },
+          pointToLayer: (feature, latlng) => {
+            // Создаем кастомный маркер для точек
+            const estateTypes = feature.properties.estate_types || []
+            const markerElement = this.createEstateTypeMarker(feature.properties)
+
+            return L.marker(latlng, {
+              icon: L.divIcon({
+                className: 'estate-type-marker',
+                html: markerElement,
+                iconSize: this.getMarkerSize(),
+                iconAnchor: [this.getMarkerSize()[0] / 2, this.getMarkerSize()[1] / 2]
+              })
+            })
+          },
+          onEachFeature: (feature, layer) => {
+            // Создаем подробный popup с информацией о населенном пункте
+            const popupContent = this.generateSettlementPopupContent(feature.properties)
+            layer.bindPopup(popupContent)
+          }
+        })
+
+        // Добавляем слой на карту
+        this.leafletGeoJsonLayer.addTo(this.leafletMapInstance)
+
+        console.log(`Added ${geoJsonData.features?.length || 0} features to Leaflet map`)
+
+        // Центрируем карту на данных если они есть
+        if (geoJsonData.features && geoJsonData.features.length > 0) {
+          const bounds = this.leafletGeoJsonLayer.getBounds()
+          if (bounds.isValid()) {
+            this.leafletMapInstance.fitBounds(bounds, { padding: [20, 20] })
+          }
+        }
+
+      } catch (error) {
+        console.error('Error displaying GeoJSON on Leaflet:', error)
+      }
+    },
+
+    // Отображение GeoJSON данных на OpenLayers карте
+    displayGeoJsonOnOpenLayers(geoJsonData) {
+      if (!this.olMapInstance || !this.olVectorLayer || !geoJsonData) return
+
+      // Очищаем существующие features
+      this.clearGeoJsonMarkers()
+
+      try {
+        console.log('Displaying GeoJSON on OpenLayers:', geoJsonData)
+
+        const source = this.olVectorLayer.getSource()
+        const features = []
+
+        // Обрабатываем каждый feature из GeoJSON
+        geoJsonData.features.forEach((feature, index) => {
+          try {
+            const olFeature = new Feature({
+              geometry: this.geoJsonGeometryToOpenLayers(feature.geometry),
+              properties: feature.properties || {}
+            })
+
+            // Определяем стиль на основе типа сословия
+            const estateTypes = feature.properties.estate_types || []
+            const dominantType = estateTypes[0] // Берем первый тип как доминирующий
+            const color = this.getEstateTypeColor(dominantType?.type_name || 'default')
+
+            olFeature.setStyle(new Style({
+              image: new Circle({
+                radius: 8,
+                fill: new Fill({ color: color }),
+                stroke: new Stroke({ color: 'white', width: 2 })
+              })
+            }))
+
+            features.push(olFeature)
+            console.log(`Added feature ${index} to OpenLayers map`)
+
+          } catch (featureError) {
+            console.error(`Error adding feature ${index}:`, featureError)
+          }
+        })
+
+        // Добавляем features на карту
+        if (features.length > 0) {
+          source.addFeatures(features)
+          console.log(`Added ${features.length} features to OpenLayers map`)
+
+          // Центрируем карту на данных
+          const extent = source.getExtent()
+          if (extent && extent[0] !== Infinity) {
+            this.olMapInstance.getView().fit(extent, {
+              padding: [20, 20, 20, 20],
+              maxZoom: 15
+            })
+          }
+        }
+
+      } catch (error) {
+        console.error('Error displaying GeoJSON on OpenLayers:', error)
+      }
+    },
+
+    // Создание маркера на основе типов сословий
+    createEstateTypeMarker(properties) {
+      const estateTypes = properties.estate_types || []
+      const population = properties.population || { total: 0 }
+
+      if (estateTypes.length === 0) {
+        return '<div class="marker-circle" style="background-color: hsl(0, 85%, 55%);"></div>'
+      }
+
+      // Если есть несколько типов сословий, создаем pie chart
+      if (estateTypes.length > 1) {
+        return this.createEstatePieChartMarker(estateTypes, population.total)
+      } else {
+        // Один тип - простой круг с цветом типа
+        const color = this.getEstateTypeColor(estateTypes[0].type_name)
+        return `<div class="marker-circle" style="background-color: ${color};"></div>`
+      }
+    },
+
+    // Создание маркера в виде круговой диаграммы для нескольких типов сословий
+    createEstatePieChartMarker(estateTypes, totalPopulation) {
+      const radius = 10
+      const centerX = radius
+      const centerY = radius
+
+      let svg = `<svg width="${radius * 2}" height="${radius * 2}" viewBox="0 0 ${radius * 2} ${radius * 2}">`
+
+      // Создаем сектора для каждого типа сословия
+      let currentAngle = 0
+      estateTypes.forEach((estateType, index) => {
+        const percentage = estateType.total_count / totalPopulation
+        const angle = percentage * 360
+
+        if (angle > 0) {
+          const startAngle = currentAngle
+          const endAngle = currentAngle + angle
+
+          const startAngleRad = (startAngle - 90) * Math.PI / 180
+          const endAngleRad = (endAngle - 90) * Math.PI / 180
+
+          const x1 = centerX + radius * Math.cos(startAngleRad)
+          const y1 = centerY + radius * Math.sin(startAngleRad)
+          const x2 = centerX + radius * Math.cos(endAngleRad)
+          const y2 = centerY + radius * Math.sin(endAngleRad)
+
+          const largeArcFlag = angle > 180 ? 1 : 0
+          const color = this.getEstateTypeColor(estateType.type_name)
+
+          const pathData = [
+            `M ${centerX} ${centerY}`,
+            `L ${x1} ${y1}`,
+            `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+            'Z'
+          ].join(' ')
+
+          svg += `<path d="${pathData}" fill="${color}" stroke="white" stroke-width="1"/>`
+
+          currentAngle += angle
+        }
+      })
+
+      svg += '</svg>'
+      return `<div class="estate-pie-chart-marker">${svg}</div>`
+    },
+
+    // Получение цвета для типа сословия
+    getEstateTypeColor(estateType) {
+      // Если передан объект с type_color, используем его
+      if (typeof estateType === 'object' && estateType.type_color) {
+        return estateType.type_color
+      }
+
+      // Если передано название, используем цвет из базы данных
+      if (typeof estateType === 'string') {
+        // В будущем здесь можно добавить логику для получения цвета по названию
+        return this.getEstateTypeColorByName(estateType)
+      }
+
+      // Если передан ID, получаем цвет из кэша или загружаем
+      if (typeof estateType === 'number' || (typeof estateType === 'object' && estateType.type_id)) {
+        return this.getEstateTypeColorById(estateType)
+      }
+
+      return 'hsl(0, 0%, 60%)' // default color
+    },
+
+    // Получение цвета по названию типа сословия
+    getEstateTypeColorByName(estateTypeName) {
+      const colorMap = {
+        'Крестьяне': 'hsl(0, 85%, 55%)',
+        'Мещане': 'hsl(178, 63%, 52%)',
+        'Дворяне': 'hsl(197, 65%, 55%)',
+        'Духовенство': 'hsl(136, 33%, 65%)',
+        'Купцы': 'hsl(48, 100%, 67%)',
+        'Военные': 'hsl(282, 44%, 70%)',
+        'Ремесленники': 'hsl(174, 38%, 70%)',
+        'default': 'hsl(0, 0%, 60%)'
+      }
+
+      return colorMap[estateTypeName] || colorMap.default
+    },
+
+    // Получение цвета по ID типа сословия
+    getEstateTypeColorById(estateType) {
+      const typeId = typeof estateType === 'object' ? estateType.type_id : estateType
+
+      // Если у объекта есть цвет, используем его
+      if (typeof estateType === 'object' && estateType.type_color) {
+        return estateType.type_color
+      }
+
+      // Генерируем цвет на основе ID (для обратной совместимости)
+      const colors = [
+        'hsl(0, 85%, 55%)', 'hsl(178, 63%, 52%)', 'hsl(197, 65%, 55%)',
+        'hsl(136, 33%, 65%)', 'hsl(48, 100%, 67%)', 'hsl(282, 44%, 70%)',
+        'hsl(174, 38%, 70%)', 'hsl(48, 100%, 67%)', 'hsl(262, 41%, 68%)',
+        'hsl(204, 70%, 67%)'
+      ]
+
+      return colors[typeId % colors.length] || 'hsl(0, 0%, 60%)'
+    },
+
+    // Генерация содержимого popup для населенного пункта
+    generateSettlementPopupContent(properties) {
+      const name = properties.name_old || properties.name_modern || 'Неизвестное название'
+      const district = properties.district_name || '—'
+      const population = properties.population || { total: 0, male: 0, female: 0 }
+      const estateTypes = properties.estate_types || []
+
+      let content = `
+        <div class="settlement-popup">
+          <h4>${name}</h4>
+          <p><strong>Район:</strong> ${district}</p>
+          <p><strong>Население:</strong> ${population.total} чел.</p>
+          <p><strong>Мужчины:</strong> ${population.male} | <strong>Женщины:</strong> ${population.female}</p>
+      `
+
+      if (estateTypes.length > 0) {
+        content += '<div class="estate-types"><strong>Сословия:</strong><br>'
+        estateTypes.forEach(type => {
+          const color = type.type_color || this.getEstateTypeColorById(type.type_id)
+          const colorStyle = color ? `style="color: ${color};"` : ''
+          content += `• <span ${colorStyle}>■</span> ${type.type_name}: ${type.total_count} чел.<br>`
+        })
+        content += '</div>'
+      }
+
+      content += '</div>'
+      return content
+    },
+
+    // Очистка GeoJSON маркеров
+    clearGeoJsonMarkers() {
+      // Очищаем Leaflet
+      if (this.leafletGeoJsonLayer) {
+        this.leafletMapInstance.removeLayer(this.leafletGeoJsonLayer)
+        this.leafletGeoJsonLayer = null
+      }
+
+      // Очищаем OpenLayers
+      if (this.olVectorLayer) {
+        this.olVectorLayer.getSource().clear()
+      }
     }
   },
   watch: {
@@ -865,6 +1161,17 @@ export default {
           }
         }, 100)
       })
+    },
+    geoJsonData: {
+      handler(newVal) {
+        if (newVal && this.mapProvider === 'leaflet') {
+          this.displayGeoJsonOnLeaflet(newVal)
+        } else if (newVal && this.mapProvider === 'openlayers') {
+          this.displayGeoJsonOnOpenLayers(newVal)
+        }
+      },
+      deep: true,
+      immediate: true
     }
   },
   activated() {
@@ -1127,6 +1434,31 @@ export default {
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
   }
+
+  .estate-pie-chart-marker {
+    display: block;
+    cursor: pointer;
+    transition: transform 0.2s;
+
+    &:hover {
+      transform: scale(1.2);
+    }
+
+    svg {
+      display: block;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  .estate-type-marker {
+    display: block;
+    cursor: pointer;
+    transition: transform 0.2s;
+
+    &:hover {
+      transform: scale(1.2);
+    }
+  }
 }
 
 :deep(.settlement-popup) {
@@ -1150,6 +1482,30 @@ export default {
     strong {
       color: var(--text-primary);
       font-weight: 500;
+    }
+  }
+
+  .estate-types {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+
+    strong {
+      color: var(--text-primary);
+      font-weight: 600;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    span {
+      display: inline-block;
+      margin-right: 4px;
+      font-size: 10px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      vertical-align: middle;
     }
   }
 }

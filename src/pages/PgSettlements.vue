@@ -61,6 +61,8 @@ export default {
       allReligions: [],
       allAffiliations: [],
       allVolosts: [],
+      allLandowners: [],
+      allMilitaryUnits: [],
       allRevisions: []
     }
   },
@@ -92,9 +94,9 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allRevisions = data || []
-            console.log('=== SETTLEMENTS PAGE DEBUG ===')
-            console.log('Loaded revisions:', this.allRevisions.length)
-            console.log('Sample revisions:', this.allRevisions.slice(0, 3))
+            // console.log('=== SETTLEMENTS PAGE DEBUG ===')
+            // console.log('Loaded revisions:', this.allRevisions.length)
+            // console.log('Sample revisions:', this.allRevisions.slice(0, 3))
 
             // Обновляем дочерний компонент после загрузки справочников
             this.$nextTick(() => {
@@ -119,15 +121,12 @@ export default {
     // Метод для передачи справочников в дочерний компонент
     updateSettlementsTable() {
       if (this.$refs.settlementsTable) {
-        this.$refs.settlementsTable.districts = this.allDistricts
-        this.$refs.settlementsTable.typeEstates = this.allTypeEstates
-        this.$refs.settlementsTable.subtypeEstates = this.allSubtypeEstates
-        this.$refs.settlementsTable.religions = this.allReligions
-        this.$refs.settlementsTable.affiliations = this.allAffiliations
-        this.$refs.settlementsTable.volosts = this.allVolosts
-        this.$refs.settlementsTable.landowners = this.allLandowners
-        this.$refs.settlementsTable.militaryUnits = this.allMilitaryUnits
-        this.$refs.settlementsTable.revisions = this.allRevisions
+        // Используем $nextTick чтобы убедиться что компонент полностью инициализирован
+        this.$nextTick(() => {
+          if (this.$refs.settlementsTable && this.$refs.settlementsTable.syncWithProps) {
+            this.$refs.settlementsTable.syncWithProps()
+          }
+        })
       }
     },
 

@@ -1142,8 +1142,9 @@ export default {
         const filtersParam = urlParams.get('filters')
 
         if (filtersParam) {
-          // Используем прямой JSON.parse без decodeURIComponent
-          const urlFilters = JSON.parse(filtersParam)
+          // Декодируем URL-параметр перед парсингом JSON
+          const decodedFiltersParam = decodeURIComponent(filtersParam)
+          const urlFilters = JSON.parse(decodedFiltersParam)
 
           // Валидация URL фильтров
           if (urlFilters && typeof urlFilters === 'object') {

@@ -42,6 +42,24 @@
               Копировать
             </el-button>
             <el-button
+              type="warning"
+              size="small"
+              @click="showOnLeaflet"
+              :disabled="Object.keys(geoJsonData).length === 0 || !currentGeoJsonData"
+            >
+              <el-icon><MapLocation /></el-icon>
+              Показать на Leaflet
+            </el-button>
+            <el-button
+              type="warning"
+              size="small"
+              @click="showOnOpenLayers"
+              :disabled="Object.keys(geoJsonData).length === 0 || !currentGeoJsonData"
+            >
+              <el-icon><MapLocation /></el-icon>
+              Показать на OpenLayers
+            </el-button>
+            <el-button
               type="info"
               size="small"
               @click="refreshData"
@@ -93,13 +111,13 @@
                 {{ selectedTable }}
               </el-descriptions-item>
               <el-descriptions-item label="Записей">
-                {{ geoJsonData[selectedTable].metadata.totalCount }}
+                {{ geoJsonData[selectedTable]?.data?.metadata?.totalCount || geoJsonData[selectedTable]?.data?.features?.length || 0 }}
               </el-descriptions-item>
               <el-descriptions-item label="Экспортировано">
-                {{ geoJsonData[selectedTable].metadata.exportedCount }}
+                {{ geoJsonData[selectedTable]?.data?.metadata?.exportedCount || geoJsonData[selectedTable]?.data?.features?.length || 0 }}
               </el-descriptions-item>
               <el-descriptions-item label="Время экспорта">
-                {{ formatDate(geoJsonData[selectedTable].metadata.exportedAt) }}
+                {{ formatDate(geoJsonData[selectedTable]?.data?.metadata?.exportedAt) || formatDate(new Date()) }}
               </el-descriptions-item>
             </el-descriptions>
           </div>
@@ -130,7 +148,7 @@
 </template>
 
 <script>
-import { Download, CopyDocument, Refresh, Loading } from '@element-plus/icons-vue'
+import { Download, CopyDocument, Refresh, Loading, MapLocation } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { dataExporter } from '@/services/dataExporter.js'
 
@@ -158,10 +176,13 @@ export default {
   },
   computed: {
     availableTables() {
-      return Object.keys(this.geoJsonData).map(tableName => ({
-        name: tableName,
-        count: this.geoJsonData[tableName].metadata.totalCount
-      }))
+      return Object.keys(this.geoJsonData).map(tableName => {
+        const data = this.geoJsonData[tableName]
+        return {
+          name: tableName,
+          count: data?.data?.metadata?.totalCount || data?.data?.metadata?.exportedCount || data?.count || data?.data?.features?.length || 0
+        }
+      })
     },
 
     formattedJson() {
@@ -175,6 +196,13 @@ export default {
         console.error('Error formatting JSON:', error)
         return 'Ошибка форматирования JSON'
       }
+    },
+
+    currentGeoJsonData() {
+      if (!this.selectedTable || !this.geoJsonData[this.selectedTable]) {
+        return null
+      }
+      return this.geoJsonData[this.selectedTable]
     }
   },
   methods: {
@@ -196,11 +224,11 @@ export default {
       this.loading = true
 
       try {
-        console.log('Loading database statistics...')
+        // console.log('Loading database statistics...')
         const stats = await dataExporter.getDatabaseStatistics()
         this.stats = stats
 
-        console.log('Exporting all tables to GeoJSON...')
+        // console.log('Exporting all tables to GeoJSON...')
         const exportResult = await dataExporter.exportAllTablesToGeoJSON()
 
         this.geoJsonData = exportResult.results
@@ -210,7 +238,7 @@ export default {
           this.selectedTable = this.availableTables[0].name
         }
 
-        console.log('Export completed:', exportResult.summary)
+        // console.log('Export completed:', exportResult.summary)
 
         // Подсвечиваем синтаксис после загрузки
         this.$nextTick(() => {
@@ -227,15 +255,42 @@ export default {
 
     // Загрузка данных текущей выборки населенных пунктов
     async loadSettlementsData(settlementsData) {
-      this.loading = true
+      console.log('=== LOAD SETTLEMENTS DATA START ===')
 
       try {
+        console.log('=== GEOJSON VIEWER DEBUG ===')
+        console.log('Received settlements data count:', settlementsData?.length || 0)
+        console.log('Sample settlement names:', settlementsData?.slice(0, 3).map(s => s.settlement_name_old) || 'No data')
+
+        if (!settlementsData || settlementsData.length === 0) {
+          throw new Error('Нет данных для экспорта')
+        }
+
         console.log('Exporting current settlements selection to GeoJSON...')
 
         const exportResult = await dataExporter.exportSettlementsToGeoJSON(settlementsData)
 
         if (exportResult.success) {
-          // Создаем объект с данными только для таблицы Settlement
+          console.log('=== EXPORT RESULT DEBUG ===')
+          console.log('Export result count:', exportResult.count)
+          console.log('Export result data features:', exportResult.data?.features?.length || 0)
+
+          // ЗАПОМИНАЕМ текущие данные ПЕРЕД очисткой
+          const currentData = this.geoJsonData
+          const currentTable = this.selectedTable
+          const currentStats = this.stats
+
+          console.log('=== BEFORE CLEARING ===')
+          console.log('Current geoJsonData keys:', Object.keys(currentData))
+          console.log('Current selected table:', currentTable)
+
+          // Очищаем предыдущие данные ПЕРЕД установкой новых
+          this.geoJsonData = {}
+
+          console.log('=== AFTER CLEARING ===')
+          console.log('geoJsonData keys after clear:', Object.keys(this.geoJsonData))
+
+          // Создаем объект ТОЛЬКО с отфильтрованными данными
           this.geoJsonData = {
             'Settlement': exportResult.data
           }
@@ -251,10 +306,19 @@ export default {
             originalCount: exportResult.count
           }
 
+          console.log('=== FINAL VIEWER STATE ===')
+          console.log('geoJsonData keys:', Object.keys(this.geoJsonData))
+          console.log('Settlement data features:', this.geoJsonData['Settlement']?.features?.length || 0)
+          console.log('Selected table:', this.selectedTable)
+          console.log('Stats totalRecords:', this.stats.totalRecords)
+
           console.log('Settlements export completed:', exportResult)
 
           // Подсвечиваем синтаксис после загрузки
           this.$nextTick(() => {
+            console.log('=== HIGHLIGHT SYNTAX DEBUG ===')
+            console.log('formattedJson length:', this.formattedJson?.length || 0)
+            console.log('jsonCode element:', !!this.$refs.jsonCode)
             this.highlightSyntax()
           })
         } else {
@@ -264,8 +328,6 @@ export default {
       } catch (error) {
         console.error('Error loading settlements data:', error)
         ElMessage.error('Ошибка загрузки данных населенных пунктов: ' + error.message)
-      } finally {
-        this.loading = false
       }
     },
 
@@ -360,6 +422,30 @@ export default {
       } catch (error) {
         console.error('Error copying to clipboard:', error)
         ElMessage.error('Ошибка копирования в буфер обмена')
+      }
+    },
+
+    // Показать данные на Leaflet карте
+    showOnLeaflet() {
+      if (this.currentGeoJsonData) {
+        console.log('Showing data on Leaflet map:', this.currentGeoJsonData)
+        this.$emit('show-on-map', {
+          provider: 'leaflet',
+          data: this.currentGeoJsonData
+        })
+        ElMessage.success('Данные отправлены на Leaflet карту')
+      }
+    },
+
+    // Показать данные на OpenLayers карте
+    showOnOpenLayers() {
+      if (this.currentGeoJsonData) {
+        console.log('Showing data on OpenLayers map:', this.currentGeoJsonData)
+        this.$emit('show-on-map', {
+          provider: 'openlayers',
+          data: this.currentGeoJsonData
+        })
+        ElMessage.success('Данные отправлены на OpenLayers карту')
       }
     },
 
