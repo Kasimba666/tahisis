@@ -20,11 +20,35 @@
         </div>
 
         <div class="view-controls">
-          <el-radio-group v-model="currentView" size="small">
-            <el-radio-button label="map">Карта</el-radio-button>
-            <el-radio-button label="json">GeoJSON</el-radio-button>
-            <el-radio-button label="split">Разделить</el-radio-button>
-          </el-radio-group>
+          <el-space>
+            <el-radio-group v-model="currentView" size="small">
+              <el-radio-button label="map">Карта</el-radio-button>
+              <el-radio-button label="json">GeoJSON</el-radio-button>
+              <el-radio-button label="split">Разделить</el-radio-button>
+            </el-radio-group>
+
+            <el-divider direction="vertical" />
+
+            <el-checkbox v-model="showBoundaries" @change="toggleBoundaries">
+              Показать границы
+            </el-checkbox>
+
+            <el-select
+              v-model="selectedBoundaryLayer"
+              placeholder="Выберите слой"
+              @change="loadBoundaryLayer"
+              size="small"
+              style="width: 200px"
+              :loading="boundariesLoading"
+            >
+              <el-option
+                v-for="layer in availableBoundaryLayers"
+                :key="layer.id"
+                :label="`${layer.name} (${layer.type_name || 'Неизвестный тип'})`"
+                :value="layer.id"
+              />
+            </el-select>
+          </el-space>
         </div>
       </div>
 
@@ -73,6 +97,7 @@
 <script>
 import { Loading, CopyDocument, Download } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { supabase } from '@/services/supabase'
 import L from 'leaflet'
 
 export default {
@@ -88,7 +113,13 @@ export default {
       currentData: null,
       currentView: 'map', // 'map', 'json', 'split' - по умолчанию только карта
       map: null,
-      mapLoading: false
+      mapLoading: false,
+      // Данные для границ
+      showBoundaries: false,
+      selectedBoundaryLayer: null,
+      availableBoundaryLayers: [],
+      boundariesLoading: false,
+      boundaryLayers: new Map() // Хранилище загруженных слоев
     }
   },
   computed: {
@@ -108,6 +139,8 @@ export default {
       this.visible = true
       this.currentData = null
       this.loadData(settlementsData)
+      // Загружаем доступные векторные слои для границ
+      this.loadAvailableBoundaryLayers()
     },
 
     // Закрытие диалога
@@ -294,9 +327,6 @@ export default {
           maxZoom: 18
         }).addTo(this.map)
 
-        // Добавляем точки на карту
-        this.addPointsToMap()
-
         // Подгоняем границы карты под точки
         if (this.currentData.features && this.currentData.features.length > 0) {
           const group = new L.featureGroup()
@@ -311,6 +341,11 @@ export default {
             this.map.fitBounds(group.getBounds().pad(0.1))
           }
         }
+
+        // Добавляем точки на карту после инициализации
+        setTimeout(() => {
+          this.addPointsToMap()
+        }, 100)
 
       } catch (error) {
         console.error('Error initializing map:', error)
@@ -422,6 +457,155 @@ export default {
       } catch (error) {
         console.error('Error downloading GeoJSON:', error)
         ElMessage.error('Ошибка скачивания GeoJSON')
+      }
+    },
+
+    // Загрузка доступных векторных слоев
+    async loadAvailableBoundaryLayers() {
+      this.boundariesLoading = true
+
+      try {
+        const { data: layers, error } = await supabase
+          .from('Vector_layer')
+          .select(`
+            id,
+            name,
+            file_path,
+            file_url,
+            mime_type,
+            bbox,
+            Type_vector_layer ( name )
+          `)
+          .not('file_path', 'is', null)
+
+        if (error) throw error
+
+        this.availableBoundaryLayers = layers.map(layer => ({
+          id: layer.id,
+          name: layer.name,
+          file_path: layer.file_path,
+          file_url: layer.file_url,
+          mime_type: layer.mime_type,
+          bbox: layer.bbox,
+          type_name: layer.Type_vector_layer?.name || 'Неизвестный тип'
+        }))
+
+        console.log('Loaded boundary layers:', this.availableBoundaryLayers.length)
+
+      } catch (error) {
+        console.error('Error loading boundary layers:', error)
+        ElMessage.error('Ошибка загрузки векторных слоев')
+      } finally {
+        this.boundariesLoading = false
+      }
+    },
+
+    // Загрузка конкретного слоя границ
+    async loadBoundaryLayer(layerId) {
+      if (!layerId) return
+
+      this.boundariesLoading = true
+
+      try {
+        // Проверяем, загружен ли уже этот слой
+        if (this.boundaryLayers.has(layerId)) {
+          console.log('Layer already loaded:', layerId)
+          return
+        }
+
+        const layer = this.availableBoundaryLayers.find(l => l.id === layerId)
+        if (!layer) {
+          throw new Error('Слой не найден')
+        }
+
+        console.log('Loading boundary layer:', layer.name)
+
+        // Получаем публичный URL файла
+        const { data: urlData } = supabase.storage
+          .from('vector-layers')
+          .getPublicUrl(layer.file_path)
+
+        if (!urlData.publicUrl) {
+          throw new Error('Не удалось получить URL файла')
+        }
+
+        // Загружаем GeoJSON данные
+        const response = await fetch(urlData.publicUrl)
+        if (!response.ok) {
+          throw new Error('Не удалось загрузить файл')
+        }
+
+        const geoJsonData = await response.json()
+
+        // Сохраняем слой в хранилище
+        this.boundaryLayers.set(layerId, {
+          ...layer,
+          geoJsonData: geoJsonData
+        })
+
+        // Добавляем на карту
+        this.addBoundaryToMap(layerId, geoJsonData)
+
+        ElMessage.success(`Слой "${layer.name}" добавлен на карту`)
+
+      } catch (error) {
+        console.error('Error loading boundary layer:', error)
+        ElMessage.error('Ошибка загрузки слоя границ: ' + error.message)
+        this.selectedBoundaryLayer = null
+      } finally {
+        this.boundariesLoading = false
+      }
+    },
+
+    // Добавление границ на карту
+    addBoundaryToMap(layerId, geoJsonData) {
+      if (!this.map || !geoJsonData) return
+
+      try {
+        // Удаляем предыдущие границы если они есть
+        this.map.eachLayer((layer) => {
+          if (layer.options && layer.options.boundaryLayer) {
+            this.map.removeLayer(layer)
+          }
+        })
+
+        // Добавляем новые границы
+        L.geoJSON(geoJsonData, {
+          style: {
+            color: '#ff7800',
+            weight: 2,
+            opacity: 0.7,
+            fillOpacity: 0.1
+          },
+          boundaryLayer: true
+        }).addTo(this.map)
+
+        console.log('Boundary layer added to map:', layerId)
+
+      } catch (error) {
+        console.error('Error adding boundary to map:', error)
+        ElMessage.error('Ошибка добавления границ на карту')
+      }
+    },
+
+    // Переключение видимости границ
+    toggleBoundaries() {
+      if (!this.showBoundaries) {
+        // Скрываем все границы
+        this.map.eachLayer((layer) => {
+          if (layer.options && layer.options.boundaryLayer) {
+            this.map.removeLayer(layer)
+          }
+        })
+        this.selectedBoundaryLayer = null
+      } else {
+        // Показываем границы если выбран слой
+        if (this.selectedBoundaryLayer) {
+          const layerData = this.boundaryLayers.get(this.selectedBoundaryLayer)
+          if (layerData) {
+            this.addBoundaryToMap(this.selectedBoundaryLayer, layerData.geoJsonData)
+          }
+        }
       }
     }
   },
