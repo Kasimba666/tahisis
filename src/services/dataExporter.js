@@ -197,6 +197,12 @@ export class DataExporter {
 
           // Детальная информация о сословиях (если нужна)
           estates_detail: settlement.estates || [],
+          revisions: Array.isArray(settlement.revisions)
+            ? settlement.revisions.map(r => ({ year: r.year, number: r.number }))
+            : [],
+          revision_numbers: Array.isArray(settlement.revision_numbers)
+            ? settlement.revision_numbers
+            : (Array.isArray(settlement.revisions) ? settlement.revisions.map(r => r.number) : []),
 
           // Метаданные
           created_at: settlement.created_at,

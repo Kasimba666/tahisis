@@ -1051,13 +1051,20 @@ export default {
             // Детальный список сословий для этого населённого пункта
             value.estates = eForSettlement.map(estate => ({
               id: estate.id,
+              id_subtype_estate: estate.id_subtype_estate,
+              male: estate.male || 0,
+              female: estate.female || 0,
+              total: (estate.male || 0) + (estate.female || 0),
+              // имена для удобного чтения
               subtype_estate_name: estate.Subtype_estate?.name || '',
               type_estate_name: estate.Subtype_estate?.Type_estate?.name || '',
               type_religion_name: estate.Subtype_estate?.Type_religion?.name || '',
-              male: estate.male || 0,
-              female: estate.female || 0,
-              total: (estate.male || 0) + (estate.female || 0)
+              // структура для экспорта (используется dataExporter.prepareEstateTypesForMap)
+              Subtype_estate: estate.Subtype_estate || null
             }))
+
+            // Удобный список номеров ревизий
+            value.revision_numbers = value.revisions.map(r => r.number).filter(n => n !== '' && n !== null && n !== undefined)
           })
 
           // Исключаем строки без ревизий (revision_count === 0) на всякий случай
