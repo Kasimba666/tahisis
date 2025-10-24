@@ -49,9 +49,7 @@
         <template #default="scope">
           <div class="settlement-name">
             <strong>{{ scope.row.settlement_name_old }}</strong>
-            <span v-if="scope.row.settlement_name_modern && scope.row.settlement_name_modern !== scope.row.settlement_name_old" class="modern-name">
-              ({{ scope.row.settlement_name_modern }})
-            </span>
+            
           </div>
         </template>
       </el-table-column>
@@ -917,7 +915,25 @@ export default {
           const rrIds = reportRecords.map(r => r.id)
           let estatesQuery = supabase
             .from('Estate')
-            .select('id, male, female, id_report_record, id_subtype_estate, id_volost, id_landowner, id_military_unit, Subtype_estate!Estate_id_subtype_estate_fkey(id, id_type_estate, id_type_religion, id_type_affiliation)')
+            .select(`
+              id,
+              male,
+              female,
+              id_report_record,
+              id_subtype_estate,
+              id_volost,
+              id_landowner,
+              id_military_unit,
+              Subtype_estate!Estate_id_subtype_estate_fkey(
+                id,
+                name,
+                id_type_estate,
+                id_type_religion,
+                id_type_affiliation,
+                Type_estate!Subtype_estate_id_type_estate_fkey(id, name),
+                Type_religion!Subtype_estate_id_type_religion_fkey(id, name)
+              )
+            `)
             .in('id_report_record', rrIds)
 
           if (filters.typeEstates && filters.typeEstates.length > 0 && this.allSubtypeEstates && this.allSubtypeEstates.length > 0) {
@@ -1031,9 +1047,21 @@ export default {
               female: 0,
               total: rr.population_all || 0
             }))
+
+            // Детальный список сословий для этого населённого пункта
+            value.estates = eForSettlement.map(estate => ({
+              id: estate.id,
+              subtype_estate_name: estate.Subtype_estate?.name || '',
+              type_estate_name: estate.Subtype_estate?.Type_estate?.name || '',
+              type_religion_name: estate.Subtype_estate?.Type_religion?.name || '',
+              male: estate.male || 0,
+              female: estate.female || 0,
+              total: (estate.male || 0) + (estate.female || 0)
+            }))
           })
 
-          const allData = Array.from(settlementsMap.values())
+          // Исключаем строки без ревизий (revision_count === 0) на всякий случай
+          const allData = Array.from(settlementsMap.values()).filter(item => (item.revision_count || 0) > 0)
           const filtered = this.applyFiltersToData(allData)
           this.settlementsData = filtered
         })
