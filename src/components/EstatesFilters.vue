@@ -31,8 +31,8 @@
               <el-checkbox-group v-model="filters.revision" @change="onFiltersChange">
                 <el-checkbox
                   v-for="revision in allRevisions"
-                  :key="revision.id"
-                  :label="revision.id"
+                  :key="revision.number"
+                  :label="revision.number"
                 >
                   {{ revision.number }} ревизия ({{ revision.year }})
                 </el-checkbox>
@@ -644,7 +644,7 @@ export default {
       if (this.filters.revision && this.filters.revision.length > 0) {
         if (this.filters.revision.length === 1) {
           // Одна ревизия
-          const selectedRevision = this.allRevisions.find(r => r.id === this.filters.revision[0])
+          const selectedRevision = this.allRevisions.find(r => r.number === this.filters.revision[0])
           if (selectedRevision) {
             activeFilters.push({
               type: 'revision',
@@ -654,9 +654,9 @@ export default {
           }
         } else {
           // Несколько ревизий
-          const revisionNames = this.filters.revision.map(id => {
-            const revision = this.allRevisions.find(r => r.id === id)
-            return revision ? `${revision.number} (${revision.year})` : `ID:${id}`
+          const revisionNames = this.filters.revision.map(num => {
+            const revision = this.allRevisions.find(r => r.number === num)
+            return revision ? `${revision.number} (${revision.year})` : `№:${num}`
           })
           activeFilters.push({
             type: 'revision',
@@ -884,6 +884,13 @@ export default {
         .then(({ data, error }) => {
           if (error) throw error
           this.allRevisions = data || []
+          // normalize stored revision filters (convert possible IDs to numbers)
+          if (this.filters && Array.isArray(this.filters.revision) && Array.isArray(this.allRevisions)) {
+            const byId = new Map(this.allRevisions.map(r => [r.id, r.number]))
+            const byNumber = new Set(this.allRevisions.map(r => r.number))
+            const converted = this.filters.revision.map(v => byId.has(v) ? byId.get(v) : v)
+            this.filters.revision = converted.filter(v => byNumber.has(v))
+          }
         })
     },
     
@@ -1112,7 +1119,7 @@ export default {
     },
 
     selectAllRevisions() {
-      this.filters.revision = this.allRevisions.map(r => r.id)
+      this.filters.revision = this.allRevisions.map(r => r.number)
     },
 
     onSettlementNamesOldChange() {

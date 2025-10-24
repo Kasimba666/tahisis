@@ -515,12 +515,14 @@ export default {
       return result
     }
   },
-  async mounted() {
+  mounted() {
     // Восстанавливаем параметры из URL
     this.restoreParamsFromURL()
 
     // Загружаем справочник населенных пунктов для режима Estate
-    await this.loadSettlementsReference()
+    this.loadSettlementsReference()
+      .then(() => {})
+      .catch(err => console.error('Error in mounted loadSettlementsReference:', err))
 
     // Не загружаем данные автоматически, ждем применения фильтров
     this.$nextTick(() => {
@@ -534,23 +536,22 @@ export default {
     }
   },
   methods: {
-    async loadSettlementsReference() {
-      try {
-        const { data, error } = await supabase
-          .from('Settlement')
-          .select('id, name_modern, name_old, lat, lon, id_district')
-        
-        if (error) throw error
-        this.allSettlements = data || []
-        // console.log('Loaded settlements reference:', this.allSettlements.length)
-      } catch (error) {
-        console.error('Error loading settlements reference:', error)
-      }
+    loadSettlementsReference() {
+      return supabase
+        .from('Settlement')
+        .select('id, name_modern, name_old, lat, lon, id_district')
+        .then(({ data, error }) => {
+          if (error) throw error
+          this.allSettlements = data || []
+        })
+        .catch(error => {
+          console.error('Error loading settlements reference:', error)
+        })
     },
     
     loadData() {
       if (this.dataMode === 'estate') {
-        this.loadEstateData()
+        this.loadEstateDataNew()
       } else {
         this.loadReportData()
       }
@@ -572,10 +573,10 @@ export default {
             id_volost,
             id_landowner,
             id_military_unit,
-            Report_record!Estate_id_report_record_fkey(
+            Report_record!Estate_id_report_record_fkey!inner(
               id,
               code,
-              Revision_report!Report_record_id_revision_report_fkey(
+              Revision_report!Report_record_id_revision_report_fkey!inner(
                 year,
                 number
               ),
@@ -653,7 +654,7 @@ export default {
 
       // Фильтр по ревизиям
       if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
-        query = query.in('Report_record.Revision_report.id', this.currentFilters.revision)
+        query = query.in('Report_record.Revision_report.number', this.currentFilters.revision)
       }
 
       // Фильтр по районам через населенные пункты
@@ -767,6 +768,103 @@ export default {
       return query
     },
 
+    // Надёжная загрузка по сословиям с серверной фильтрацией и .then/.catch
+    loadEstateDataNew() {
+      this.loading = true
+
+      try {
+        let query = supabase
+          .from('Estate')
+          .select(`
+            id,
+            male,
+            female,
+            id_report_record,
+            id_subtype_estate,
+            id_volost,
+            id_landowner,
+            id_military_unit,
+            Report_record!Estate_id_report_record_fkey!inner(
+              id,
+              code,
+              Revision_report!Report_record_id_revision_report_fkey!inner(
+                year,
+                number
+              ),
+              Settlement!Report_record_id_settlment_fkey(
+                name_old,
+                name_modern,
+                id_district,
+                District(name)
+              )
+            ),
+            Subtype_estate!Estate_id_subtype_estate_fkey(
+              name,
+              id_type_estate,
+              id_type_religion,
+              id_type_affiliation,
+              Type_estate(name),
+              Type_religion(name),
+              Type_affiliation(name)
+            ),
+            Volost!Estate_id_volost_fkey(name),
+            Landowner!Estate_id_landowner_fkey(
+              description,
+              person
+            ),
+            Military_unit!Estate_id_military_unit_fkey(
+              description,
+              person
+            )
+          `)
+
+        this
+          .applyEstateFiltersToQuery(query)
+          .order('id', { ascending: false })
+          .then(({ data, error }) => {
+            if (error) throw error
+            const mappedData = (data || []).map(item => ({
+              id: item.id,
+              revision_year: item.Report_record?.Revision_report?.year || null,
+              revision_number: item.Report_record?.Revision_report?.number || null,
+              settlement_name_old: item.Report_record?.Settlement?.name_old || null,
+              settlement_name_modern: item.Report_record?.Settlement?.name_modern || null,
+              district_name: item.Report_record?.Settlement?.District?.name || null,
+              district_id: item.Report_record?.Settlement?.id_district || null,
+              subtype_estate_name: item.Subtype_estate?.name || null,
+              type_estate_name: item.Subtype_estate?.Type_estate?.name || null,
+              type_religion_name: item.Subtype_estate?.Type_religion?.name || null,
+              type_affiliation_name: item.Subtype_estate?.Type_affiliation?.name || null,
+              type_estate_id: item.Subtype_estate?.id_type_estate || null,
+              type_religion_id: item.Subtype_estate?.id_type_religion || null,
+              type_affiliation_id: item.Subtype_estate?.id_type_affiliation || null,
+              subtype_estate_id: item.id_subtype_estate,
+              male: item.male,
+              female: item.female,
+              total: (item.male || 0) + (item.female || 0),
+              volost_name: item.Volost?.name || null,
+              volost_id: item.id_volost,
+              landowner_description: item.Landowner?.description || item.Landowner?.person || null,
+              landowner_id: item.id_landowner,
+              military_unit_description: item.Military_unit?.description || item.Military_unit?.person || null,
+              military_unit_id: item.id_military_unit
+            }))
+
+            this.allEstateData = mappedData
+            this.estateData = this.applyClientSideEstateFiltersImproved(mappedData)
+          })
+          .catch(err => {
+            ElMessage.error('Ошибка загрузки данных по сословиям: ' + (err?.message || err))
+          })
+          .finally(() => {
+            this.loading = false
+          })
+      } catch (error) {
+        ElMessage.error('Ошибка загрузки данных по сословиям: ' + error.message)
+        this.loading = false
+      }
+    },
+
     applyClientSideEstateFilters(data) {
       if (!this.currentFilters) return data
 
@@ -800,6 +898,10 @@ export default {
     },
 
     applyClientSideEstateFiltersImproved(data) {
+      // filter by revision number (client-side) added
+      if (this.currentFilters?.revision?.length > 0) {
+        data = data.filter(it => it.revision_number && this.currentFilters.revision.includes(it.revision_number))
+      }
       if (!this.currentFilters) return data
 
       let filtered = [...data]
@@ -1122,7 +1224,7 @@ export default {
             id,
             code,
             population_all,
-            Revision_report!Report_record_id_revision_report_fkey(
+            Revision_report!Report_record_id_revision_report_fkey!inner(
               year,
               number
             ),
@@ -1138,7 +1240,7 @@ export default {
 
         // Применяем фильтр по ревизиям
         if (this.currentFilters?.revision && this.currentFilters.revision.length > 0) {
-          query = query.in('id_revision_report', this.currentFilters.revision)
+          query = query.in('Revision_report.number', this.currentFilters.revision)
         }
         
         // Применяем фильтр по Report_record из Estate
@@ -2107,9 +2209,9 @@ export default {
 
       // Ревизии
       if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
-        const revisionNames = this.currentFilters.revision.map(id => {
-          const revision = this.allRevisions?.find(r => r.id === id)
-          return revision ? `${revision.number} ревизия (${revision.year})` : `ID:${id}`
+        const revisionNames = this.currentFilters.revision.map(num => {
+          const revision = this.allRevisions?.find(r => r.number === num)
+          return revision ? `${revision.number} ревизия (${revision.year})` : `№:${num}`
         })
         activeFilters.push(`Ревизии: ${revisionNames.join(', ')}`)
       }

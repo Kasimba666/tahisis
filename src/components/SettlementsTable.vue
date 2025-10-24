@@ -443,7 +443,7 @@ export default {
       this.internalLoading = true
 
       try {
-        await this.loadSettlementsData()
+        await this.loadSettlementsDataNew()
       } catch (error) {
         console.error('Error loading settlements data:', error)
         ElMessage.error('Ошибка загрузки данных о населённых пунктах')
@@ -805,6 +805,244 @@ export default {
       return null
     },
 
+    // Надёжная серверная выборка и агрегация по фильтрам (.then/.catch)
+    loadSettlementsDataNew() {
+      const filters = this.currentFilters || {}
+
+      const hasEstateFilters =
+        (filters.typeEstates && filters.typeEstates.length > 0) ||
+        (filters.subtypeEstates && filters.subtypeEstates.length > 0) ||
+        (filters.religions && filters.religions.length > 0) ||
+        (filters.affiliations && filters.affiliations.length > 0) ||
+        (filters.volosts && filters.volosts.length > 0) ||
+        (filters.landowners && filters.landowners.length > 0) ||
+        (filters.militaryUnits && filters.militaryUnits.length > 0)
+
+      const getEstateIdsPromise = () => {
+        if (!hasEstateFilters) return Promise.resolve({ ids: null })
+
+        let estateQuery = supabase
+          .from('Estate')
+          .select('id_report_record, id_subtype_estate, id_volost, id_landowner, id_military_unit')
+
+        if (filters.typeEstates && filters.typeEstates.length > 0 && this.allSubtypeEstates && this.allSubtypeEstates.length > 0) {
+          const subtypeIds = this.allSubtypeEstates
+            .filter(s => filters.typeEstates.includes(s.id_type_estate))
+            .map(s => s.id)
+          if (subtypeIds.length > 0) estateQuery = estateQuery.in('id_subtype_estate', subtypeIds)
+          else return Promise.resolve({ ids: [] })
+        }
+
+        if (filters.subtypeEstates && filters.subtypeEstates.length > 0) {
+          estateQuery = estateQuery.in('id_subtype_estate', filters.subtypeEstates)
+        }
+
+        if (filters.religions && filters.religions.length > 0 && this.allSubtypeEstates && this.allSubtypeEstates.length > 0) {
+          const subtypeIds = this.allSubtypeEstates
+            .filter(s => filters.religions.includes(s.id_type_religion))
+            .map(s => s.id)
+          if (subtypeIds.length > 0) estateQuery = estateQuery.in('id_subtype_estate', subtypeIds)
+          else return Promise.resolve({ ids: [] })
+        }
+
+        if (filters.affiliations && filters.affiliations.length > 0 && this.allSubtypeEstates && this.allSubtypeEstates.length > 0) {
+          const subtypeIds = this.allSubtypeEstates
+            .filter(s => filters.affiliations.includes(s.id_type_affiliation))
+            .map(s => s.id)
+          if (subtypeIds.length > 0) estateQuery = estateQuery.in('id_subtype_estate', subtypeIds)
+          else return Promise.resolve({ ids: [] })
+        }
+
+        if (filters.volosts && filters.volosts.length > 0) estateQuery = estateQuery.in('id_volost', filters.volosts)
+        if (filters.landowners && filters.landowners.length > 0) estateQuery = estateQuery.in('id_landowner', filters.landowners)
+        if (filters.militaryUnits && filters.militaryUnits.length > 0) estateQuery = estateQuery.in('id_military_unit', filters.militaryUnits)
+
+        return estateQuery.then(({ data, error }) => {
+          if (error) throw error
+          const ids = (data || []).map(e => e.id_report_record)
+          return { ids: Array.from(new Set(ids)) }
+        })
+      }
+
+      const settlementIds = (() => {
+        if (filters.districts && filters.districts.length > 0 && this.allSettlements && this.allSettlements.length > 0) {
+          return this.allSettlements
+            .filter(s => filters.districts.includes(s.id_district))
+            .map(s => s.id)
+        }
+        return []
+      })()
+
+      const oldNames = (filters.settlementNamesOld && filters.settlementNamesOld.length > 0) ? filters.settlementNamesOld : []
+      const modernNames = (filters.settlementNamesModern && filters.settlementNamesModern.length > 0) ? filters.settlementNamesModern : []
+
+      return getEstateIdsPromise()
+        .then(({ ids: rrIdsFromEstate }) => {
+          let reportQuery = supabase
+            .from('Report_record')
+            .select(`
+              id,
+              code,
+              population_all,
+              id_settlment,
+              Revision_report!Report_record_id_revision_report_fkey(id, year, number),
+              Settlement!Report_record_id_settlment_fkey(name_old, name_modern, lat, lon, id_district, District(name))
+            `)
+            .not('id_settlment', 'is', null)
+
+          if (filters.revision && filters.revision.length > 0) {
+            reportQuery = reportQuery.in('Revision_report.number', filters.revision)
+          }
+          if (rrIdsFromEstate !== null) {
+            if (rrIdsFromEstate.length === 0) {
+              this.settlementsData = []
+              return { reportRecords: [], estates: [] }
+            }
+            reportQuery = reportQuery.in('id', rrIdsFromEstate)
+          }
+          if (settlementIds.length > 0) reportQuery = reportQuery.in('id_settlment', settlementIds)
+          if (oldNames.length > 0) reportQuery = reportQuery.in('Settlement.name_old', oldNames)
+          if (modernNames.length > 0) reportQuery = reportQuery.in('Settlement.name_modern', modernNames)
+
+          return reportQuery.order('id', { ascending: false }).then(({ data, error }) => {
+            if (error) throw error
+            return { reportRecords: data || [], rrIdsFromEstate }
+          })
+        })
+        .then(({ reportRecords, rrIdsFromEstate }) => {
+          if (!reportRecords || reportRecords.length === 0) {
+            this.settlementsData = []
+            return { estates: [], reportRecords }
+          }
+          const rrIds = reportRecords.map(r => r.id)
+          let estatesQuery = supabase
+            .from('Estate')
+            .select('id, male, female, id_report_record, id_subtype_estate, id_volost, id_landowner, id_military_unit, Subtype_estate!Estate_id_subtype_estate_fkey(id, id_type_estate, id_type_religion, id_type_affiliation)')
+            .in('id_report_record', rrIds)
+
+          if (filters.typeEstates && filters.typeEstates.length > 0 && this.allSubtypeEstates && this.allSubtypeEstates.length > 0) {
+            const subtypeIds = this.allSubtypeEstates
+              .filter(s => filters.typeEstates.includes(s.id_type_estate))
+              .map(s => s.id)
+            if (subtypeIds.length > 0) estatesQuery = estatesQuery.in('id_subtype_estate', subtypeIds)
+          }
+          if (filters.subtypeEstates && filters.subtypeEstates.length > 0) estatesQuery = estatesQuery.in('id_subtype_estate', filters.subtypeEstates)
+          if (filters.religions && filters.religions.length > 0 && this.allSubtypeEstates && this.allSubtypeEstates.length > 0) {
+            const subtypeIds = this.allSubtypeEstates
+              .filter(s => filters.religions.includes(s.id_type_religion))
+              .map(s => s.id)
+            if (subtypeIds.length > 0) estatesQuery = estatesQuery.in('id_subtype_estate', subtypeIds)
+          }
+          if (filters.affiliations && filters.affiliations.length > 0 && this.allSubtypeEstates && this.allSubtypeEstates.length > 0) {
+            const subtypeIds = this.allSubtypeEstates
+              .filter(s => filters.affiliations.includes(s.id_type_affiliation))
+              .map(s => s.id)
+            if (subtypeIds.length > 0) estatesQuery = estatesQuery.in('id_subtype_estate', subtypeIds)
+          }
+          if (filters.volosts && filters.volosts.length > 0) estatesQuery = estatesQuery.in('id_volost', filters.volosts)
+          if (filters.landowners && filters.landowners.length > 0) estatesQuery = estatesQuery.in('id_landowner', filters.landowners)
+          if (filters.militaryUnits && filters.militaryUnits.length > 0) estatesQuery = estatesQuery.in('id_military_unit', filters.militaryUnits)
+
+          return estatesQuery.then(({ data, error }) => {
+            if (error) throw error
+            return { reportRecords, estates: data || [] }
+          })
+        })
+        .then(({ reportRecords, estates }) => {
+          const rrToSettlement = new Map()
+          reportRecords.forEach(r => rrToSettlement.set(r.id, r.id_settlment))
+
+          const settlementsMap = new Map()
+          reportRecords.forEach(r => {
+            const s = r.Settlement || {}
+            const sid = r.id_settlment
+            if (!sid) return
+            if (!settlementsMap.has(sid)) {
+              settlementsMap.set(sid, {
+                settlement_id: sid,
+                settlement_name_old: s.name_old || '',
+                settlement_name_modern: s.name_modern || '',
+                district_name: s.District?.name || '',
+                district_id: s.id_district || null,
+                lat: s.lat || null,
+                lon: s.lon || null,
+                revision_count: 0,
+                estates_count: 0,
+                religions_count: 0,
+                male: 0,
+                female: 0,
+                total: 0,
+                type_estate_ids: [],
+                subtype_estate_ids: [],
+                religion_ids: [],
+                affiliation_ids: [],
+                volost_ids: [],
+                landowner_ids: [],
+                military_unit_ids: [],
+                revisions: []
+              })
+            }
+          })
+
+          const bySettlement = new Map()
+          estates.forEach(e => {
+            const sid = rrToSettlement.get(e.id_report_record)
+            if (!sid) return
+            if (!bySettlement.has(sid)) bySettlement.set(sid, [])
+            bySettlement.get(sid).push(e)
+          })
+
+          settlementsMap.forEach((value, sid) => {
+            const rrForSettlement = reportRecords.filter(r => r.id_settlment === sid)
+            const eForSettlement = bySettlement.get(sid) || []
+
+            const totalMale = eForSettlement.reduce((s, e) => s + (e.male || 0), 0)
+            const totalFemale = eForSettlement.reduce((s, e) => s + (e.female || 0), 0)
+            const total = totalMale + totalFemale
+
+            const revs = new Set(rrForSettlement.map(r => r.Revision_report?.id).filter(Boolean))
+            const rels = new Set(eForSettlement.map(e => e.Subtype_estate?.id_type_religion).filter(Boolean))
+            const tTypes = new Set(eForSettlement.map(e => e.Subtype_estate?.id_type_estate).filter(Boolean))
+            const sTypes = new Set(eForSettlement.map(e => e.id_subtype_estate).filter(Boolean))
+            const affs = new Set(eForSettlement.map(e => e.Subtype_estate?.id_type_affiliation).filter(Boolean))
+            const vols = new Set(eForSettlement.map(e => e.id_volost).filter(Boolean))
+            const lnds = new Set(eForSettlement.map(e => e.id_landowner).filter(Boolean))
+            const mils = new Set(eForSettlement.map(e => e.id_military_unit).filter(Boolean))
+
+            value.revision_count = revs.size
+            value.estates_count = eForSettlement.length
+            value.religions_count = rels.size
+            value.male = totalMale
+            value.female = totalFemale
+            value.total = total
+            value.type_estate_ids = Array.from(tTypes)
+            value.subtype_estate_ids = Array.from(sTypes)
+            value.religion_ids = Array.from(rels)
+            value.affiliation_ids = Array.from(affs)
+            value.volost_ids = Array.from(vols)
+            value.landowner_ids = Array.from(lnds)
+            value.military_unit_ids = Array.from(mils)
+
+            value.revisions = rrForSettlement.map(rr => ({
+              id: rr.id,
+              year: rr.Revision_report?.year || '',
+              number: rr.Revision_report?.number || '',
+              male: 0,
+              female: 0,
+              total: rr.population_all || 0
+            }))
+          })
+
+          const allData = Array.from(settlementsMap.values())
+          const filtered = this.applyFiltersToData(allData)
+          this.settlementsData = filtered
+        })
+        .catch(error => {
+          console.error('Error loading settlements data:', error)
+          throw error
+        })
+    },
+
     async calculateSettlementData(settlement) {
       try {
         // Получаем все записи ревизий для этого населённого пункта
@@ -1100,9 +1338,9 @@ export default {
 
       // Ревизии
       if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
-        const revisionNames = this.currentFilters.revision.map(id => {
-          const revision = this.revisions?.find(r => r.id === id)
-          return revision ? `${revision.number} ревизия (${revision.year})` : `ID:${id}`
+        const revisionNames = this.currentFilters.revision.map(num => {
+          const revision = this.revisions?.find(r => r.number === num)
+          return revision ? `${revision.number} ревизия (${revision.year})` : `№:${num}`
         })
         activeFilters.push(`Ревизии: ${revisionNames.join(', ')}`)
       }
