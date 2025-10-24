@@ -193,6 +193,21 @@ export default {
         // Подготавливаем данные о сословиях
         const estateTypes = this.prepareEstateTypes(settlement)
 
+        // Плоские списки подтипов и религий, а также номера ревизий
+        const subtypeNamesSet = new Set()
+        const religionNamesSet = new Set()
+        if (Array.isArray(settlement.estates)) {
+          settlement.estates.forEach(e => {
+            if (e.subtype_estate_name) subtypeNamesSet.add(e.subtype_estate_name)
+            if (e.type_religion_name) religionNamesSet.add(e.type_religion_name)
+          })
+        }
+        const subtypeNames = Array.from(subtypeNamesSet)
+        const religionNames = Array.from(religionNamesSet)
+        const revisionNumbers = Array.isArray(settlement.revision_numbers)
+          ? settlement.revision_numbers
+          : (Array.isArray(settlement.revisions) ? settlement.revisions.map(r => r.number) : [])
+
         return {
           type: 'Feature',
           geometry: {
@@ -210,6 +225,9 @@ export default {
               total: settlement.total || 0
             },
             estate_types: estateTypes,
+            subtypes: subtypeNames,
+            religions: religionNames,
+            revision_numbers: revisionNumbers,
             filtered: true
           }
         }
@@ -382,6 +400,28 @@ export default {
           const marker = L.marker([lat, lng], {
             title: props.name_old
           }).bindPopup(popupContent)
+
+          // Вставляем дополнительные блоки (ревизии, подтипы, религии), если есть в properties
+          try {
+            const extraParts = []
+            if (Array.isArray(props.revision_numbers) && props.revision_numbers.length) {
+              extraParts.push(`<p><strong>Ревизии:</strong> ${props.revision_numbers.join(', ')}</p>`)
+            }
+            if (Array.isArray(props.subtypes) && props.subtypes.length) {
+              extraParts.push(`<p><strong>Подтипы сословий:</strong> ${props.subtypes.join(', ')}</p>`)
+            }
+            if (Array.isArray(props.religions) && props.religions.length) {
+              extraParts.push(`<p><strong>Типы религий:</strong> ${props.religions.join(', ')}</p>`)
+            }
+            if (extraParts.length) {
+              const popup = marker.getPopup()
+              const orig = popup.getContent()
+              const enhanced = String(orig).replace('</div>', `${extraParts.join('')}</div>`)
+              popup.setContent(enhanced)
+            }
+          } catch (e) {
+            // fail safe
+          }
 
           marker.addTo(this.map)
         }

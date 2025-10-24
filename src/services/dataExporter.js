@@ -153,6 +153,18 @@ export class DataExporter {
       // Подготавливаем данные о сословиях с ID для отображения на карте
       const estateTypes = this.prepareEstateTypesForMap(settlement)
 
+      // Подтипы и религии (списки наименований)
+      const subtypeNamesSet = new Set()
+      const religionNamesSet = new Set()
+      if (Array.isArray(settlement.estates)) {
+        settlement.estates.forEach(e => {
+          if (e.subtype_estate_name) subtypeNamesSet.add(e.subtype_estate_name)
+          if (e.type_religion_name) religionNamesSet.add(e.type_religion_name)
+        })
+      }
+      const subtypeNames = Array.from(subtypeNamesSet)
+      const religionNames = Array.from(religionNamesSet)
+
       const feature = {
         type: 'Feature',
         geometry: {
@@ -183,6 +195,8 @@ export class DataExporter {
 
           // Данные о сословиях для отображения на карте (с ID)
           estate_types: estateTypes,
+          subtypes: subtypeNames,
+          religions: religionNames,
 
           // Полные данные для фильтрации
           filter_data: {
