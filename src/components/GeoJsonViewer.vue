@@ -563,20 +563,20 @@ export default {
 
 // Стили для подсветки синтаксиса JSON
 .json-key {
-  color: #0969da;
+  color: hsl(212, 92%, 44%);
   font-weight: 500;
 }
 
 .json-string {
-  color: #0a3069;
+  color: hsl(215, 81%, 23%);
 }
 
 .json-number {
-  color: #0550ae;
+  color: hsl(213, 95%, 35%);
 }
 
 .json-keyword {
-  color: #8250df;
+  color: hsl(262, 71%, 59%);
   font-weight: 500;
 }
 

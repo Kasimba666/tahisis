@@ -1454,14 +1454,14 @@ export default {
 /* Стили для красивой кнопки карты */
 .map-button {
   position: relative;
-  background: linear-gradient(135deg, #67C23A 0%, #85CE61 100%);
+  background: linear-gradient(135deg, hsl(100, 56%, 49%) 0%, hsl(100, 50%, 59%) 100%);
   border: none;
   box-shadow: 0 4px 12px rgba(103, 194, 58, 0.3);
   transition: all 0.3s ease;
   overflow: hidden;
 
   &:hover {
-    background: linear-gradient(135deg, #5CB85C 0%, #7BC96F 100%);
+    background: linear-gradient(135deg, hsl(120, 39%, 54%) 0%, hsl(110, 45%, 61%) 100%);
     box-shadow: 0 6px 20px rgba(103, 194, 58, 0.4);
     transform: translateY(-2px);
   }

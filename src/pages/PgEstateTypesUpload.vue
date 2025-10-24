@@ -57,9 +57,9 @@
           <div class="color-display">
             <div
               class="color-preview"
-              :style="{ backgroundColor: row.color || '#808080' }"
+              :style="{ backgroundColor: row.color || 'hsl(0, 0%, 50%)' }"
             ></div>
-            <span class="color-value">{{ row.color || '#808080' }}</span>
+            <span class="color-value">{{ row.color || 'hsl(0, 0%, 50%)' }}</span>
           </div>
         </template>
       </el-table-column>
@@ -157,7 +157,7 @@ export default {
         type_estate_name: e.Type_estate?.name || "",
         type_religion_name: e.Type_religion?.name || "",
         type_affiliation_name: e.Type_affiliation?.name || "",
-        color: e.Type_estate?.color || "#808080"
+        color: e.Type_estate?.color || "hsl(0, 0%, 50%)"
       }))
 
       // Справочники
@@ -173,7 +173,7 @@ export default {
       this.editRowId = row.id
       this.editRow = {
         ...row,
-        color: row.color || "#808080"
+        color: row.color || "hsl(0, 0%, 50%)"
       }
     },
     cancelEdit() {
@@ -229,7 +229,7 @@ export default {
           type_estate_name: selectedEstateType?.name || "",
           type_religion_name: "",
           type_affiliation_name: "",
-          color: selectedEstateType?.color || "#808080"
+          color: selectedEstateType?.color || "hsl(0, 0%, 50%)"
         })
         this.startEdit(data[0])
       }

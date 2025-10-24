@@ -131,7 +131,7 @@ export default {
       textareaValue: '',
       numberValue: 1,
       sizeDemo: '',
-      tableRowColor: '#ffffff',
+      tableRowColor: 'hsl(0, 0%, 100%)',
       tableData: []
     }
   },
@@ -146,7 +146,7 @@ export default {
     updateTableStyle() {
     },
     resetTableColor() {
-      this.tableRowColor = '#ffffff'
+      this.tableRowColor = 'hsl(0, 0%, 100%)'
     },
     formatSalary(salary) {
       return new Intl.NumberFormat('ru-RU', {
@@ -187,7 +187,7 @@ export default {
 
 .demo-card {
   padding: 3px;
-  border: 1px solid #e0e0e0;
+  border: 1px solid hsl(0, 0%, 88%);
   border-radius: 8px;
 }
 
@@ -234,7 +234,7 @@ export default {
 }
 
 .text-muted {
-  color: #999;
+  color: hsl(0, 0%, 60%);
   font-size: 12px;
 }
 

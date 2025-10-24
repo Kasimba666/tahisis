@@ -572,7 +572,7 @@ export default {
         // Добавляем новые границы
         L.geoJSON(geoJsonData, {
           style: {
-            color: '#ff7800',
+            color: 'hsl(27, 100%, 50%)',
             weight: 2,
             opacity: 0.7,
             fillOpacity: 0.1
@@ -752,20 +752,20 @@ export default {
 
 // Стили для подсветки синтаксиса JSON
 .json-key {
-  color: #0969da;
+  color: hsl(212, 92%, 44%);
   font-weight: 500;
 }
 
 .json-string {
-  color: #0a3069;
+  color: hsl(215, 81%, 23%);
 }
 
 .json-number {
-  color: #0550ae;
+  color: hsl(213, 95%, 35%);
 }
 
 .json-keyword {
-  color: #8250df;
+  color: hsl(262, 71%, 59%);
   font-weight: 500;
 }
 
@@ -787,7 +787,7 @@ export default {
   .estate-types {
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid #eee;
+    border-top: 1px solid hsl(0, 0%, 93%);
 
     div {
       font-size: 0.85em;

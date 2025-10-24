@@ -79,7 +79,7 @@
               confirm-button-text="Да, очистить"
               cancel-button-text="Отмена"
               :icon="InfoFilled"
-              icon-color="#f56c6c"
+              icon-color="hsl(0, 85%, 69%)"
               title="Вы уверены? Это действие нельзя отменить!"
               @confirm="clearAllSettings"
             >
