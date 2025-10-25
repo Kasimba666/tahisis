@@ -201,7 +201,10 @@
       </div>
 
       <template #footer>
-        <el-button @click="closeDetailsDrawer">Закрыть</el-button>
+        <el-button size="small" type="primary" @click="showSettlementOnMap" :disabled="!selectedSettlement">
+          Показать на карте
+        </el-button>
+        <el-button size="small" @click="closeDetailsDrawer">Закрыть</el-button>
       </template>
     </el-drawer>
 
@@ -1230,6 +1233,28 @@ export default {
     closeDetailsDrawer() {
       this.detailsDrawerVisible = false
       this.selectedSettlement = null
+    },
+
+    // Показать только выбранный населённый пункт на карте
+    showSettlementOnMap() {
+      if (!this.selectedSettlement) {
+        ElMessage.warning('Не выбран населённый пункт')
+        return
+      }
+      if (!this.$refs.mapViewer) {
+        ElMessage.error('Компонент карты недоступен')
+        return
+      }
+      // Открываем карту только с одним населённым пунктом
+      this.$refs.mapViewer.open([this.selectedSettlement])
+      setTimeout(() => {
+        try {
+          if (this.$refs.mapViewer && this.$refs.mapViewer.setViewFromStore) {
+            this.$refs.mapViewer.setViewFromStore()
+          }
+        } catch (e) {}
+      }, 300)
+      ElMessage.success('Населённый пункт открыт на карте')
     },
 
     formatNumber(num) {
