@@ -1275,8 +1275,8 @@ export default {
 </script>
 
 <style scoped lang="scss">
-// OpenLayers popup styles for better readability
-.ol-popup {
+// OpenLayers popup styles for better readability (scoped → deep)
+:deep(.ol-popup) {
   background: hsl(0, 0%, 100%);
   border: 1px solid hsl(0, 0%, 80%);
   border-radius: 4px;
