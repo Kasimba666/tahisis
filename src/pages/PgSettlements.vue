@@ -15,10 +15,10 @@
       @options-loaded="setFilterOptions"
     />
 
-    <!-- Таблица населённых пунктов -->
+    <!-- Таблица и карты населённых пунктов -->
     <div class="settlements-content">
-      <SettlementsTable
-        ref="settlementsTable"
+      <SettlementsListAndMap
+        ref="settlementsListAndMap"
         :filters="currentFilters"
         :loading="loading"
         :districts="allDistricts"
@@ -37,7 +37,7 @@
 
 <script>
 import EstatesFilters from '@/components/EstatesFilters.vue'
-import SettlementsTable from '@/components/SettlementsTable.vue'
+import SettlementsListAndMap from '@/components/SettlementsListAndMap.vue'
 import {
   getFiltersFromURL,
   setFiltersInURL,
@@ -48,7 +48,7 @@ export default {
   name: 'PgSettlements',
   components: {
     EstatesFilters,
-    SettlementsTable
+    SettlementsListAndMap
   },
   data() {
     return {
@@ -72,6 +72,8 @@ export default {
   },
   methods: {
     setFilterOptions(options) {
+      console.log('=== PGSETTLEMENTS SET FILTER OPTIONS ===')
+      console.log('Options received:', options)
       this.allDistricts = options.districts || []
       this.allSettlements = options.settlements || []
       this.allTypeEstates = options.typeEstates || []
@@ -79,6 +81,12 @@ export default {
       this.allReligions = options.religions || []
       this.allAffiliations = options.affiliations || []
       this.allVolosts = options.volosts || []
+
+      console.log('Loaded data counts:', {
+        districts: this.allDistricts.length,
+        typeEstates: this.allTypeEstates.length,
+        subtypeEstates: this.allSubtypeEstates.length
+      })
 
       // Загружаем ревизии отдельно
       this.loadRevisions()
@@ -100,7 +108,7 @@ export default {
 
             // Обновляем дочерний компонент после загрузки справочников
             this.$nextTick(() => {
-              this.updateSettlementsTable()
+              this.updateSettlementsListAndMap()
             })
           })
           .catch(error => {
@@ -115,16 +123,16 @@ export default {
       // Сохраняем фильтры в URL
       setFiltersInURL(filters)
 
-      this.$refs.settlementsTable?.applyFilters(filters)
+      this.$refs.settlementsListAndMap?.applyFilters(filters)
     },
 
     // Метод для передачи справочников в дочерний компонент
-    updateSettlementsTable() {
-      if (this.$refs.settlementsTable) {
+    updateSettlementsListAndMap() {
+      if (this.$refs.settlementsListAndMap) {
         // Используем $nextTick чтобы убедиться что компонент полностью инициализирован
         this.$nextTick(() => {
-          if (this.$refs.settlementsTable && this.$refs.settlementsTable.syncWithProps) {
-            this.$refs.settlementsTable.syncWithProps()
+          if (this.$refs.settlementsListAndMap && this.$refs.settlementsListAndMap.syncWithProps) {
+            this.$refs.settlementsListAndMap.syncWithProps()
           }
         })
       }

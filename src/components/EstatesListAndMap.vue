@@ -8,13 +8,7 @@
         </el-radio-group>
       </div>
       
-      <div class="view-selector">
-        <el-radio-group v-model="viewMode" size="small">
-          <el-radio-button label="list">Список</el-radio-button>
-          <el-radio-button label="map">Карта</el-radio-button>
-          <el-radio-button label="split">Разделить</el-radio-button>
-        </el-radio-group>
-      </div>
+      <ViewModeSelector v-model="viewMode" />
       
       <div class="stats">
         <el-popover
@@ -337,6 +331,7 @@ import { supabase } from '@/services/supabase'
 import Sortable from 'sortablejs'
 import MapView from './MapView.vue'
 import ColorSchemeSelector from './ColorSchemeSelector.vue'
+import ViewModeSelector from './ViewModeSelector.vue'
 import { useTableSorting } from '@/composables/useStorage.js'
 import {
   getModeFromURL,
@@ -357,7 +352,8 @@ export default {
     Loading,
     Setting,
     MapView,
-    ColorSchemeSelector
+    ColorSchemeSelector,
+    ViewModeSelector
   },
   setup() {
     // Используем composable для управления сортировкой с сохранением в localStorage
