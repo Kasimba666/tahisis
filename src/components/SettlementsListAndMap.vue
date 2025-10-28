@@ -92,7 +92,7 @@
       </div>
 
       <div v-if="viewMode === 'map' || viewMode === 'split'" class="map-section">
-        <MapView ref="mapView" :settlements="settlementsForMap" :geoJsonData="settlementsGeoJson" />
+        <MapView ref="mapView" :settlements="syncedSettlementsForMap" :geoJsonData="syncedSettlementsGeoJson" />
       </div>
 
       <div v-if="viewMode === 'geojson'" class="geojson-section">
@@ -361,6 +361,15 @@ export default {
       console.log('converted GeoJSON:', result)
 
       return result
+    },
+
+    // Синхронизированные computed properties для MapView (только когда данные загружены)
+    syncedSettlementsForMap() {
+      return this.settlementsData && this.settlementsData.length > 0 ? this.settlementsForMap : []
+    },
+
+    syncedSettlementsGeoJson() {
+      return this.settlementsData && this.settlementsData.length > 0 ? this.settlementsGeoJson : null
     }
   },
   async mounted() {
@@ -1260,6 +1269,12 @@ export default {
 
     // Обновляем маркеры на картах при изменении данных
     updateMapMarkers() {
+      // Проверяем что данные загружены и карта существует
+      if (!this.settlementsData || this.settlementsData.length === 0) {
+        console.log('No settlements data to update markers')
+        return
+      }
+
       if (this.$refs.mapView && this.$refs.mapView.$el && this.$refs.mapView.$el.parentNode) {
         // Обновляем маркеры на обеих картах
         this.$nextTick(() => {

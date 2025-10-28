@@ -8,7 +8,7 @@
         </el-radio-group>
       </div>
       
-      <ViewModeSelector v-model="viewMode" />
+
       
       <div class="stats">
         <el-popover
@@ -329,9 +329,7 @@ import { Location, Loading, Setting, Brush, Download } from '@element-plus/icons
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import Sortable from 'sortablejs'
-import MapView from './MapView.vue'
-import ColorSchemeSelector from './ColorSchemeSelector.vue'
-import ViewModeSelector from './ViewModeSelector.vue'
+
 import { useTableSorting } from '@/composables/useStorage.js'
 import {
   getModeFromURL,
@@ -350,10 +348,7 @@ export default {
   components: {
     Location,
     Loading,
-    Setting,
-    MapView,
-    ColorSchemeSelector,
-    ViewModeSelector
+    Setting
   },
   setup() {
     // Используем composable для управления сортировкой с сохранением в localStorage
@@ -368,7 +363,7 @@ export default {
   data() {
     return {
       dataMode: 'estate',
-      viewMode: 'list',
+      viewMode: 'list', // Added missing viewMode property
       estateData: [],
       reportData: [],
       allEstateData: [],
@@ -378,10 +373,8 @@ export default {
       detailsDrawerVisible: false,
       selectedRecord: null,
       columnsPopoverVisible: false,
-      showColorSettings: false,
       currentFilters: null,
       allDistricts: [],
-      allSettlements: [],
       allTypeEstates: [],
       allSubtypeEstates: [],
       allReligions: [],
@@ -515,10 +508,10 @@ export default {
     // Восстанавливаем параметры из URL
     this.restoreParamsFromURL()
 
-    // Загружаем справочник населенных пунктов для режима Estate
-    this.loadSettlementsReference()
-      .then(() => {})
-      .catch(err => console.error('Error in mounted loadSettlementsReference:', err))
+    // Если есть фильтры из URL, загружаем данные
+    if (this.currentFilters && Object.keys(this.currentFilters).length > 0) {
+      this.loadData()
+    }
 
     // Не загружаем данные автоматически, ждем применения фильтров
     this.$nextTick(() => {
