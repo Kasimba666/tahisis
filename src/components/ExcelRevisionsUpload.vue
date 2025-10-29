@@ -542,7 +542,7 @@ export default {
       this.currentStatus = 'Валидация данных'
       const errors = []
       rows.forEach((row, index) => {
-        this.currentStatus = `Валидация: строка ${index + 1} из ${rows.length}`
+        this.currentStatus = `Валидация: строка ${index + 2} из ${rows.length + 1}`
         this.progress = Math.round(((index + 1) / rows.length) * 10) // progress до 10%
         const missingFields = []
         // Support case insensitive column names
@@ -553,17 +553,23 @@ export default {
         const admunitmodVal = row.admunitmod || row.ADMUNITMOD || row.Admunitmod || row.admunitMod || row.admunitmod || row.icon || row.ADMUNITMOD
         if (!admunitmodVal || String(admunitmodVal).trim() === '') missingFields.push('admunitmod')
         const latVal = row.lat || row.LAT || row.Lat
-        if (latVal === null || latVal === undefined || String(latVal).trim() === '' || isNaN(Number(latVal))) missingFields.push('lat')
+        const latValid = latVal !== null && latVal !== undefined && String(latVal).trim() !== '' && !isNaN(Number(latVal))
         const lonVal = row.lon || row.LON || row.Lon
-        if (lonVal === null || lonVal === undefined || String(lonVal).trim() === '' || isNaN(Number(lonVal))) missingFields.push('lon')
+        const lonValid = lonVal !== null && lonVal !== undefined && String(lonVal).trim() !== '' && !isNaN(Number(lonVal))
+        const namemod = String(row.namemod || row.NAMEMOD || row.Namemod || row.nameMod || '').trim()
+        // If namemod is filled but lat or lon is missing, it's an error
+        if (namemod && (!latValid || !lonValid)) {
+          if (!latValid) missingFields.push('lat')
+          if (!lonValid) missingFields.push('lon')
+        }
         // Check at least one estate field is filled
         const estatePresent = !!(String(row.estate1 || '').trim() || String(row.estate2 || '').trim() || String(row.estate3 || '').trim() || String(row.estate4 || '').trim() || String(row.estate5 || '').trim())
         if (!estatePresent) missingFields.push('estate (хотя бы одно поле estate должно быть заполнено)')
         const status = missingFields.length === 0 ? 'OK' : `MISSING: ${missingFields.join(', ')}`
-        this.validationLog.push(`Строка ${index + 1}: ${status}`)
+        this.validationLog.push(`Строка ${index + 2}: ${status}`)
         if (missingFields.length > 0) {
           errors.push({
-            row: index + 1,
+            row: index + 2,
             id: String(id || '').trim(),
             nameold: String(nameoldVal || '').trim(),
             admunitmod: String(admunitmodVal || '').trim(),

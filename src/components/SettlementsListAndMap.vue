@@ -106,6 +106,9 @@
           :showExport="true"
           :formatted="true"
         />
+        <div class="geojson-display">
+          <pre><code class="json-code">{{ formattedSettlementsGeoJson }}</code></pre>
+        </div>
       </div>
     </div>
 
@@ -370,6 +373,15 @@ export default {
 
     syncedSettlementsGeoJson() {
       return this.settlementsData && this.settlementsData.length > 0 ? this.settlementsGeoJson : null
+    },
+
+    formattedSettlementsGeoJson() {
+      try {
+        if (!this.settlementsGeoJson) return ''
+        return JSON.stringify(this.settlementsGeoJson, null, 2)
+      } catch (e) {
+        return ''
+      }
     }
   },
   async mounted() {
