@@ -29,12 +29,6 @@
           <router-link to="/settings" class="nav-item" :class="{ active: isActive('/settings') }">
             Настройки
           </router-link>
-          <router-link v-if="authState.user" to="/demo" class="nav-item" :class="{ active: isActive('/demo') }">
-            Демо
-          </router-link>
-          <router-link to="/services" class="nav-item" :class="{ active: isActive('/services') }">
-            Услуги
-          </router-link>
           <div v-if="authState.user" class="nav-item has-submenu">
             <span class="submenu-trigger">Управление данными</span>
             <div class="submenu">
@@ -56,10 +50,7 @@
               </router-link>
             </div>
           </div>
-          <router-link to="/contact" class="nav-item" :class="{ active: isActive('/contact') }">
-            Контакты
-          </router-link>
-          
+
           <div class="nav-spacer"></div>
           
           <a v-if="!authState.user" @click="openAuthModal" class="nav-item nav-action">

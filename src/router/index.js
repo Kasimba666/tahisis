@@ -1,9 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { state as authState } from '@/store/auth.js'
-import PgHome from '@/pages/PgHome.vue'
 import PgAbout from '@/pages/PgAbout.vue'
-import PgServices from '@/pages/PgServices.vue'
-import PgContact from '@/pages/PgContact.vue'
 import PgComponentsDemo from '@/pages/PgComponentsDemo.vue'
 import PgEstateTypes from '@/pages/PgEstateTypes.vue'
 import PgEstateTypesUpload from '@/pages/PgEstateTypesUpload.vue'
@@ -129,24 +126,6 @@ const routes = [
     path: '/about',
     name: 'About',
     component: PgAbout
-  },
-  {
-    path: '/services',
-    name: 'Services',
-    component: PgServices
-  },
-  {
-    path: '/contact',
-    name: 'Contact',
-    component: PgContact
-  },
-  {
-    path: '/demo',
-    name: 'ComponentsDemo',
-    component: PgComponentsDemo,
-    meta: {
-      requireAuth: true
-    }
   },
   {
     path: '/estate-types',
