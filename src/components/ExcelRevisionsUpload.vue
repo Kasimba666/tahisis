@@ -8,7 +8,6 @@
         accept=".xlsx, .xls"
         :auto-upload="false"
         :on-change="handleFileChange"
-        :on-exceed="handleExceed"
         :limit="1"
         :show-file-list="true"
     >
@@ -73,6 +72,29 @@
         @close="success = null"
         class="status-alert"
     />
+
+    <el-alert
+        v-if="currentStatus && currentStatus !== 'Готов к работе'"
+        :title="currentStatus"
+        type="info"
+        show-icon
+        class="status-alert"
+    />
+
+    <div v-if="validationLog.length" class="validation-log">
+      <h3>Проверка данных:</h3>
+      <pre class="validation-text">{{ validationLogText }}</pre>
+    </div>
+
+    <div v-if="validationErrors.length > 0" class="errors-report">
+      <h3>Отчёт об ошибках:</h3>
+      <pre class="errors-text">{{ errorReportText }}</pre>
+      <div class="errors-buttons">
+        <el-button @click="copyErrors" type="primary" size="small">Копировать</el-button>
+        <el-button @click="saveErrors" type="success" size="small">Сохранить</el-button>
+        <el-button @click="closeErrors" type="danger" size="small">Закрыть</el-button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -86,6 +108,18 @@ export default {
   name: 'ExcelRevisionsUpload',
   components: { UploadFilled },
   emits: ['dataProcessed'],
+  computed: {
+    errorReportText() {
+      let text = 'Отчёт об ошибках валидации:\n\n'
+      this.validationErrors.forEach(err => {
+        text += `Строка ${err.row}: ID "${err.id}", nameold "${err.nameold}", admunitmod "${err.admunitmod}" - отсутствующие поля: ${err.missing}\n`
+      })
+      return text
+    },
+    validationLogText() {
+      return this.validationLog.join('\n')
+    }
+  },
   data() {
     return {
       file: null,
@@ -96,7 +130,11 @@ export default {
       revisionForm: {
         number: '',
         year: ''
-      }
+      },
+      progress: 0,
+      validationErrors: [],
+      validationLog: [],
+      currentStatus: 'Готов к работе'
     }
   },
   methods: {
@@ -115,9 +153,11 @@ export default {
         this.$emit('dataProcessed')
       } catch (err) {
         this.error = err.message || 'Ошибка очистки таблиц'
-      } finally {
-        this.isLoading = false
-      }
+        } finally {
+          this.isLoading = false
+          this.progress = 0
+          this.currentStatus = 'Готов к работе'
+        }
     },
     handleFileChange(uploadedFile) {
       const isExcel =
@@ -129,12 +169,15 @@ export default {
         this.$refs.upload.clearFiles()
         return
       }
+      // Replace existing file
+      this.$refs.upload.fileList = [uploadedFile]
       this.file = uploadedFile.raw
       this.error = null
       this.success = null
-    },
-    handleExceed() {
-      ElMessage.warning('Можно загрузить только один файл.')
+      this.progress = 0
+      this.validationErrors = []
+      this.validationLog = []
+      this.currentStatus = 'Готов к работе'
     },
     openRevisionDialog() {
       if (!this.file) return
@@ -155,8 +198,20 @@ export default {
 
           if (!jsonData || jsonData.length === 0) throw new Error('Файл пуст')
 
+          this.currentStatus = 'Валидация данных'
+          // Валидация обязательных полей
+          const validationErrors = this.validateRows(jsonData)
+          if (validationErrors.length > 0) {
+            this.currentStatus = 'Валидация завершена с ошибками'
+            this.validationErrors = validationErrors
+            this.error = `Найдены ошибки валидации. Проверьте отчет ниже.`
+            return
+          }
+          ElMessage.success('Валидация прошла успешно')
+          this.currentStatus = 'Обработка данных'
+
           await this.processSupabaseData(jsonData)
-          this.success = 'Загрузка успешно завершена'
+          this.success = `Загрузка успешно завершена. Обработано записей: ${jsonData.length}`
           this.$emit('dataProcessed')
           this.file = null
           this.$refs.upload.clearFiles()
@@ -164,16 +219,20 @@ export default {
           this.error = err.message || 'Ошибка обработки файла'
         } finally {
           this.isLoading = false
+          this.currentStatus = 'Готов к работе'
         }
       }
       reader.onerror = () => {
         this.error = 'Не удалось прочитать файл'
         this.isLoading = false
+        this.currentStatus = 'Ошибка чтения файла'
       }
       reader.readAsArrayBuffer(this.file)
     },
 
     async processSupabaseData(rows) {
+      this.currentStatus = 'Обработка ревизии'
+      this.progress = 10
       // 1. Проверить, существует ли ревизия с таким номером
       const { data: existingRevision, error: findErr } = await supabase
           .from('Revision_report')
@@ -214,9 +273,11 @@ export default {
         if (insertErr) throw insertErr
         revisionId = newRevision.id
       }
-
         // 2. Для каждой строки Excel
-        for (const row of rows) {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i]
+          this.currentStatus = `Обработка строк: ${i + 1} из ${rows.length}`
+          this.progress = Math.round(10 + ((i + 1) / rows.length) * 89)
           const code = String(row.id || '').trim()
           const populationAll = row.populall || null
           const nameOld = String(row.nameold || '').trim()
@@ -473,6 +534,69 @@ export default {
           }
         }
       }
+      this.progress = 100
+    },
+
+    validateRows(rows) {
+      this.validationLog = []
+      this.currentStatus = 'Валидация данных'
+      const errors = []
+      rows.forEach((row, index) => {
+        this.currentStatus = `Валидация: строка ${index + 1} из ${rows.length}`
+        this.progress = Math.round(((index + 1) / rows.length) * 10) // progress до 10%
+        const missingFields = []
+        // Support case insensitive column names
+        const id = row.id || row.ID || row.Id || row.iD
+        if (!id || String(id).trim() === '') missingFields.push('id')
+        const nameoldVal = row.nameold || row.NAMEOLD || row.Nameold || row.nameOld
+        if (!nameoldVal || String(nameoldVal).trim() === '') missingFields.push('nameold')
+        const admunitmodVal = row.admunitmod || row.ADMUNITMOD || row.Admunitmod || row.admunitMod || row.admunitmod || row.icon || row.ADMUNITMOD
+        if (!admunitmodVal || String(admunitmodVal).trim() === '') missingFields.push('admunitmod')
+        const latVal = row.lat || row.LAT || row.Lat
+        if (latVal === null || latVal === undefined || String(latVal).trim() === '' || isNaN(Number(latVal))) missingFields.push('lat')
+        const lonVal = row.lon || row.LON || row.Lon
+        if (lonVal === null || lonVal === undefined || String(lonVal).trim() === '' || isNaN(Number(lonVal))) missingFields.push('lon')
+        const status = missingFields.length === 0 ? 'OK' : `MISSING: ${missingFields.join(', ')}`
+        this.validationLog.push(`Строка ${index + 1}: ${status}`)
+        if (missingFields.length > 0) {
+          errors.push({
+            row: index + 1,
+            id: String(id || '').trim(),
+            nameold: String(nameoldVal || '').trim(),
+            admunitmod: String(admunitmodVal || '').trim(),
+            missing: missingFields.join(', ')
+          })
+        }
+      })
+      return errors
+    },
+
+    copyErrors() {
+      navigator.clipboard.writeText(this.errorReportText).then(() => {
+        ElMessage.success('Текст скопирован в буфер обмена')
+      }).catch(() => {
+        ElMessage.error('Не удалось скопировать')
+      })
+    },
+
+    saveErrors() {
+      const blob = new Blob([this.errorReportText], { type: 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'validation_errors.txt'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      ElMessage.success('Файл скачан')
+    },
+
+    closeErrors() {
+      this.validationErrors = []
+      this.validationLog = []
+      this.error = null
+      this.currentStatus = 'Готов к работе'
     }
   }
 }
@@ -499,5 +623,53 @@ export default {
 }
 .status-alert {
   margin-top: 1.5rem;
+}
+.validation-log {
+  margin-top: 1.5rem;
+  h3 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+  }
+  .validation-text {
+    white-space: pre-wrap;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background-color: var(--bg-tertiary);
+    color: var(--text-color-secondary);
+    font-family: monospace;
+    font-size: 0.9rem;
+  }
+}
+.errors-report {
+  margin-top: 1.5rem;
+  h3 {
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+  }
+  .errors-text {
+    white-space: pre-wrap;
+    padding: 0.5rem;
+    border-radius: 4px;
+    background-color: var(--bg-tertiary);
+    color: var(--text-color-secondary);
+    font-family: monospace;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+  }
+.errors-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-start;
+    margin-top: 0.5rem;
+  }
+}
+
+// Adjust remove button closer to file name
+:deep(.el-upload-list__item-name) {
+  margin-right: 0.2rem !important;
+}
+
+:deep(.el-upload-list__item-status-label) {
+  padding-left: 0.2rem !important;
 }
 </style>
