@@ -556,6 +556,9 @@ export default {
         if (latVal === null || latVal === undefined || String(latVal).trim() === '' || isNaN(Number(latVal))) missingFields.push('lat')
         const lonVal = row.lon || row.LON || row.Lon
         if (lonVal === null || lonVal === undefined || String(lonVal).trim() === '' || isNaN(Number(lonVal))) missingFields.push('lon')
+        // Check at least one estate field is filled
+        const estatePresent = !!(String(row.estate1 || '').trim() || String(row.estate2 || '').trim() || String(row.estate3 || '').trim() || String(row.estate4 || '').trim() || String(row.estate5 || '').trim())
+        if (!estatePresent) missingFields.push('estate (хотя бы одно поле estate должно быть заполнено)')
         const status = missingFields.length === 0 ? 'OK' : `MISSING: ${missingFields.join(', ')}`
         this.validationLog.push(`Строка ${index + 1}: ${status}`)
         if (missingFields.length > 0) {
