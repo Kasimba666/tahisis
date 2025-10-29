@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { state as authState } from '@/store/auth.js'
 import PgAbout from '@/pages/PgAbout.vue'
-import PgComponentsDemo from '@/pages/PgComponentsDemo.vue'
 import PgEstateTypes from '@/pages/PgEstateTypes.vue'
 import PgEstateTypesUpload from '@/pages/PgEstateTypesUpload.vue'
 import PgRevisionsUpload from '@/pages/PgRevisionsUpload.vue'

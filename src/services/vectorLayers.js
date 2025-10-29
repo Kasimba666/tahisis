@@ -8,300 +8,297 @@ export class VectorLayerService {
   }
 
   // Создание storage bucket (если не существует)
-  async createBucket() {
-    try {
-      // Проверяем, существует ли bucket
-      const { data: buckets, error: listError } = await supabase.storage.listBuckets()
+  createBucket() {
+    // Проверяем, существует ли bucket
+    return supabase.storage.listBuckets()
+      .then(({ data: buckets, error: listError }) => {
+        if (listError) {
+          console.error('Error listing buckets:', listError)
+          // Если ошибка связана с RLS или разрешениями, пропускаем создание bucket
+          if (listError.message?.includes('row-level security') || listError.message?.includes('permission')) {
+            console.warn('Insufficient permissions to list buckets. Assuming bucket exists and skipping creation.')
+            return { data: { name: this.bucketName }, error: null }
+          }
+          throw listError
+        }
 
-      if (listError) {
-        console.error('Error listing buckets:', listError)
-        // Если ошибка связана с RLS или разрешениями, пропускаем создание bucket
-        if (listError.message?.includes('row-level security') || listError.message?.includes('permission')) {
-          console.warn('Insufficient permissions to list buckets. Assuming bucket exists and skipping creation.')
+        // Проверяем, существует ли наш bucket
+        const bucketExists = buckets?.some(bucket => bucket.name === this.bucketName)
+
+        if (bucketExists) {
+          // console.log(`Bucket '${this.bucketName}' already exists`)
           return { data: { name: this.bucketName }, error: null }
         }
-        throw listError
-      }
 
-      // Проверяем, существует ли наш bucket
-      const bucketExists = buckets?.some(bucket => bucket.name === this.bucketName)
+        // Создаем bucket если он не существует
+        return supabase.storage.createBucket(this.bucketName, {
+          public: true,
+          allowedMimeTypes: [
+            'application/geo+json',
+            'application/json',
+            'application/vnd.google-earth.kml+xml',
+            'application/zip',
+            'application/geopackage'
+          ],
+          fileSizeLimit: 52428800 // 50MB
+        })
+          .then(({ data, error }) => {
+            if (error) {
+              // Обрабатываем ошибку когда bucket уже существует
+              if (error.message?.includes('already exists') || error.message?.includes('already been registered')) {
+                console.warn(`Bucket '${this.bucketName}' already exists. Skipping creation.`)
+                return { data: { name: this.bucketName }, error: null }
+              }
+              // Обрабатываем ошибку RLS (Row Level Security)
+              if (error.message?.includes('row-level security') || error.message?.includes('permission')) {
+                console.warn(`Insufficient permissions to create bucket '${this.bucketName}'. This is normal if bucket should be created manually in Supabase dashboard.`)
+                return { data: null, error: null }
+              }
+              console.error('Error creating bucket:', error)
+              throw error
+            }
 
-      if (bucketExists) {
-        // console.log(`Bucket '${this.bucketName}' already exists`)
-        return { data: { name: this.bucketName }, error: null }
-      }
-
-      // Создаем bucket если он не существует
-      const { data, error } = await supabase.storage.createBucket(this.bucketName, {
-        public: true,
-        allowedMimeTypes: [
-          'application/geo+json',
-          'application/json',
-          'application/vnd.google-earth.kml+xml',
-          'application/zip',
-          'application/geopackage'
-        ],
-        fileSizeLimit: 52428800 // 50MB
+            // console.log(`Bucket '${this.bucketName}' created successfully`)
+            return { data, error }
+          })
       })
-
-      if (error) {
+      .catch((error) => {
         // Обрабатываем ошибку когда bucket уже существует
         if (error.message?.includes('already exists') || error.message?.includes('already been registered')) {
           console.warn(`Bucket '${this.bucketName}' already exists. Skipping creation.`)
           return { data: { name: this.bucketName }, error: null }
         }
-        // Обрабатываем ошибку RLS (Row Level Security)
+        // Обрабатываем ошибку RLS в catch блоке тоже
         if (error.message?.includes('row-level security') || error.message?.includes('permission')) {
           console.warn(`Insufficient permissions to create bucket '${this.bucketName}'. This is normal if bucket should be created manually in Supabase dashboard.`)
           return { data: null, error: null }
         }
-        console.error('Error creating bucket:', error)
+        console.error('Error in createBucket:', error)
         throw error
-      }
-
-      // console.log(`Bucket '${this.bucketName}' created successfully`)
-      return { data, error }
-    } catch (error) {
-      // Обрабатываем ошибку когда bucket уже существует
-      if (error.message?.includes('already exists') || error.message?.includes('already been registered')) {
-        console.warn(`Bucket '${this.bucketName}' already exists. Skipping creation.`)
-        return { data: { name: this.bucketName }, error: null }
-      }
-      // Обрабатываем ошибку RLS в catch блоке тоже
-      if (error.message?.includes('row-level security') || error.message?.includes('permission')) {
-        console.warn(`Insufficient permissions to create bucket '${this.bucketName}'. This is normal if bucket should be created manually in Supabase dashboard.`)
-        return { data: null, error: null }
-      }
-      console.error('Error in createBucket:', error)
-      throw error
-    }
+      })
   }
 
   // Загрузка файла в storage
-  async uploadFile(file, fileName = null) {
-    try {
-      // Создаем уникальное имя файла
-      const fileExt = file.name.split('.').pop()
-      const uniqueName = fileName || `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-      const filePath = `vector-layers/${uniqueName}`
+  uploadFile(file, fileName = null) {
+    // Создаем уникальное имя файла
+    const fileExt = file.name.split('.').pop()
+    const uniqueName = fileName || `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+    const filePath = `vector-layers/${uniqueName}`
 
-      // Загружаем файл
-      const { data: uploadData, error: uploadError } = await supabase.storage
-          .from(this.bucketName)
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          })
+    // Загружаем файл
+    return supabase.storage
+      .from(this.bucketName)
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+      .then(({ data: uploadData, error: uploadError }) => {
+        if (uploadError) throw uploadError
 
-      if (uploadError) throw uploadError
-
-      // Получаем публичный URL
-      const { data: urlData } = supabase.storage
+        // Получаем публичный URL
+        const { data: urlData } = supabase.storage
           .from(this.bucketName)
           .getPublicUrl(filePath)
 
-      return {
-        filePath,
-        publicUrl: urlData.publicUrl,
-        fileName: uniqueName,
-        originalName: file.name,
-        size: file.size,
-        type: file.type
-      }
-    } catch (error) {
-      throw error
-    }
+        return {
+          filePath,
+          publicUrl: urlData.publicUrl,
+          fileName: uniqueName,
+          originalName: file.name,
+          size: file.size,
+          type: file.type
+        }
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
   // Удаление файла из storage
-  async deleteFile(filePath) {
-    try {
-      const { data, error } = await supabase.storage
-          .from(this.bucketName)
-          .remove([filePath])
-
-      if (error) throw error
-
-      return data
-    } catch (error) {
-      throw error
-    }
+  deleteFile(filePath) {
+    return supabase.storage
+      .from(this.bucketName)
+      .remove([filePath])
+      .then(({ data, error }) => {
+        if (error) throw error
+        return data
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
   // Получение списка файлов в storage
-  async listFiles() {
-    try {
-      const { data, error } = await supabase.storage
-          .from(this.bucketName)
-          .list('vector-layers')
-
-      if (error) throw error
-
-      return data
-    } catch (error) {
-      throw error
-    }
+  listFiles() {
+    return supabase.storage
+      .from(this.bucketName)
+      .list('vector-layers')
+      .then(({ data, error }) => {
+        if (error) throw error
+        return data
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
   // CRUD операции для Type_vector_layer
-  async getLayerTypes() {
-    try {
-      const { data, error } = await supabaseAdmin
-          .from('Type_vector_layer')
-          .select('*')
-          .order('name')
-
-      if (error) throw error
-
-      return data
-    } catch (error) {
-      throw error
-    }
+  getLayerTypes() {
+    return supabaseAdmin
+      .from('Type_vector_layer')
+      .select('*')
+      .order('name')
+      .then(({ data, error }) => {
+        if (error) throw error
+        return data
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
-  async createLayerType(name) {
-    try {
-      const { data, error } = await supabaseAdmin
-          .from('Type_vector_layer')
-          .insert([{ name }])
-          .select()
-
-      if (error) throw error
-
-      return data[0]
-    } catch (error) {
-      throw error
-    }
+  createLayerType(name) {
+    return supabaseAdmin
+      .from('Type_vector_layer')
+      .insert([{ name }])
+      .select()
+      .then(({ data, error }) => {
+        if (error) throw error
+        return data[0]
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
-  async updateLayerType(id, name) {
-    try {
-      const { data, error } = await supabaseAdmin
-          .from('Type_vector_layer')
-          .update({ name })
-          .eq('id', id)
-          .select()
-
-      if (error) throw error
-
-      return data[0]
-    } catch (error) {
-      throw error
-    }
+  updateLayerType(id, name) {
+    return supabaseAdmin
+      .from('Type_vector_layer')
+      .update({ name })
+      .eq('id', id)
+      .select()
+      .then(({ data, error }) => {
+        if (error) throw error
+        return data[0]
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
-  async deleteLayerType(id) {
-    try {
-      const { error } = await supabaseAdmin
-          .from('Type_vector_layer')
-          .delete()
-          .eq('id', id)
-
-      if (error) throw error
-
-      return true
-    } catch (error) {
-      throw error
-    }
+  deleteLayerType(id) {
+    return supabaseAdmin
+      .from('Type_vector_layer')
+      .delete()
+      .eq('id', id)
+      .then(({ error }) => {
+        if (error) throw error
+        return true
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
   // CRUD операции для Vector_layer
-  async getVectorLayers() {
-    try {
-      const { data, error } = await supabase
-          .from('Vector_layer')
-          .select(`
-            *,
-            Type_vector_layer ( name )
-          `)
-          .order('id')
+  getVectorLayers() {
+    return supabase
+      .from('Vector_layer')
+      .select(`
+        *,
+        Type_vector_layer ( name )
+      `)
+      .order('id')
+      .then(({ data, error }) => {
+        if (error) throw error
 
-      if (error) throw error
-
-      return data.map(layer => ({
-        ...layer,
-        type_vector_layer_name: layer.Type_vector_layer?.name || ""
-      }))
-    } catch (error) {
-      throw error
-    }
+        return data.map(layer => ({
+          ...layer,
+          type_vector_layer_name: layer.Type_vector_layer?.name || ""
+        }))
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
-  async createVectorLayer(layerData) {
-    try {
-      const { data, error } = await supabaseAdmin
-          .from('Vector_layer')
-          .insert([layerData])
-          .select(`
-            *,
-            Type_vector_layer ( name )
-          `)
+  createVectorLayer(layerData) {
+    return supabaseAdmin
+      .from('Vector_layer')
+      .insert([layerData])
+      .select(`
+        *,
+        Type_vector_layer ( name )
+      `)
+      .then(({ data, error }) => {
+        if (error) throw error
 
-      if (error) throw error
-
-      return {
-        ...data[0],
-        type_vector_layer_name: data[0].Type_vector_layer?.name || ""
-      }
-    } catch (error) {
-      throw error
-    }
+        return {
+          ...data[0],
+          type_vector_layer_name: data[0].Type_vector_layer?.name || ""
+        }
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
-  async updateVectorLayer(id, layerData) {
-    try {
-      const { data, error } = await supabaseAdmin
-          .from('Vector_layer')
-          .update(layerData)
-          .eq('id', id)
-          .select(`
-            *,
-            Type_vector_layer ( name )
-          `)
+  updateVectorLayer(id, layerData) {
+    return supabaseAdmin
+      .from('Vector_layer')
+      .update(layerData)
+      .eq('id', id)
+      .select(`
+        *,
+        Type_vector_layer ( name )
+      `)
+      .then(({ data, error }) => {
+        if (error) throw error
 
-      if (error) throw error
-
-      return {
-        ...data[0],
-        type_vector_layer_name: data[0].Type_vector_layer?.name || ""
-      }
-    } catch (error) {
-      throw error
-    }
+        return {
+          ...data[0],
+          type_vector_layer_name: data[0].Type_vector_layer?.name || ""
+        }
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
-  async deleteVectorLayer(id) {
-    try {
-      // Получаем информацию о слое для удаления файла
-      const { data: layerData, error: fetchError } = await supabaseAdmin
-          .from('Vector_layer')
-          .select('file_path, name')
-          .eq('id', id)
-          .single()
+  deleteVectorLayer(id) {
+    // Получаем информацию о слое для удаления файла
+    return supabaseAdmin
+      .from('Vector_layer')
+      .select('file_path, name')
+      .eq('id', id)
+      .single()
+      .then(({ data: layerData, error: fetchError }) => {
+        if (fetchError) throw fetchError
 
-      if (fetchError) throw fetchError
-
-      // Удаляем запись из базы данных сначала
-      const { error: deleteError } = await supabaseAdmin
+        // Удаляем запись из базы данных сначала
+        return supabaseAdmin
           .from('Vector_layer')
           .delete()
           .eq('id', id)
+          .then(({ error: deleteError }) => {
+            if (deleteError) throw deleteError
 
-      if (deleteError) throw deleteError
+            // Удаляем файл из storage после успешного удаления записи
+            if (layerData?.file_path) {
+              return this.deleteFile(layerData.file_path)
+                .then(() => true)
+                .catch((fileError) => {
+                  // Не прерываем выполнение, если файл не удалось удалить
+                  return true
+                })
+            }
 
-      // Удаляем файл из storage после успешного удаления записи
-      if (layerData?.file_path) {
-        try {
-          await this.deleteFile(layerData.file_path)
-        } catch (fileError) {
-          // Не прерываем выполнение, если файл не удалось удалить
-        }
-      }
-
-      return true
-    } catch (error) {
-      throw error
-    }
+            return true
+          })
+      })
+      .catch((error) => {
+        throw error
+      })
   }
 
   // Получение публичного URL файла
@@ -375,41 +372,43 @@ export class VectorLayerService {
 export const vectorLayerService = new VectorLayerService()
 
 // Инициализация сервиса (проверка bucket)
-export const initializeVectorLayerService = async () => {
-  try {
-    // Пытаемся проверить существование bucket
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets()
-
-    if (listError) {
-      // Если не можем проверить список buckets из-за RLS, пытаемся создать bucket
-      if (listError.message?.includes('row-level security') || listError.message?.includes('permission')) {
-        console.warn('Cannot verify bucket existence due to permissions. Attempting to create vector-layers bucket...')
-        try {
-          await vectorLayerService.createBucket()
-          console.log('Vector-layers bucket created successfully')
-        } catch (createError) {
-          console.warn('Could not create vector-layers bucket automatically. Please create it manually in Supabase dashboard.')
+export const initializeVectorLayerService = () => {
+  // Пытаемся проверить существование bucket
+  return supabase.storage.listBuckets()
+    .then(({ data: buckets, error: listError }) => {
+      if (listError) {
+        // Если не можем проверить список buckets из-за RLS, пытаемся создать bucket
+        if (listError.message?.includes('row-level security') || listError.message?.includes('permission')) {
+          console.warn('Cannot verify bucket existence due to permissions. Attempting to create vector-layers bucket...')
+          return vectorLayerService.createBucket()
+            .then(() => {
+              console.log('Vector-layers bucket created successfully')
+            })
+            .catch((createError) => {
+              console.warn('Could not create vector-layers bucket automatically. Please create it manually in Supabase dashboard.')
+            })
+        } else {
+          console.warn('Cannot verify bucket existence due to permissions. Assuming vector-layers bucket exists.')
         }
+        return
+      }
+
+      const bucketExists = buckets?.some(bucket => bucket.name === 'vector-layers')
+
+      if (bucketExists) {
+        console.log('Vector-layers bucket already exists in Supabase.')
       } else {
-        console.warn('Cannot verify bucket existence due to permissions. Assuming vector-layers bucket exists.')
+        console.warn('Vector-layers bucket not found. Attempting to create it...')
+        return vectorLayerService.createBucket()
+          .then(() => {
+            console.log('Vector-layers bucket created successfully')
+          })
+          .catch((createError) => {
+            console.warn('Could not create vector-layers bucket automatically. Please create it manually in Supabase dashboard.')
+          })
       }
-      return
-    }
-
-    const bucketExists = buckets?.some(bucket => bucket.name === 'vector-layers')
-
-    if (bucketExists) {
-      console.log('Vector-layers bucket already exists in Supabase.')
-    } else {
-      console.warn('Vector-layers bucket not found. Attempting to create it...')
-      try {
-        await vectorLayerService.createBucket()
-        console.log('Vector-layers bucket created successfully')
-      } catch (createError) {
-        console.warn('Could not create vector-layers bucket automatically. Please create it manually in Supabase dashboard.')
-      }
-    }
-  } catch (error) {
-    console.warn('Error during vector layer service initialization:', error.message)
-  }
+    })
+    .catch((error) => {
+      console.warn('Error during vector layer service initialization:', error.message)
+    })
 }

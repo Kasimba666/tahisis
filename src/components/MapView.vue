@@ -86,14 +86,14 @@ export default {
       olPopupEl: null
     }
   },
-  async mounted() {
+  mounted() {
     this.$nextTick(() => {
       setTimeout(() => {
         this.initLeafletMap()
         this.initOpenLayersMap()
 
-        setTimeout(async () => {
-          await this.loadVectorLayers()
+        setTimeout(() => {
+          this.loadVectorLayers()
         }, 1000)
       }, 500)
     })
@@ -133,7 +133,7 @@ export default {
           const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control leaflet-control-home')
           btn.innerHTML = '🏠'
           btn.title = 'Вернуться к исходному виду'
-          btn.style.backgroundColor = 'white'
+          btn.style.backgroundColor = 'hsl(0, 0%, 100%)'
           btn.style.width = '30px'
           btn.style.height = '30px'
           btn.style.fontSize = '16px'
@@ -213,7 +213,7 @@ export default {
               image: new Circle({
                 radius: 8,
                 fill: new Fill({ color: markerColor }),
-                stroke: new Stroke({ color: 'white', width: 2 })
+                stroke: new Stroke({ color: 'hsl(0, 0%, 100%)', width: 2 })
               })
             })
           }
@@ -244,7 +244,7 @@ export default {
           top: 10px;
           left: 10px;
           z-index: 1000;
-          background-color: white;
+          background-color: hsl(0, 0%, 100%);
           width: 30px;
           height: 30px;
           font-size: 16px;
@@ -253,7 +253,7 @@ export default {
           cursor: pointer;
           border: none;
           border-radius: 4px;
-          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+          box-shadow: 0 2px 4px hsl(0, 0%, 0%, 0.3);
         `
         homeButton.onclick = () => {
           // Синхронизируем центрирование между картами
@@ -472,67 +472,69 @@ export default {
     },
 
     // Методы для работы с векторными слоями
-    async loadVectorLayers() {
-      try {
-        console.log('Loading vector layers...')
-        const layers = await vectorLayerService.getVectorLayers()
-        console.log('Raw loaded vector layers:', layers)
-        console.log('Layers count:', layers?.length || 0)
+    loadVectorLayers() {
+      console.log('Loading vector layers...')
+      vectorLayerService.getVectorLayers()
+        .then((layers) => {
+          console.log('Raw loaded vector layers:', layers)
+          console.log('Layers count:', layers?.length || 0)
 
-        this.vectorLayers = layers || []
-        console.log('Final vector layers:', this.vectorLayers)
+          this.vectorLayers = layers || []
+          console.log('Final vector layers:', this.vectorLayers)
 
-        // По умолчанию показываем все слои
-        this.visibleLayers = this.vectorLayers.map(layer => layer.id)
-        console.log('Visible layers:', this.visibleLayers)
+          // По умолчанию показываем все слои
+          this.visibleLayers = this.vectorLayers.map(layer => layer.id)
+          console.log('Visible layers:', this.visibleLayers)
 
-        // Загружаем и отображаем векторные слои на картах
-        if (this.vectorLayers.length > 0) {
-          this.loadVectorLayersOnMaps()
-        } else {
-          console.warn('No vector layers found to load')
-        }
-      } catch (error) {
-        console.error('Error loading vector layers:', error)
-        this.vectorLayers = []
-      }
+          // Загружаем и отображаем векторные слои на картах
+          if (this.vectorLayers.length > 0) {
+            this.loadVectorLayersOnMaps()
+          } else {
+            console.warn('No vector layers found to load')
+          }
+        })
+        .catch((error) => {
+          console.error('Error loading vector layers:', error)
+          this.vectorLayers = []
+        })
     },
 
-    async loadVectorLayersOnMaps() {
+    loadVectorLayersOnMaps() {
       if (this.vectorLayers.length === 0) return
 
       // Загружаем файлы векторных слоев
-      for (const layer of this.vectorLayers) {
+      this.vectorLayers.forEach((layer) => {
         if (layer.file_url) {
-          try {
-            await this.loadVectorLayerData(layer)
-          } catch (error) {
-            console.error(`Error loading layer ${layer.name}:`, error)
-          }
+          this.loadVectorLayerData(layer)
+            .catch((error) => {
+              console.error(`Error loading layer ${layer.name}:`, error)
+            })
         }
-      }
+      })
     },
 
-    async loadVectorLayerData(layer) {
-      try {
-        console.log(`Loading data for layer: ${layer.name}`)
+    loadVectorLayerData(layer) {
+      console.log(`Loading data for layer: ${layer.name}`)
 
-        // Загружаем файл из Supabase Storage
-        const response = await fetch(layer.file_url)
-        if (!response.ok) {
-          throw new Error(`Failed to fetch ${layer.file_url}`)
-        }
+      // Загружаем файл из Supabase Storage
+      return fetch(layer.file_url)
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`Failed to fetch ${layer.file_url}`)
+          }
+          return response.json()
+        })
+        .then((geoJsonData) => {
+          console.log(`Loaded GeoJSON data for ${layer.name}:`, geoJsonData)
 
-        const geoJsonData = await response.json()
-        console.log(`Loaded GeoJSON data for ${layer.name}:`, geoJsonData)
-
-        // Отображаем на обеих картах
-        this.displayVectorLayerOnLeaflet(layer, geoJsonData)
-        this.displayVectorLayerOnOpenLayers(layer, geoJsonData)
-
-      } catch (error) {
-        console.error(`Error loading vector layer data for ${layer.name}:`, error)
-      }
+          // Отображаем на обеих картах
+          this.displayVectorLayerOnLeaflet(layer, geoJsonData)
+          this.displayVectorLayerOnOpenLayers(layer, geoJsonData)
+        })
+        .catch((error) => {
+          console.error(`Error loading vector layer data for ${layer.name}:`, error)
+          throw error
+        })
     },
 
     displayVectorLayerOnLeaflet(layer, geoJsonData) {
@@ -680,11 +682,12 @@ export default {
       return colors[layerId % colors.length]
     },
 
-    hexToRgba(hex, alpha) {
-      const r = parseInt(hex.slice(1, 3), 16)
-      const g = parseInt(hex.slice(3, 5), 16)
-      const b = parseInt(hex.slice(5, 7), 16)
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    hslToHsla(hsl, alpha) {
+      // Convert HSL to HSLA format
+      if (hsl.startsWith('hsl(')) {
+        return hsl.replace('hsl(', 'hsla(').replace(')', `, ${alpha})`)
+      }
+      return hsl
     },
 
     geoJsonGeometryToOpenLayers(geometry) {
@@ -1142,27 +1145,53 @@ export default {
 
     // Генерация содержимого popup для населенного пункта
     generateSettlementPopupContent(properties) {
-      const name = properties.name_old || properties.name_modern || 'Неизвестное название'
+      const nameOld = properties.name_old || '—'
+      const nameModern = properties.name_modern || '—'
       const district = properties.district_name || '—'
       const population = properties.population || { total: 0, male: 0, female: 0 }
+      const revisions = properties.revisions || []
+      const estates = properties.estates || []
       const estateTypes = properties.estate_types || []
 
       let content = `
         <div class="settlement-popup">
-          <h4>${name}</h4>
+          <h4>${nameOld}</h4>
+          ${nameModern !== '—' ? `<p class="modern-name"><em>${nameModern}</em></p>` : ''}
           <p><strong>Район:</strong> ${district}</p>
-          <p><strong>Население:</strong> ${population.total} чел.</p>
-          <p><strong>Мужчины:</strong> ${population.male} | <strong>Женщины:</strong> ${population.female}</p>
+          <div class="popup-section">
+            <p><strong>Население:</strong> ${population.total} чел.</p>
+            <p class="gender-stats">М: ${population.male} | Ж: ${population.female}</p>
+          </div>
       `
 
-      if (estateTypes.length > 0) {
-        content += '<div class="estate-types"><strong>Сословия:</strong><br>'
-        estateTypes.forEach(type => {
-          const color = type.type_color || this.getEstateTypeColorById(type.type_id)
-          const colorStyle = color ? `style="color: ${color};"` : ''
-          content += `• <span ${colorStyle}>■</span> ${type.type_name}: ${type.total_count} чел.<br>`
+      // Показываем ревизии
+      if (revisions.length > 0) {
+        content += '<div class="popup-section"><strong>Ревизии:</strong><br>'
+        revisions.forEach(rev => {
+          content += `<span class="revision-item">№${rev.number} (${rev.year}): ${rev.total} чел.</span><br>`
         })
         content += '</div>'
+      }
+
+      // Показываем сословия по типам
+      if (estateTypes.length > 0) {
+        content += '<div class="popup-section"><strong>Сословия по типам:</strong><br>'
+        estateTypes.forEach(type => {
+          const color = this.getEstateTypeColorByName(type.type_name)
+          content += `<span class="estate-type-item"><span style="color: ${color};">■</span> ${type.type_name}: ${type.total} (М:${type.male}, Ж:${type.female})</span><br>`
+        })
+        content += '</div>'
+      }
+
+      // Показываем детальную информацию по сословиям
+      if (estates.length > 0 && estates.length <= 10) {
+        content += '<div class="popup-section"><strong>Детали сословий:</strong><br>'
+        estates.forEach(estate => {
+          content += `<span class="estate-detail">• ${estate.subtype_name} (${estate.religion_name}): ${estate.total}</span><br>`
+        })
+        content += '</div>'
+      } else if (estates.length > 10) {
+        content += `<div class="popup-section"><em>Всего сословий: ${estates.length}</em></div>`
       }
 
       content += '</div>'
@@ -1551,15 +1580,23 @@ export default {
 }
 
 :deep(.settlement-popup) {
-  min-width: 200px;
+  min-width: 250px;
+  max-width: 400px;
 
   h4 {
-    margin: 0 0 8px 0;
+    margin: 0 0 4px 0;
     color: var(--text-primary);
     font-size: 14px;
     font-weight: 600;
-    border-bottom: 1px solid var(--border-color);
+  }
+
+  .modern-name {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-style: italic;
     padding-bottom: 4px;
+    border-bottom: 1px solid var(--border-color);
   }
 
   p {
@@ -1572,29 +1609,63 @@ export default {
       color: var(--text-primary);
       font-weight: 500;
     }
+
+    &.gender-stats {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
   }
 
-  .estate-types {
-    margin-top: 8px;
-    padding-top: 8px;
+  .popup-section {
+    margin: 8px 0;
+    padding: 6px 0;
     border-top: 1px solid var(--border-color);
+
+    &:first-child {
+      border-top: none;
+      padding-top: 0;
+    }
 
     strong {
       color: var(--text-primary);
       font-weight: 600;
-      margin-bottom: 4px;
+      font-size: 12px;
       display: block;
+      margin-bottom: 4px;
     }
 
-    span {
-      display: inline-block;
-      margin-right: 4px;
+    .revision-item {
+      display: block;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 2px 0;
+      line-height: 1.3;
+    }
+
+    .estate-type-item {
+      display: block;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 2px 0;
+      line-height: 1.3;
+
+      span {
+        font-size: 14px;
+        margin-right: 4px;
+      }
+    }
+
+    .estate-detail {
+      display: block;
       font-size: 10px;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      border: 1px solid rgba(255, 255, 255, 0.3);
-      vertical-align: middle;
+      color: var(--text-muted);
+      margin: 2px 0;
+      line-height: 1.2;
+    }
+
+    em {
+      font-size: 11px;
+      color: var(--text-muted);
     }
   }
 }

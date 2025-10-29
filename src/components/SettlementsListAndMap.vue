@@ -96,10 +96,6 @@
       </div>
 
       <div v-if="viewMode === 'geojson'" class="geojson-section">
-        <div class="geojson-header">
-          <h3>GeoJSON данных</h3>
-          <p class="geojson-info">Используемый в картах GeoJSON с автоматическим форматированием</p>
-        </div>
         <GeoJsonViewer
           ref="geoJsonViewer"
           :geoJsonData="{ 'Settlement': settlementsGeoJson }"
@@ -1348,9 +1344,25 @@ export default {
           revision_count: settlement.revision_count,
           estates_count: settlement.estates_count,
           religions_count: settlement.religions_count,
-          // Полные данные ревизий и сословий
-          revisions: settlement.revisions,
-          estates: settlement.estates,
+          // Полные данные ревизий
+          revisions: (settlement.revisions || []).map(rev => ({
+            number: rev.number,
+            year: rev.year,
+            male: rev.male || 0,
+            female: rev.female || 0,
+            total: rev.total || 0
+          })),
+          // Агрегированные данные по сословиям
+          estates: (settlement.estates || []).map(estate => ({
+            subtype_name: estate.subtype_estate_name,
+            type_name: estate.type_estate_name,
+            religion_name: estate.type_religion_name,
+            male: estate.male || 0,
+            female: estate.female || 0,
+            total: estate.total || 0
+          })),
+          // Группировка по типам сословий
+          estate_types: this.groupEstatesByType(settlement.estates || []),
           // Флаг что это отфильтрованные данные
           filtered: true
         }
@@ -1372,6 +1384,30 @@ export default {
           exportedAt: new Date().toISOString()
         }
       }
+    },
+
+    // Группировка сословий по типам для карты
+    groupEstatesByType(estates) {
+      const groups = {}
+      
+      estates.forEach(estate => {
+        const typeName = estate.type_estate_name || 'Прочие'
+        if (!groups[typeName]) {
+          groups[typeName] = {
+            type_name: typeName,
+            male: 0,
+            female: 0,
+            total: 0,
+            count: 0
+          }
+        }
+        groups[typeName].male += estate.male || 0
+        groups[typeName].female += estate.female || 0
+        groups[typeName].total += estate.total || 0
+        groups[typeName].count++
+      })
+
+      return Object.values(groups)
     },
 
     // Восстанавливаем параметры из URL
