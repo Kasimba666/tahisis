@@ -185,10 +185,10 @@
               stripe
             >
               <el-table-column prop="subtype_estate_name" label="Подтип сословия" min-width="150" />
-              <el-table-column prop="type_estate_name" label="Тип сословия" width="120" />
+              <el-table-column prop="type_estate_name" label="Тип сословия" width="110" />
               <el-table-column prop="type_religion_name" label="Религия" width="100" />
-              <el-table-column prop="male" label="М" width="60" align="right" />
-              <el-table-column prop="female" label="Ж" width="60" align="right" />
+              <el-table-column prop="male" label="М" width="55" align="right" />
+              <el-table-column prop="female" label="Ж" width="55" align="right" />
               <el-table-column prop="total" label="Всего" width="80" align="right">
                 <template #default="scope">
                   <el-tag size="mini" type="success">{{ formatNumber(scope.row.total) }}</el-tag>
@@ -873,14 +873,21 @@ export default {
             value.landowner_ids = Array.from(lnds)
             value.military_unit_ids = Array.from(mils)
 
-            value.revisions = rrForSettlement.map(rr => ({
-              id: rr.id,
-              year: rr.Revision_report?.year || '',
-              number: rr.Revision_report?.number || '',
-              male: 0,
-              female: 0,
-              total: rr.population_all || 0
-            }))
+            // Подсчитываем мужчин и женщин для каждой ревизии из estates
+            value.revisions = rrForSettlement.map(rr => {
+              const estatesForRevision = eForSettlement.filter(e => e.id_report_record === rr.id)
+              const maleCount = estatesForRevision.reduce((sum, e) => sum + (e.male || 0), 0)
+              const femaleCount = estatesForRevision.reduce((sum, e) => sum + (e.female || 0), 0)
+              
+              return {
+                id: rr.id,
+                year: rr.Revision_report?.year || '',
+                number: rr.Revision_report?.number || '',
+                male: maleCount,
+                female: femaleCount,
+                total: rr.population_all || (maleCount + femaleCount)
+              }
+            })
 
             // Детальный список сословий для этого населённого пункта
             value.estates = eForSettlement.map(estate => ({
