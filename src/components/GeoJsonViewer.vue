@@ -543,17 +543,60 @@ export default {
       .json-display {
         flex: 1;
         overflow: auto;
-        background-color: var(--bg-primary);
+        background-color: hsl(210, 36%, 96%);
         padding: 1rem;
+        position: relative;
+
+        // Кастомный скроллбар
+        &::-webkit-scrollbar {
+          width: 12px;
+          height: 12px;
+        }
+
+        &::-webkit-scrollbar-track {
+          background: hsl(210, 20%, 90%);
+          border-radius: 6px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+          background: hsl(210, 14%, 65%);
+          border-radius: 6px;
+          border: 2px solid hsl(210, 20%, 90%);
+
+          &:hover {
+            background: hsl(210, 14%, 55%);
+          }
+
+          &:active {
+            background: hsl(210, 14%, 45%);
+          }
+        }
+
+        &::-webkit-scrollbar-corner {
+          background: hsl(210, 20%, 90%);
+        }
+
+        // Для Firefox
+        scrollbar-width: thin;
+        scrollbar-color: hsl(210, 14%, 65%) hsl(210, 20%, 90%);
 
         pre {
           margin: 0;
-          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-          font-size: 12px;
-          line-height: 1.4;
+          font-family: 'Consolas', 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+          font-size: 13px;
+          line-height: 1.6;
+          color: hsl(210, 11%, 15%);
+          background-color: hsl(0, 0%, 100%);
+          padding: 1.5rem;
+          border-radius: 8px;
+          border: 1px solid hsl(210, 20%, 88%);
+          box-shadow: 0 1px 3px hsla(210, 14%, 45%, 0.08);
+          min-height: 100%;
 
           .json-code {
             display: block;
+            white-space: pre-wrap;
+            word-break: break-word;
           }
         }
       }
@@ -561,23 +604,34 @@ export default {
   }
 }
 
-// Стили для подсветки синтаксиса JSON
-.json-key {
-  color: hsl(212, 92%, 44%);
+// Стили для подсветки синтаксиса JSON с улучшенными HSL цветами
+:deep(.json-key) {
+  color: hsl(291, 64%, 42%);
+  font-weight: 600;
+}
+
+:deep(.json-string) {
+  color: hsl(119, 34%, 47%);
+}
+
+:deep(.json-number) {
+  color: hsl(221, 87%, 60%);
   font-weight: 500;
 }
 
-.json-string {
-  color: hsl(215, 81%, 23%);
+:deep(.json-keyword) {
+  color: hsl(291, 64%, 42%);
+  font-weight: 600;
+  font-style: italic;
 }
 
-.json-number {
-  color: hsl(213, 95%, 35%);
+:deep(.json-bracket) {
+  color: hsl(0, 0%, 40%);
+  font-weight: bold;
 }
 
-.json-keyword {
-  color: hsl(262, 71%, 59%);
-  font-weight: 500;
+:deep(.json-comma) {
+  color: hsl(0, 0%, 50%);
 }
 
 @media (max-width: 768px) {
