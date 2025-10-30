@@ -313,54 +313,38 @@ export default {
           })
         } catch (e) {}
 
-        // Синхронизация перемещения и масштабирования между картами
+        // Синхронизация OpenLayers -> Leaflet
         this.olMapInstance.getView().on('change:center', () => {
-          if (this.leafletMapInstance && this.mapProvider === 'openlayers') {
-            const center = this.olMapInstance.getView().getCenter()
-            const zoom = this.olMapInstance.getView().getZoom()
-            // Конвертируем из проекции карты обратно в географические координаты
-            const geoCenter = transform(center, 'EPSG:3857', 'EPSG:4326')
-            this.leafletMapInstance.setView([geoCenter[1], geoCenter[0]], zoom)
+          try {
+            if (this.leafletMapInstance && !this.isSyncingView) {
+              this.isSyncingView = true
+              const center = this.olMapInstance.getView().getCenter()
+              const zoom = this.olMapInstance.getView().getZoom()
+              const geoCenter = transform(center, 'EPSG:3857', 'EPSG:4326')
+              this.leafletMapInstance.setView([geoCenter[1], geoCenter[0]], zoom)
+            }
+          } finally {
+            this.isSyncingView = false
           }
         })
 
         this.olMapInstance.getView().on('change:zoom', () => {
-          if (this.leafletMapInstance && this.mapProvider === 'openlayers') {
-            const center = this.olMapInstance.getView().getCenter()
-            const zoom = this.olMapInstance.getView().getZoom()
-            // Конвертируем из проекции карты обратно в географические координаты
-            const geoCenter = transform(center, 'EPSG:3857', 'EPSG:4326')
-            this.leafletMapInstance.setView([geoCenter[1], geoCenter[0]], zoom)
+          try {
+            if (this.leafletMapInstance && !this.isSyncingView) {
+              this.isSyncingView = true
+              const center = this.olMapInstance.getView().getCenter()
+              const zoom = this.olMapInstance.getView().getZoom()
+              const geoCenter = transform(center, 'EPSG:3857', 'EPSG:4326')
+              this.leafletMapInstance.setView([geoCenter[1], geoCenter[0]], zoom)
+            }
+          } finally {
+            this.isSyncingView = false
           }
         })
 
         // Обработка перемещения карты для обновления маркеров
         this.olMapInstance.on('moveend', () => {
           this.updateOpenLayersMarkers()
-
-          // extra guarded sync: OL -> Leaflet (center/zoom)
-          this.olMapInstance.getView().on('change:center', () => {
-            try {
-              if (this.leafletMapInstance && !this.isSyncingView) {
-                this.isSyncingView = true
-                const center = this.olMapInstance.getView().getCenter()
-                const zoom = this.olMapInstance.getView().getZoom()
-                const geoCenter = transform(center, 'EPSG:3857', 'EPSG:4326')
-                this.leafletMapInstance.setView([geoCenter[1], geoCenter[0]], zoom)
-              }
-            } finally { this.isSyncingView = false }
-          })
-          this.olMapInstance.getView().on('change:zoom', () => {
-            try {
-              if (this.leafletMapInstance && !this.isSyncingView) {
-                this.isSyncingView = true
-                const center = this.olMapInstance.getView().getCenter()
-                const zoom = this.olMapInstance.getView().getZoom()
-                const geoCenter = transform(center, 'EPSG:3857', 'EPSG:4326')
-                this.leafletMapInstance.setView([geoCenter[1], geoCenter[0]], zoom)
-              }
-            } finally { this.isSyncingView = false }
-          })
         })
 
         // Добавляем маркеры если есть данные
@@ -871,66 +855,180 @@ export default {
       return `<div class="pie-chart-marker">${svg}</div>`
     },
 
-    // Создание маркера в виде концентрических окружностей для Leaflet
+    // Создание маркера в виде круговой диаграммы для Leaflet
     createConcentricCirclesMarker(estateTypes) {
       if (!estateTypes || estateTypes.length === 0) {
-        return '<div class="concentric-marker"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="hsl(0, 0%, 60%)" stroke-width="2"/></svg></div>'
+        return '<div class="pie-marker"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="transparent" stroke="hsl(0, 0%, 60%)" stroke-width="3"/></svg></div>'
       }
 
-      // Берём до 4 типов сословий
-      const types = estateTypes.slice(0, 4)
-      const baseRadius = 4
-      const spacing = 3
-      const maxRadius = baseRadius + spacing * (types.length - 1)
-      const svgSize = maxRadius * 2 + 6 // +6 для stroke
+      // Вычисляем общее население для определения размера круга
+      const totalPopulation = estateTypes.reduce((sum, type) => sum + type.population, 0)
+      
+      // Линейная нормализация радиуса по населению (минимум 2.5, максимум 12)
+      const minRadius = 2.5
+      const maxRadius = 12
+      const minPopulation = 10  // Минимальное ожидаемое население
+      const maxPopulation = 1000 // Максимальное ожидаемое население
+      
+      // Линейная нормализация
+      const normalizedPopulation = Math.min(Math.max(totalPopulation - minPopulation, 0) / (maxPopulation - minPopulation), 1)
+      const radius = minRadius + (maxRadius - minRadius) * normalizedPopulation
+      
+      const strokeWidth = 3
+      const svgSize = (maxRadius + strokeWidth) * 2
       const center = svgSize / 2
 
-      let svg = `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">`
+      // Если только один тип - простой круг
+      if (estateTypes.length === 1) {
+        return `<div class="pie-marker"><svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}"><circle cx="${center}" cy="${center}" r="${radius}" fill="transparent" stroke="${estateTypes[0].color}" stroke-width="${strokeWidth}"/></svg></div>`
+      }
 
-      // Рисуем кружки от большего к меньшему
-      types.forEach((type, index) => {
-        const radius = baseRadius + spacing * (types.length - 1 - index)
-        const strokeWidth = 2
+      let svg = `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">`
+      
+      // Делим окружность равномерно между типами
+      const segmentAngle = 360 / estateTypes.length
+      let currentAngle = -90 // Начинаем сверху
+
+      estateTypes.forEach((type, index) => {
+        const endAngle = currentAngle + segmentAngle
+
+        // Конвертируем углы в радианы
+        const startRad = (currentAngle * Math.PI) / 180
+        const endRad = (endAngle * Math.PI) / 180
+
+        // Вычисляем начальную и конечную точки дуги
+        const x1 = center + radius * Math.cos(startRad)
+        const y1 = center + radius * Math.sin(startRad)
+        const x2 = center + radius * Math.cos(endRad)
+        const y2 = center + radius * Math.sin(endRad)
+
+        // Флаг большой дуги (если сегмент больше 180°)
+        const largeArcFlag = segmentAngle > 180 ? 1 : 0
+
+        // Создаём path для дуги
+        const pathData = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`
+
+        svg += `<path d="${pathData}" fill="none" stroke="${type.color}" stroke-width="${strokeWidth}" stroke-linecap="butt"/>`
         
-        svg += `<circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="${type.color}" stroke-width="${strokeWidth}"/>`
+        currentAngle = endAngle
       })
 
       svg += '</svg>'
-      return `<div class="concentric-marker">${svg}</div>`
+      return `<div class="pie-marker">${svg}</div>`
     },
 
-    // Создание стилей концентрических кружков для OpenLayers
+    // Создание стилей круговой диаграммы для OpenLayers
     createConcentricCirclesStylesOL(estateTypes) {
       if (!estateTypes || estateTypes.length === 0) {
         return new Style({
           image: new Circle({
-            radius: 7,
+            radius: 8,
             fill: new Fill({ color: 'transparent' }),
-            stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 2 })
+            stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 3 })
           })
         })
       }
 
-      // Берём до 4 типов сословий
-      const types = estateTypes.slice(0, 4)
-      const styles = []
-      const baseRadius = 4
-      const spacing = 3
+      // Вычисляем общее население для определения размера круга
+      const totalPopulation = estateTypes.reduce((sum, type) => sum + type.population, 0)
+      
+      // Линейная нормализация радиуса по населению (минимум 2.5, максимум 12)
+      const minRadius = 2.5
+      const maxRadius = 12
+      const minPopulation = 10
+      const maxPopulation = 1000
+      
+      // Линейная нормализация
+      const normalizedPopulation = Math.min(Math.max(totalPopulation - minPopulation, 0) / (maxPopulation - minPopulation), 1)
+      const radius = minRadius + (maxRadius - minRadius) * normalizedPopulation
 
-      // Создаём стиль для каждого кружка
-      types.forEach((type, index) => {
-        const radius = baseRadius + spacing * (types.length - 1 - index)
-        
-        styles.push(new Style({
+      // Если только один тип - простой круг
+      if (estateTypes.length === 1) {
+        return new Style({
           image: new Circle({
             radius: radius,
             fill: new Fill({ color: 'transparent' }),
-            stroke: new Stroke({ color: type.color, width: 2 })
+            stroke: new Stroke({ color: estateTypes[0].color, width: 3 })
           })
-        }))
+        })
+      }
+
+      // Для нескольких типов создаём SVG иконку
+      const svgSize = Math.ceil((maxRadius + 4) * 2)
+      const center = svgSize / 2
+      const strokeWidth = 3
+
+      // Создаем SVG с сегментами
+      const segmentAngle = 360 / estateTypes.length
+      let svgPaths = ''
+      
+      estateTypes.forEach((type, index) => {
+        const startAngle = -90 + (index * segmentAngle)
+        const endAngle = -90 + ((index + 1) * segmentAngle)
+
+        const startRad = (startAngle * Math.PI) / 180
+        const endRad = (endAngle * Math.PI) / 180
+
+        const x1 = center + radius * Math.cos(startRad)
+        const y1 = center + radius * Math.sin(startRad)
+        const x2 = center + radius * Math.cos(endRad)
+        const y2 = center + radius * Math.sin(endRad)
+
+        const largeArcFlag = segmentAngle > 180 ? 1 : 0
+
+        svgPaths += `<path d="M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}" fill="none" stroke="${type.color}" stroke-width="${strokeWidth}" stroke-linecap="butt"/>`
       })
 
-      return styles
+      const svg = `
+        <svg width="${svgSize}" height="${svgSize}" xmlns="http://www.w3.org/2000/svg">
+          ${svgPaths}
+        </svg>
+      `
+
+      // Создаем Data URL из SVG
+      const svgBlob = new Blob([svg], { type: 'image/svg+xml' })
+      const url = URL.createObjectURL(svgBlob)
+
+      // Создаем иконку из SVG
+      const img = new Image()
+      img.src = url
+
+      return new Style({
+        image: new Circle({
+          radius: svgSize / 2,
+          fill: new Fill({
+            color: 'transparent'
+          })
+        }),
+        // Используем внешнюю иконку
+        renderer: (coordinates, state) => {
+          const ctx = state.context
+          const pixelRatio = state.pixelRatio
+          const x = coordinates[0]
+          const y = coordinates[1]
+          
+          ctx.save()
+          ctx.translate(x, y)
+          ctx.scale(pixelRatio, pixelRatio)
+          
+          // Рисуем сегменты напрямую
+          const segmentAngle = (2 * Math.PI) / estateTypes.length
+          
+          estateTypes.forEach((type, index) => {
+            const startAngle = -Math.PI / 2 + (index * segmentAngle)
+            const endAngle = -Math.PI / 2 + ((index + 1) * segmentAngle)
+
+            ctx.beginPath()
+            ctx.arc(0, 0, radius, startAngle, endAngle, false)
+            ctx.strokeStyle = type.color
+            ctx.lineWidth = strokeWidth
+            ctx.lineCap = 'butt'
+            ctx.stroke()
+          })
+          
+          ctx.restore()
+        }
+      })
     },
 
     // Старый метод createConcentricCirclesMarker оставлен для совместимости
@@ -1577,7 +1675,7 @@ export default {
   background: transparent;
   border: none;
 
-  .concentric-marker {
+  .pie-marker {
     cursor: pointer;
     transition: transform 0.2s;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
