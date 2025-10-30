@@ -300,7 +300,8 @@ export default {
       detailsDrawerVisible: false,
       selectedSettlement: null,
       internalLoading: false,
-      currentFilters: null
+      currentFilters: null,
+      estateTypeColors: {}
     }
   },
   setup() {
@@ -321,13 +322,19 @@ export default {
     settlementsForMap() {
       console.log('=== settlementsForMap computed ===')
       console.log('settlementsData.length:', this.settlementsData.length)
-      const mapped = this.settlementsData.map(settlement => ({
-        lat: settlement.lat,
-        lon: settlement.lon,
-        name: settlement.settlement_name_old || settlement.settlement_name_modern,
-        district: settlement.district_name,
-        population: settlement.total
-      }))
+      const mapped = this.settlementsData.map(settlement => {
+        // Получаем все типы сословий с населением
+        const estateTypes = this.getEstateTypesByPopulation(settlement)
+        
+        return {
+          lat: settlement.lat,
+          lon: settlement.lon,
+          name: settlement.settlement_name_old || settlement.settlement_name_modern,
+          district: settlement.district_name,
+          population: settlement.total,
+          estateTypes: estateTypes // массив типов сословий с цветами
+        }
+      })
       console.log('mapped settlements:', mapped.slice(0, 2))
       const filtered = mapped.filter(s => s.lat && s.lon) // Только с координатами
       console.log('filtered settlements (with coordinates):', filtered.length)
@@ -475,14 +482,24 @@ export default {
             console.log('Districts loaded:', this.allDistricts.length)
           }),
 
-        // TypeEstates
+        // TypeEstates (с цветами)
         supabase
           .from('Type_estate')
-          .select('id, name')
+          .select('id, name, color')
           .then(({ data, error }) => {
             if (error) throw error
             this.allTypeEstates = data || []
+            
+            // Сохраняем цвета в отдельный объект для быстрого доступа
+            this.estateTypeColors = {}
+            this.allTypeEstates.forEach(type => {
+              if (type.color) {
+                this.estateTypeColors[type.id] = type.color
+              }
+            })
+            
             console.log('TypeEstates loaded:', this.allTypeEstates.length)
+            console.log('Estate type colors:', this.estateTypeColors)
           }),
 
         // SubtypeEstates (важнейший для фильтров)
@@ -1397,6 +1414,54 @@ export default {
         this.sorting.column = urlParams.sorting.column
         this.sorting.order = urlParams.sorting.order
       }
+    },
+
+    // Получение всех типов сословий с населением для населённого пункта
+    getEstateTypesByPopulation(settlement) {
+      if (!settlement.type_estate_ids || settlement.type_estate_ids.length === 0) {
+        return []
+      }
+
+      // Подсчитываем население по каждому типу из детальных данных
+      const typePopulation = {}
+      
+      if (settlement.estates && settlement.estates.length > 0) {
+        settlement.estates.forEach(estate => {
+          const typeId = this.allSubtypeEstates.find(st => st.name === estate.subtype_estate_name)?.id_type_estate
+          if (typeId) {
+            if (!typePopulation[typeId]) {
+              typePopulation[typeId] = {
+                id: typeId,
+                population: 0
+              }
+            }
+            typePopulation[typeId].population += (estate.total || 0)
+          }
+        })
+      } else {
+        // Если нет детальных данных, просто добавляем типы без населения
+        settlement.type_estate_ids.forEach(typeId => {
+          typePopulation[typeId] = {
+            id: typeId,
+            population: 0
+          }
+        })
+      }
+
+      // Преобразуем в массив и сортируем по населению (от большего к меньшему)
+      const types = Object.values(typePopulation)
+        .map(type => {
+          const typeInfo = this.allTypeEstates.find(t => t.id === type.id)
+          return {
+            id: type.id,
+            name: typeInfo?.name || 'Неизвестно',
+            population: type.population,
+            color: this.estateTypeColors[type.id] || 'hsl(0, 0%, 60%)'
+          }
+        })
+        .sort((a, b) => b.population - a.population)
+
+      return types
     }
   },
 

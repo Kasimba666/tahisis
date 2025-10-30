@@ -396,8 +396,8 @@ export default {
             return
           }
 
-          // Создаем маркер в зависимости от режима отображения
-          const markerElement = this.createMarkerElement(settlement)
+          // Создаём концентрические кружки для нескольких типов сословий
+          const markerElement = this.createConcentricCirclesMarker(settlement.estateTypes || [])
 
           const customIcon = L.divIcon({
             className: 'custom-marker',
@@ -413,6 +413,7 @@ export default {
                 <p><strong>Регион:</strong> Татарстан</p>
                 <p><strong>Район:</strong> ${settlement.district || '—'}</p>
                 ${settlement.population ? `<p><strong>Население:</strong> ${settlement.population}</p>` : ''}
+                ${settlement.dominantEstateType ? `<p><strong>Доминирующее сословие:</strong> ${settlement.dominantEstateType.name}</p>` : ''}
               </div>
             `)
             .addTo(this.leafletMapInstance)
@@ -451,13 +452,20 @@ export default {
           // Конвертируем из EPSG:4326 в EPSG:3857 для OpenLayers
           const [x, y] = fromLonLat([lon, lat])
 
+          const estateTypes = settlement.estateTypes || []
+
           const feature = new Feature({
             geometry: new Point([x, y]),
             name: settlement.name,
             district: settlement.district,
             population: settlement.population,
-            estateType: 'default' // В будущем здесь будет определение типа сословия
+            estateTypes: estateTypes
           })
+
+          // Создаём концентрические кружки через массив стилей
+          const styles = this.createConcentricCirclesStylesOL(estateTypes)
+          feature.setStyle(styles)
+
           features.push(feature)
           validMarkers++
         }
@@ -863,8 +871,70 @@ export default {
       return `<div class="pie-chart-marker">${svg}</div>`
     },
 
-    // Создание маркера в виде концентрических окружностей
-    createConcentricCirclesMarker(settlement) {
+    // Создание маркера в виде концентрических окружностей для Leaflet
+    createConcentricCirclesMarker(estateTypes) {
+      if (!estateTypes || estateTypes.length === 0) {
+        return '<div class="concentric-marker"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="none" stroke="hsl(0, 0%, 60%)" stroke-width="2"/></svg></div>'
+      }
+
+      // Берём до 4 типов сословий
+      const types = estateTypes.slice(0, 4)
+      const baseRadius = 4
+      const spacing = 3
+      const maxRadius = baseRadius + spacing * (types.length - 1)
+      const svgSize = maxRadius * 2 + 6 // +6 для stroke
+      const center = svgSize / 2
+
+      let svg = `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">`
+
+      // Рисуем кружки от большего к меньшему
+      types.forEach((type, index) => {
+        const radius = baseRadius + spacing * (types.length - 1 - index)
+        const strokeWidth = 2
+        
+        svg += `<circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="${type.color}" stroke-width="${strokeWidth}"/>`
+      })
+
+      svg += '</svg>'
+      return `<div class="concentric-marker">${svg}</div>`
+    },
+
+    // Создание стилей концентрических кружков для OpenLayers
+    createConcentricCirclesStylesOL(estateTypes) {
+      if (!estateTypes || estateTypes.length === 0) {
+        return new Style({
+          image: new Circle({
+            radius: 7,
+            fill: new Fill({ color: 'transparent' }),
+            stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 2 })
+          })
+        })
+      }
+
+      // Берём до 4 типов сословий
+      const types = estateTypes.slice(0, 4)
+      const styles = []
+      const baseRadius = 4
+      const spacing = 3
+
+      // Создаём стиль для каждого кружка
+      types.forEach((type, index) => {
+        const radius = baseRadius + spacing * (types.length - 1 - index)
+        
+        styles.push(new Style({
+          image: new Circle({
+            radius: radius,
+            fill: new Fill({ color: 'transparent' }),
+            stroke: new Stroke({ color: type.color, width: 2 })
+          })
+        }))
+      })
+
+      return styles
+    },
+
+    // Старый метод createConcentricCirclesMarker оставлен для совместимости
+    createConcentricCirclesMarkerOld(settlement) {
       // Для демонстрации создаем маркер с несколькими концентрическими кольцами
       // В будущем здесь будет логика для анализа данных о типах сословий в поселении
 
@@ -1507,18 +1577,17 @@ export default {
   background: transparent;
   border: none;
 
-  .marker-circle {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background-color: hsl(0, 85%, 55%);
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  .concentric-marker {
     cursor: pointer;
     transition: transform 0.2s;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 
     &:hover {
       transform: scale(1.2);
+    }
+
+    svg {
+      display: block;
     }
   }
 
