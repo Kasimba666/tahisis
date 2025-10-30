@@ -271,8 +271,9 @@ export default {
 
         this.$refs.olMap.appendChild(homeButton)
 
-        // OpenLayers popup overlay
+        // OpenLayers popup и tooltip overlays
         try {
+          // Popup для клика
           this.olPopupEl = document.createElement('div')
           this.olPopupEl.className = 'ol-popup'
           this.$refs.olMap.appendChild(this.olPopupEl)
@@ -283,6 +284,18 @@ export default {
             stopEvent: true
           })
           this.olMapInstance.addOverlay(this.olPopupOverlay)
+
+          // Tooltip для наведения
+          this.olTooltipEl = document.createElement('div')
+          this.olTooltipEl.className = 'ol-tooltip'
+          this.$refs.olMap.appendChild(this.olTooltipEl)
+          this.olTooltipOverlay = new Overlay({
+            element: this.olTooltipEl,
+            offset: [0, -15],
+            positioning: 'bottom-center',
+            stopEvent: false
+          })
+          this.olMapInstance.addOverlay(this.olTooltipOverlay)
 
           this.olMapInstance.on('singleclick', (evt) => {
             let shown = false
@@ -310,6 +323,25 @@ export default {
           this.olMapInstance.on('pointermove', (evt) => {
             const hit = this.olMapInstance.hasFeatureAtPixel(evt.pixel)
             try { this.$refs.olMap.style.cursor = hit ? 'pointer' : 'default' } catch(e) {}
+            
+            // Показываем tooltip при наведении
+            if (hit) {
+              this.olMapInstance.forEachFeatureAtPixel(evt.pixel, (feature) => {
+                const name = feature.get('name') || ''
+                const district = feature.get('district') || ''
+                const html = `
+                  <div class="settlement-tooltip">
+                    <div class="tooltip-name">${name}</div>
+                    <div class="tooltip-district">${district || '—'}</div>
+                  </div>
+                `
+                this.olTooltipEl.innerHTML = html
+                this.olTooltipOverlay.setPosition(evt.coordinate)
+                return true
+              })
+            } else {
+              this.olTooltipOverlay.setPosition(undefined)
+            }
           })
         } catch (e) {}
 
@@ -391,6 +423,17 @@ export default {
           })
 
           const marker = L.marker([lat, lon], { icon: customIcon })
+            .bindTooltip(`
+              <div class="settlement-tooltip">
+                <div class="tooltip-name">${settlement.name}</div>
+                <div class="tooltip-district">${settlement.district || '—'}</div>
+              </div>
+            `, {
+              direction: 'top',
+              offset: [0, -10],
+              opacity: 0.95,
+              className: 'custom-tooltip'
+            })
             .bindPopup(`
               <div class="settlement-popup">
                 <h4>${settlement.name}</h4>
@@ -1850,6 +1893,65 @@ export default {
       color: var(--text-primary);
       font-weight: 500;
     }
+  }
+}
+
+// Стили для tooltip (всплывающих подсказок)
+:deep(.settlement-tooltip) {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  pointer-events: none;
+
+  .tooltip-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1px;
+    text-shadow: 
+      -1px -1px 0 var(--bg-primary),
+      1px -1px 0 var(--bg-primary),
+      -1px 1px 0 var(--bg-primary),
+      1px 1px 0 var(--bg-primary),
+      -1px 0 0 var(--bg-primary),
+      1px 0 0 var(--bg-primary),
+      0 -1px 0 var(--bg-primary),
+      0 1px 0 var(--bg-primary);
+  }
+
+  .tooltip-district {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-shadow: 
+      -1px -1px 0 var(--bg-primary),
+      1px -1px 0 var(--bg-primary),
+      -1px 1px 0 var(--bg-primary),
+      1px 1px 0 var(--bg-primary),
+      -1px 0 0 var(--bg-primary),
+      1px 0 0 var(--bg-primary),
+      0 -1px 0 var(--bg-primary),
+      0 1px 0 var(--bg-primary);
+  }
+}
+
+// OpenLayers tooltip
+:deep(.ol-tooltip) {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  pointer-events: none;
+}
+
+// Leaflet tooltip (перезаписываем стандартные стили)
+:deep(.leaflet-tooltip.custom-tooltip) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  
+  &::before {
+    display: none;
   }
 }
 </style>
