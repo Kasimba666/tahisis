@@ -7,6 +7,16 @@
       </el-radio-group>
     </div>
 
+    <!-- Легенда типов сословий -->
+    <div v-if="estateTypesLegend.length > 0" class="map-legend-panel">
+      <div class="legend-items">
+        <div v-for="item in estateTypesLegend" :key="item.id" class="legend-item">
+          <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
+          <div class="legend-label">{{ item.name }}</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Панель управления векторными слоями на карте -->
     <div class="map-layers-panel">
       <el-collapse v-model="activePanels" @change="handlePanelChange">
@@ -84,6 +94,34 @@ export default {
       isSyncingView: false,
       olPopupOverlay: null,
       olPopupEl: null
+    }
+  },
+  computed: {
+    // Формируем легенду на основе типов сословий, присутствующих на карте
+    estateTypesLegend() {
+      if (!this.settlements || this.settlements.length === 0) {
+        return []
+      }
+
+      // Собираем уникальные типы сословий из всех населённых пунктов
+      const typesMap = new Map()
+      
+      this.settlements.forEach(settlement => {
+        if (settlement.estateTypes && settlement.estateTypes.length > 0) {
+          settlement.estateTypes.forEach(type => {
+            if (!typesMap.has(type.id)) {
+              typesMap.set(type.id, {
+                id: type.id,
+                name: type.name,
+                color: type.color
+              })
+            }
+          })
+        }
+      })
+
+      // Преобразуем в массив и сортируем по названию
+      return Array.from(typesMap.values()).sort((a, b) => a.name.localeCompare(b.name))
     }
   },
   mounted() {
@@ -1583,6 +1621,53 @@ export default {
     align-items: center;
     flex-shrink: 0;
     z-index: 1000;
+  }
+
+  // Панель легенды
+  .map-legend-panel {
+    position: absolute;
+    bottom: 15px;
+    right: 10px;
+    z-index: 1000;
+    background: var(--bg-secondary);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    padding: 8px 12px;
+    min-width: 150px;
+    opacity: 0.9;
+    transition: background-color 0.3s ease, border-color 0.3s ease, opacity 0.2s ease;
+
+    &:hover {
+      opacity: 1;
+    }
+
+    .legend-items {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .legend-color {
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          border: 2px solid var(--bg-primary);
+          flex-shrink: 0;
+        }
+
+        .legend-label {
+          font-size: 11px;
+          color: var(--text-secondary);
+          line-height: 1.2;
+        }
+      }
+    }
   }
 
   // Панель управления слоями на карте
