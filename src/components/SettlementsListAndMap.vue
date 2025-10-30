@@ -35,6 +35,7 @@
           :show-summary="true"
           sum-text="Итого"
           :summary-method="getSummary"
+          :row-class-name="getRowClassName"
         >
           <el-table-column prop="settlement_name_old" label="Нас. пункт (старое)" min-width="150" sortable>
             <template #default="scope">
@@ -326,13 +327,21 @@ export default {
         // Получаем все типы сословий с населением
         const estateTypes = this.getEstateTypesByPopulation(settlement)
         
+        // Собираем уникальные религии из estates
+        const religions = this.getUniqueReligions(settlement)
+        
         return {
           lat: settlement.lat,
           lon: settlement.lon,
           name: settlement.settlement_name_old || settlement.settlement_name_modern,
+          nameModern: settlement.settlement_name_modern,
           district: settlement.district_name,
+          male: settlement.male || 0,
+          female: settlement.female || 0,
           population: settlement.total,
-          estateTypes: estateTypes // массив типов сословий с цветами
+          estateTypes: estateTypes, // массив типов сословий с цветами
+          religions: religions, // массив названий религий
+          estates: settlement.estates || [] // детальные данные по сословиям
         }
       })
       console.log('mapped settlements:', mapped.slice(0, 2))
@@ -366,6 +375,9 @@ export default {
   async mounted() {
     console.log('=== SettlementsListAndMap MOUNTED ===')
     console.log('this.filters:', this.filters)
+
+    // Добавляем обработчик события из popup карты
+    window.addEventListener('show-settlement-details', this.handleShowDetailsFromMap)
 
     // Восстанавливаем параметры из URL
     this.restoreParamsFromURL()
@@ -408,8 +420,32 @@ export default {
     }
   },
   beforeUnmount() {
+    // Удаляем обработчик события
+    window.removeEventListener('show-settlement-details', this.handleShowDetailsFromMap)
   },
   methods: {
+    // Обработчик события из popup карты
+    handleShowDetailsFromMap(event) {
+      const settlement = event.detail?.settlement
+      if (settlement) {
+        // Находим полную запись settlement in settlementsData по имени
+        const fullSettlement = this.settlementsData.find(s => 
+          s.settlement_name_old === settlement.name || 
+          s.settlement_name_modern === settlement.nameModern
+        )
+        if (fullSettlement) {
+          this.viewSettlementDetails(fullSettlement)
+        }
+      }
+    },
+
+    // Определение класса для строки таблицы
+    getRowClassName({ row }) {
+      if (this.selectedSettlement && row.settlement_id === this.selectedSettlement.settlement_id) {
+        return 'highlighted-row'
+      }
+      return ''
+    },
     syncWithProps() {
       // Если props не пустые, используем их вместо локальных данных
       if (this.districts && this.districts.length > 0) {
@@ -1416,6 +1452,23 @@ export default {
       }
     },
 
+    // Получение уникальных религий для населённого пункта
+    getUniqueReligions(settlement) {
+      if (!settlement.estates || settlement.estates.length === 0) {
+        return []
+      }
+
+      // Собираем уникальные названия религий
+      const religionSet = new Set()
+      settlement.estates.forEach(estate => {
+        if (estate.type_religion_name) {
+          religionSet.add(estate.type_religion_name)
+        }
+      })
+
+      return Array.from(religionSet)
+    },
+
     // Получение всех типов сословий с населением для населённого пункта
     getEstateTypesByPopulation(settlement) {
       if (!settlement.type_estate_ids || settlement.type_estate_ids.length === 0) {
@@ -1853,6 +1906,21 @@ export default {
     color: var(--text-primary) !important;
     border-top: 2px solid var(--accent-primary) !important;
     font-weight: 600 !important;
+  }
+}
+
+// Выделение выбранной строки в таблице
+:deep(.el-table__body tr.highlighted-row) {
+  background-color: var(--accent-primary) !important;
+  
+  td {
+    background-color: var(--accent-primary) !important;
+    color: var(--bg-primary) !important;
+    font-weight: 600 !important;
+  }
+
+  &:hover > td {
+    background-color: var(--accent-primary) !important;
   }
 }
 </style>

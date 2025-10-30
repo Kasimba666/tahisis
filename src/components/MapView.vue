@@ -300,17 +300,20 @@ export default {
           this.olMapInstance.on('singleclick', (evt) => {
             let shown = false
             this.olMapInstance.forEachFeatureAtPixel(evt.pixel, (feature) => {
-              const name = feature.get('name') || ''
-              const district = feature.get('district') || ''
-              const population = feature.get('population') || ''
-              const html = `
-                <div class="settlement-popup">
-                  <h4>${name}</h4>
-                  ${district ? `<p><strong>Уезд:</strong> ${district}</p>` : ''}
-                  ${population ? `<p><strong>Население:</strong> ${population}</p>` : ''}
-                </div>
-              `
-              this.olPopupEl.innerHTML = html
+              // Получаем данные о settlement из feature
+              const settlement = {
+                name: feature.get('name') || '—',
+                nameModern: feature.get('nameModern') || '—',
+                district: feature.get('district') || '—',
+                male: feature.get('male') || 0,
+                female: feature.get('female') || 0,
+                population: feature.get('population') || 0,
+                estateTypes: feature.get('estateTypes') || [],
+                religions: feature.get('religions') || [],
+                estates: feature.get('estates') || []
+              }
+              
+              this.olPopupEl.innerHTML = this.generateSettlementPopup(settlement)
               this.olPopupOverlay.setPosition(evt.coordinate)
               shown = true
               return true
@@ -434,15 +437,7 @@ export default {
               opacity: 0.95,
               className: 'custom-tooltip'
             })
-            .bindPopup(`
-              <div class="settlement-popup">
-                <h4>${settlement.name}</h4>
-                <p><strong>Регион:</strong> Татарстан</p>
-                <p><strong>Район:</strong> ${settlement.district || '—'}</p>
-                ${settlement.population ? `<p><strong>Население:</strong> ${settlement.population}</p>` : ''}
-                ${settlement.dominantEstateType ? `<p><strong>Доминирующее сословие:</strong> ${settlement.dominantEstateType.name}</p>` : ''}
-              </div>
-            `)
+            .bindPopup(this.generateSettlementPopup(settlement))
             .addTo(this.leafletMapInstance)
 
           this.leafletMarkers.push(marker)
@@ -484,9 +479,14 @@ export default {
           const feature = new Feature({
             geometry: new Point([x, y]),
             name: settlement.name,
+            nameModern: settlement.nameModern,
             district: settlement.district,
+            male: settlement.male,
+            female: settlement.female,
             population: settlement.population,
-            estateTypes: estateTypes
+            estateTypes: estateTypes,
+            religions: settlement.religions || [],
+            estates: settlement.estates || []
           })
 
           // Создаём концентрические кружки через массив стилей
@@ -1354,6 +1354,49 @@ export default {
       return colors[typeId % colors.length] || 'hsl(0, 0%, 60%)'
     },
 
+    // Генерация popup для населённого пункта (новый формат)
+    generateSettlementPopup(settlement) {
+      const nameOld = settlement.name || '—'
+      const nameModern = settlement.nameModern || '—'
+      const district = settlement.district || '—'
+      
+      // Формируем детальный список сословий
+      let estatesDetails = ''
+      let totalSum = 0
+      
+      if (settlement.estates && settlement.estates.length > 0) {
+        settlement.estates.forEach(estate => {
+          const subtype = estate.subtype_estate_name || '—'
+          const religion = estate.type_religion_name || '—'
+          const male = estate.male || 0
+          const female = estate.female || 0
+          const total = estate.total || (male + female)
+          totalSum += total
+          
+          estatesDetails += `<div class="popup-estate-item">${subtype}, ${religion}, М: ${male}, Ж: ${female}, Итого: ${total}</div>`
+        })
+        
+        // Добавляем строку "Всего"
+        estatesDetails += `<div class="popup-estate-total">Всего: ${totalSum}</div>`
+      } else {
+        estatesDetails = '<div class="popup-estate-item">Нет данных о сословиях</div>'
+      }
+
+      return `
+        <div class="settlement-popup-new">
+          <div class="popup-field">${nameOld}</div>
+          ${nameModern !== '—' ? `<div class="popup-field popup-field-modern">${nameModern}</div>` : ''}
+          <div class="popup-field">${district}</div>
+          <div class="popup-estates">
+            ${estatesDetails}
+          </div>
+          <div class="popup-actions">
+            <button class="popup-details-btn" onclick="window.dispatchEvent(new CustomEvent('show-settlement-details', { detail: { settlement: ${JSON.stringify(settlement).replace(/"/g, '&quot;')} } }))">Детали</button>
+          </div>
+        </div>
+      `
+    },
+
     // Генерация содержимого popup для населенного пункта
     generateSettlementPopupContent(properties) {
       const nameOld = properties.name_old || '—'
@@ -1517,11 +1560,11 @@ export default {
 <style scoped lang="scss">
 // OpenLayers popup styles for better readability (scoped → deep)
 :deep(.ol-popup) {
-  background: hsl(0, 0%, 100%);
-  border: 1px solid hsl(0, 0%, 80%);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   padding: 8px 10px;
-  color: hsl(0, 0%, 10%);
+  color: var(--text-primary);
 }
 
 .map-view {
@@ -1953,5 +1996,103 @@ export default {
   &::before {
     display: none;
   }
+}
+
+// Новый стиль popup
+:deep(.settlement-popup-new) {
+  min-width: 200px;
+  max-width: 300px;
+
+  .popup-field {
+    margin: 2px 0;
+    font-size: 12px;
+    color: var(--text-primary);
+    line-height: 1.3;
+
+    &.popup-field-modern {
+      font-style: italic;
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+
+    &.popup-field-subtypes {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    &.popup-field-religion {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+  }
+
+  .popup-estates {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border-color);
+    max-height: 200px;
+    overflow-y: auto;
+
+    .popup-estate-item {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 2px 0;
+      line-height: 1.4;
+      padding: 2px 0;
+    }
+
+    .popup-estate-total {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color);
+    }
+  }
+
+  .popup-actions {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+
+    .popup-details-btn {
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-primary);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: var(--bg-hover);
+        border-color: var(--accent-primary);
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+  }
+}
+
+// Leaflet popup - исправление фона для тёмной темы
+:deep(.leaflet-popup-content-wrapper) {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+:deep(.leaflet-popup-tip) {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
 }
 </style>
