@@ -15,11 +15,6 @@
           Экспорт в Excel
         </el-button>
 
-        <el-button size="large" type="success" @click="openGeoJsonViewer">
-          <el-icon><DataBoard /></el-icon>
-          Экспорт в GeoJSON
-        </el-button>
-
         <el-tag size="large" type="info">Всего населённых пунктов: {{ settlementsData.length }}</el-tag>
         <el-tag size="large" type="success">Общее население: {{ formatNumber(totalPopulation) }}</el-tag>
       </div>
@@ -96,15 +91,7 @@
       </div>
 
       <div v-if="viewMode === 'geojson'" class="geojson-section">
-        <GeoJsonViewer
-          ref="geoJsonViewer"
-          :geoJsonData="{ 'Settlement': settlementsGeoJson }"
-          :showExport="true"
-          :formatted="true"
-        />
-        <div class="geojson-display">
-          <pre><code class="json-code">{{ formattedSettlementsGeoJson }}</code></pre>
-        </div>
+        <GeoJsonViewer :geoJsonData="settlementsGeoJson" />
       </div>
     </div>
 
@@ -218,8 +205,6 @@
       </template>
     </el-drawer>
 
-    <!-- GeoJSON Viewer -->
-    <GeoJsonViewer ref="geoJsonViewer" />
   </div>
 </template>
 
@@ -369,15 +354,6 @@ export default {
 
     syncedSettlementsGeoJson() {
       return this.settlementsData && this.settlementsData.length > 0 ? this.settlementsGeoJson : null
-    },
-
-    formattedSettlementsGeoJson() {
-      try {
-        if (!this.settlementsGeoJson) return ''
-        return JSON.stringify(this.settlementsGeoJson, null, 2)
-      } catch (e) {
-        return ''
-      }
     }
   },
   async mounted() {
@@ -1265,14 +1241,6 @@ export default {
         colNum = Math.floor(colNum / 26)
       }
       return result
-    },
-
-    // Открытие GeoJSON viewer
-    openGeoJsonViewer() {
-      if (this.$refs.geoJsonViewer) {
-        this.$refs.geoJsonViewer.loadSettlementsData(this.settlementsData)
-        this.$refs.geoJsonViewer.open()
-      }
     },
 
     // Обновляем маркеры на картах при изменении данных

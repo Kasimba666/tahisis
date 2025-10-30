@@ -1,56 +1,42 @@
 <template>
-  <el-dialog
-    v-model="visible"
-    title="Экспорт в GeoJSON"
-    width="90%"
-    :before-close="handleClose"
-    class="geojson-viewer-dialog"
-    :close-on-click-modal="false"
-    :close-on-press-escape="false"
-  >
-    <div class="geojson-viewer">
-      <!-- Кнопки действий -->
-      <div class="viewer-controls">
-        <el-button-group>
-          <el-button
-            type="primary"
-            size="small"
-            @click="exportToFile"
-            :loading="exporting"
-            :disabled="!formattedJson"
-          >
-            <el-icon><Download /></el-icon>
-            Экспорт
-          </el-button>
-          <el-button
-            type="success"
-            size="small"
-            @click="copyToClipboard"
-            :disabled="!formattedJson"
-          >
-            <el-icon><CopyDocument /></el-icon>
-            Копировать
-          </el-button>
-        </el-button-group>
-      </div>
-
-      <!-- JSON Viewer -->
-      <div class="json-display">
-        <div v-if="loading" class="loading-state">
-          <el-icon class="is-loading"><Loading /></el-icon>
-          <p>Загрузка данных...</p>
-        </div>
-        <div v-else-if="!formattedJson" class="empty-state">
-          <el-empty description="Нет данных для отображения" />
-        </div>
-        <pre v-else><code ref="jsonCode" class="json-code">{{ formattedJson }}</code></pre>
-      </div>
+  <div class="geojson-viewer">
+    <!-- Кнопки действий -->
+    <div class="viewer-controls">
+      <el-button-group>
+        <el-button
+          type="primary"
+          size="small"
+          @click="exportToFile"
+          :loading="exporting"
+          :disabled="!formattedJson"
+        >
+          <el-icon><Download /></el-icon>
+          Экспорт
+        </el-button>
+        <el-button
+          type="success"
+          size="small"
+          @click="copyToClipboard"
+          :disabled="!formattedJson"
+        >
+          <el-icon><CopyDocument /></el-icon>
+          Копировать
+        </el-button>
+      </el-button-group>
     </div>
 
-    <template #footer>
-      <el-button @click="handleClose">Закрыть</el-button>
-    </template>
-  </el-dialog>
+    <!-- JSON Viewer -->
+    <div class="json-display">
+      <div v-if="loading" class="loading-state">
+        <el-icon class="is-loading"><Loading /></el-icon>
+        <p>Загрузка данных...</p>
+      </div>
+      <div v-else-if="!formattedJson" class="empty-state">
+        <el-empty description="Нет данных для отображения" />
+      </div>
+      <pre v-else><code ref="jsonCode" class="json-code">{{ formattedJson }}</code></pre>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -66,12 +52,16 @@ export default {
     Refresh,
     Loading
   },
+  props: {
+    geoJsonData: {
+      type: Object,
+      default: null
+    }
+  },
   data() {
     return {
-      visible: false,
       loading: false,
-      exporting: false,
-      geoJsonData: null
+      exporting: false
     }
   },
   computed: {
@@ -88,41 +78,18 @@ export default {
       }
     }
   },
+  watch: {
+    geoJsonData: {
+      handler() {
+        this.$nextTick(() => {
+          this.highlightSyntax()
+        })
+      },
+      deep: true,
+      immediate: true
+    }
+  },
   methods: {
-    // Открытие диалога
-    open() {
-      this.visible = true
-      this.loadData()
-    },
-
-    // Закрытие диалога
-    handleClose() {
-      this.visible = false
-      this.geoJsonData = null
-    },
-
-
-    // Загрузка данных текущей выборки населенных пунктов
-    loadSettlementsData(settlementsData) {
-      return dataExporter.exportSettlementsToGeoJSON(settlementsData)
-        .then((exportResult) => {
-          if (exportResult.success) {
-            this.geoJsonData = exportResult.data
-
-            // Подсвечиваем синтаксис после загрузки
-            this.$nextTick(() => {
-              this.highlightSyntax()
-            })
-          } else {
-            throw new Error(exportResult.error)
-          }
-        })
-        .catch((error) => {
-          console.error('Error loading settlements data:', error)
-          ElMessage.error('Ошибка загрузки данных: ' + error.message)
-        })
-    },
-
     // Подсветка синтаксиса JSON
     highlightSyntax() {
       if (!this.$refs.jsonCode) return
@@ -186,13 +153,6 @@ export default {
           ElMessage.error('Ошибка копирования в буфер обмена')
         })
     }
-  },
-
-  mounted() {
-    // Подсвечиваем синтаксис при монтировании
-    this.$nextTick(() => {
-      this.highlightSyntax()
-    })
   }
 }
 </script>
