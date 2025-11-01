@@ -318,7 +318,13 @@
       </div>
       
       <template #footer>
-        <el-button @click="closeDetailsDrawer">Закрыть</el-button>
+        <div style="display: flex; gap: 8px;">
+          <el-button type="primary" @click="showOnMap" v-if="selectedRecord && hasCoordinates">
+            <el-icon><Location /></el-icon>
+            Карта
+          </el-button>
+          <el-button @click="closeDetailsDrawer">Закрыть</el-button>
+        </div>
       </template>
     </el-drawer>
   </div>
@@ -448,6 +454,22 @@ export default {
       }), { male: 0, female: 0, total: 0, population: 0 })
     },
     
+    hasCoordinates() {
+      if (!this.selectedRecord) return false
+      
+      if (this.dataMode === 'report') {
+        // В режиме report координаты есть прямо в записи
+        return this.selectedRecord.lat && this.selectedRecord.lon
+      } else {
+        // В режиме estate нужно найти Settlement по названию
+        const settlement = this.allSettlements?.find(s =>
+          s.name_modern === this.selectedRecord.settlement_name_modern ||
+          s.name_old === this.selectedRecord.settlement_name_old
+        )
+        return settlement && settlement.lat && settlement.lon
+      }
+    },
+
     mapSettlements() {
       // Собираем уникальные населенные пункты из текущих данных
       const settlementsMap = new Map()
@@ -505,6 +527,9 @@ export default {
     }
   },
   mounted() {
+    // Загружаем справочник населённых пунктов для showOnMap
+    this.loadSettlementsReference()
+
     // Восстанавливаем параметры из URL
     this.restoreParamsFromURL()
 
@@ -532,12 +557,13 @@ export default {
         .then(({ data, error }) => {
           if (error) throw error
           this.allSettlements = data || []
+          console.log('Settlements reference loaded:', this.allSettlements.length)
         })
         .catch(error => {
           console.error('Error loading settlements reference:', error)
         })
     },
-    
+
     loadData() {
       if (this.dataMode === 'estate') {
         this.loadEstateDataNew()
@@ -1344,6 +1370,37 @@ export default {
       if (this.dataMode === 'report') {
         this.loadRelatedEstates(row.id)
       }
+      
+      // Автоматически выделяем объект на карте при открытии деталей
+      if (this.viewMode === 'map' || this.viewMode === 'split') {
+        let lat, lon, name
+        
+        if (this.dataMode === 'report') {
+          lat = row.lat
+          lon = row.lon
+          name = row.settlement_name_modern || row.settlement_name_old
+        } else {
+          // Найти координаты для Estate
+          const settlement = this.allSettlements?.find(s =>
+            s.name_modern === row.settlement_name_modern ||
+            s.name_old === row.settlement_name_old
+          )
+          
+          if (settlement) {
+            lat = settlement.lat
+            lon = settlement.lon
+            name = row.settlement_name_modern || row.settlement_name_old
+          }
+        }
+        
+        if (lat && lon) {
+          this.$nextTick(() => {
+            window.dispatchEvent(new CustomEvent('show-settlement-on-map', {
+              detail: { lat: parseFloat(lat), lon: parseFloat(lon), name }
+            }))
+          })
+        }
+      }
     },
 
     loadRelatedEstates(reportRecordId) {
@@ -1570,6 +1627,67 @@ export default {
         }
       } catch (error) {
         console.warn('Error refreshing map layers:', error)
+      }
+    },
+
+    showOnMap() {
+      console.log('=== showOnMap called ===')
+      console.log('selectedRecord:', this.selectedRecord)
+      console.log('hasCoordinates:', this.hasCoordinates)
+      console.log('allSettlements loaded:', this.allSettlements?.length)
+      
+      if (!this.selectedRecord || !this.hasCoordinates) {
+        console.log('Early return: no record or coordinates')
+        return
+      }
+      
+      let lat, lon, name
+      
+      if (this.dataMode === 'report') {
+        lat = this.selectedRecord.lat
+        lon = this.selectedRecord.lon
+        name = this.selectedRecord.settlement_name_modern || this.selectedRecord.settlement_name_old
+        console.log('Report mode - coords from record:', { lat, lon, name })
+      } else {
+        // Найти координаты для Estate
+        const settlement = this.allSettlements?.find(s =>
+          s.name_modern === this.selectedRecord.settlement_name_modern ||
+          s.name_old === this.selectedRecord.settlement_name_old
+        )
+        
+        console.log('Estate mode - looking for settlement:', {
+          name_modern: this.selectedRecord.settlement_name_modern,
+          name_old: this.selectedRecord.settlement_name_old,
+          found: !!settlement
+        })
+        
+        if (settlement) {
+          lat = settlement.lat
+          lon = settlement.lon
+          name = this.selectedRecord.settlement_name_modern || this.selectedRecord.settlement_name_old
+          console.log('Found settlement coords:', { lat, lon, name })
+        }
+      }
+      
+      if (lat && lon && this.$refs.mapView) {
+        console.log('Dispatching event with:', { lat: parseFloat(lat), lon: parseFloat(lon), name })
+        
+        // Закрываем drawer деталей
+        this.detailsDrawerVisible = false
+        
+        // Переключаемся на режим карты если нужно
+        if (this.viewMode === 'list') {
+          this.viewMode = 'split'
+        }
+        
+        // Вызываем метод выделения на карте
+        this.$nextTick(() => {
+          window.dispatchEvent(new CustomEvent('show-settlement-on-map', {
+            detail: { lat: parseFloat(lat), lon: parseFloat(lon), name }
+          }))
+        })
+      } else {
+        console.log('Cannot dispatch event:', { lat, lon, hasMapView: !!this.$refs.mapView })
       }
     },
 

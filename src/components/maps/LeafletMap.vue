@@ -1,0 +1,432 @@
+<template>
+  <div ref="leafletMap" class="leaflet-map-container"></div>
+</template>
+
+<script>
+import L from 'leaflet'
+import { useMapMarkers } from '@/composables/useMapMarkers.js'
+import { vectorLayerService } from '@/services/vectorLayers.js'
+
+export default {
+  name: 'LeafletMap',
+  props: {
+    settlements: {
+      type: Array,
+      default: () => []
+    },
+    vectorLayers: {
+      type: Array,
+      default: () => []
+    },
+    initialCenter: {
+      type: Array,
+      default: () => [55.42, 52.68]
+    },
+    initialZoom: {
+      type: Number,
+      default: 8
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    }
+  },
+  data() {
+    return {
+      mapInstance: null,
+      markers: [],
+      vectorLayersMap: new Map(),
+      layersControl: null,
+      currentHighlightCircle: null // Текущий круг выделения
+    }
+  },
+  mounted() {
+    this.$nextTick(() => {
+      setTimeout(() => {
+        this.initMap()
+      }, 100)
+    })
+  },
+  beforeUnmount() {
+    if (this.mapInstance) {
+      this.mapInstance.remove()
+    }
+  },
+  methods: {
+    initMap() {
+      if (!this.$refs.leafletMap) return
+
+      const { createConcentricCirclesMarker, generateSettlementPopup } = useMapMarkers()
+
+      this.mapInstance = L.map(this.$refs.leafletMap, {
+        center: this.initialCenter,
+        zoom: this.initialZoom,
+        fullscreenControl: {
+          pseudoFullscreen: false
+        }
+      })
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(this.mapInstance)
+
+      // Кнопка Home
+      const self = this
+      L.Control.HomeButton = L.Control.extend({
+        onAdd: function(map) {
+          const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control')
+          btn.innerHTML = '🏠'
+          btn.title = 'Вернуться к исходному виду'
+          btn.style.cssText = 'background: white; width: 30px; height: 30px; cursor: pointer; border: none;'
+          btn.onclick = () => self.resetView()
+          return btn
+        }
+      })
+      new L.Control.HomeButton({ position: 'topleft' }).addTo(this.mapInstance)
+
+      // Контрол слоёв
+      this.layersControl = L.control.layers(null, null, {
+        position: 'topright',
+        collapsed: false
+      }).addTo(this.mapInstance)
+
+      // События карты
+      this.mapInstance.on('moveend zoomend', () => {
+        this.$emit('view-change', {
+          center: this.mapInstance.getCenter(),
+          zoom: this.mapInstance.getZoom()
+        })
+      })
+
+      this.updateMarkers()
+      this.loadVectorLayers()
+    },
+
+    updateMarkers() {
+      if (!this.mapInstance) return
+
+      const { createConcentricCirclesMarker, generateSettlementPopup } = useMapMarkers()
+
+      this.markers.forEach(marker => marker.remove())
+      this.markers = []
+
+      this.settlements.forEach(settlement => {
+        if (settlement.lat && settlement.lon) {
+          const lat = parseFloat(settlement.lat)
+          const lon = parseFloat(settlement.lon)
+
+          if (isNaN(lat) || isNaN(lon)) return
+
+          const markerElement = createConcentricCirclesMarker(settlement.estateTypes || [])
+          const customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: markerElement,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+          })
+
+          const marker = L.marker([lat, lon], { icon: customIcon })
+            .bindTooltip(`
+              <div class="settlement-tooltip">
+                <div class="tooltip-name">${settlement.name}</div>
+                <div class="tooltip-district">${settlement.district || '—'}</div>
+              </div>
+            `, {
+              direction: 'top',
+              offset: [0, -18],
+              opacity: 0.95,
+              className: 'custom-tooltip',
+              permanent: false
+            })
+            .bindPopup(generateSettlementPopup(settlement))
+            .addTo(this.mapInstance)
+
+          // Добавляем обработчик для кнопки "Детали" программно
+          marker.on('popupopen', () => {
+            const popup = marker.getPopup()
+            if (popup) {
+              const detailsBtn = popup.getElement().querySelector('.popup-details-btn')
+              if (detailsBtn) {
+                detailsBtn.onclick = () => {
+                  window.dispatchEvent(new CustomEvent('show-settlement-details', { 
+                    detail: { settlement } 
+                  }))
+                }
+              }
+            }
+          })
+
+          this.markers.push(marker)
+        }
+      })
+    },
+
+    loadVectorLayers() {
+      if (!this.mapInstance || this.vectorLayers.length === 0) return
+
+      const { getLayerColor, hslToHsla } = useMapMarkers()
+
+      this.vectorLayers.forEach(layer => {
+        if (!layer.file_url) return
+
+        fetch(layer.file_url)
+          .then(response => response.json())
+          .then(geoJsonData => {
+            const vectorLayer = L.geoJSON(geoJsonData, {
+              style: {
+                color: getLayerColor(layer.id),
+                weight: 2,
+                opacity: 0.7,
+                fillOpacity: 0.3
+              }
+            })
+
+            this.vectorLayersMap.set(layer.id, vectorLayer)
+            
+            if (this.layersControl) {
+              this.layersControl.addOverlay(vectorLayer, layer.name)
+            }
+
+            vectorLayer.addTo(this.mapInstance)
+          })
+          .catch(error => console.error(`Error loading layer ${layer.name}:`, error))
+      })
+    },
+
+    resetView() {
+      if (this.mapInstance) {
+        this.mapInstance.setView(this.initialCenter, this.initialZoom)
+      }
+    },
+
+    syncView(center, zoom) {
+      if (this.mapInstance && center && zoom) {
+        this.mapInstance.setView([center.lat, center.lng], zoom)
+      }
+    },
+
+    invalidateSize() {
+      if (this.mapInstance) {
+        this.$nextTick(() => {
+          this.mapInstance.invalidateSize()
+        })
+      }
+    },
+
+    highlightSettlement(lat, lon, name) {
+      if (!this.mapInstance) return
+
+      // Удаляем предыдущий круг выделения если есть
+      this.clearHighlight()
+
+      // НЕ центрируем карту - оставляем в положении Home
+      // Просто добавляем пульсирующий круг-выделение
+      const pulseCircle = L.circle([lat, lon], {
+        color: 'hsl(197, 100%, 50%)',
+        fillColor: 'hsl(197, 100%, 50%)',
+        fillOpacity: 0.3,
+        radius: 150,
+        className: 'pulse-circle'
+      }).addTo(this.mapInstance)
+
+      // Сохраняем ссылку на текущий круг
+      this.currentHighlightCircle = pulseCircle
+
+      // Удаляем круг через 3 секунды
+      setTimeout(() => {
+        if (this.currentHighlightCircle === pulseCircle) {
+          this.mapInstance.removeLayer(pulseCircle)
+          this.currentHighlightCircle = null
+        }
+      }, 3000)
+    },
+
+    clearHighlight() {
+      // Удаляем текущий круг выделения если есть
+      if (this.currentHighlightCircle && this.mapInstance) {
+        this.mapInstance.removeLayer(this.currentHighlightCircle)
+        this.currentHighlightCircle = null
+      }
+    }
+  },
+  watch: {
+    settlements: {
+      handler() {
+        this.updateMarkers()
+      },
+      deep: true
+    },
+    isActive(newVal) {
+      if (newVal) {
+        this.invalidateSize()
+      }
+    }
+  }
+}
+</script>
+
+<style scoped lang="scss">
+.leaflet-map-container {
+  width: 100%;
+  height: 100%;
+}
+
+// Анимация пульсации для круга выделения
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+:deep(.pulse-circle) {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+:deep(.custom-marker) {
+  background: transparent;
+  border: none;
+
+  .pie-marker {
+    cursor: pointer;
+    transition: transform 0.2s;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+
+    &:hover {
+      transform: scale(1.2);
+    }
+
+    svg {
+      display: block;
+    }
+  }
+}
+
+:deep(.leaflet-tooltip.custom-tooltip) {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  
+  &::before {
+    display: none;
+  }
+}
+
+:deep(.settlement-tooltip) {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  pointer-events: none;
+
+  .tooltip-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 1px;
+    text-shadow: 
+      -1px -1px 0 var(--bg-primary),
+      1px -1px 0 var(--bg-primary),
+      -1px 1px 0 var(--bg-primary),
+      1px 1px 0 var(--bg-primary);
+  }
+
+  .tooltip-district {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-shadow: 
+      -1px -1px 0 var(--bg-primary),
+      1px -1px 0 var(--bg-primary),
+      -1px 1px 0 var(--bg-primary),
+      1px 1px 0 var(--bg-primary);
+  }
+}
+
+:deep(.leaflet-popup-content-wrapper) {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+:deep(.leaflet-popup-tip) {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+}
+
+:deep(.settlement-popup-new) {
+  min-width: 200px;
+  max-width: 300px;
+
+  .popup-field {
+    margin: 2px 0;
+    font-size: 12px;
+    color: var(--text-primary);
+    line-height: 1.3;
+
+    &.popup-field-modern {
+      font-style: italic;
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+  }
+
+  .popup-estates {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border-color);
+    max-height: 200px;
+    overflow-y: auto;
+
+    .popup-estate-item {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 2px 0;
+      line-height: 1.4;
+      padding: 2px 0;
+    }
+
+    .popup-estate-total {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color);
+    }
+  }
+
+  .popup-actions {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+
+    .popup-details-btn {
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-primary);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: var(--bg-hover);
+        border-color: var(--accent-primary);
+      }
+    }
+  }
+}
+</style>

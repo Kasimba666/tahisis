@@ -1,12 +1,5 @@
 <template>
   <div class="settlements-page">
-    <div class="page-header">
-      <h1>Населённые пункты</h1>
-      <p class="page-description">
-        Сводная таблица по населённым пунктам с агрегированными данными
-      </p>
-    </div>
-
     <!-- Фильтры -->
     <EstatesFilters
       ref="estatesFilters"

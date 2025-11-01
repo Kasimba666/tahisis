@@ -1,0 +1,759 @@
+<template>
+  <div ref="olMap" class="openlayers-map-container"></div>
+</template>
+
+<script>
+import { Map as OLMap, View } from 'ol'
+import TileLayer from 'ol/layer/Tile'
+import OSM from 'ol/source/OSM'
+import VectorLayer from 'ol/layer/Vector'
+import VectorSource from 'ol/source/Vector'
+import Feature from 'ol/Feature'
+import Point from 'ol/geom/Point'
+import Polygon from 'ol/geom/Polygon'
+import LineString from 'ol/geom/LineString'
+import MultiPoint from 'ol/geom/MultiPoint'
+import MultiPolygon from 'ol/geom/MultiPolygon'
+import MultiLineString from 'ol/geom/MultiLineString'
+import { Style, Circle, Fill, Stroke } from 'ol/style'
+import { fromLonLat, transform } from 'ol/proj'
+import Overlay from 'ol/Overlay'
+import { useMapMarkers } from '@/composables/useMapMarkers.js'
+
+export default {
+  name: 'OpenLayersMap',
+  props: {
+    settlements: {
+      type: Array,
+      default: () => []
+    },
+    vectorLayers: {
+      type: Array,
+      default: () => []
+    },
+    initialCenter: {
+      type: Array,
+      default: () => [52.68, 55.42]
+    },
+    initialZoom: {
+      type: Number,
+      default: 8
+    },
+    isActive: {
+      type: Boolean,
+      default: true
+    }
+  },
+  data() {
+    return {
+      mapInstance: null,
+      vectorLayer: null,
+      vectorLayersMap: new Map(),
+      popupOverlay: null,
+      tooltipOverlay: null,
+      layersControlDiv: null,
+      currentHighlightLayer: null // Текущий слой с пульсацией
+    }
+  },
+  mounted() {
+    console.log('=== OpenLayersMap MOUNTED ===')
+    console.log('refs.olMap:', this.$refs.olMap)
+    console.log('settlements prop:', this.settlements?.length || 0)
+    console.log('isActive prop:', this.isActive)
+    
+    this.$nextTick(() => {
+      setTimeout(() => {
+        this.initMap()
+      }, 100)
+    })
+  },
+  beforeUnmount() {
+    if (this.mapInstance) {
+      this.mapInstance.setTarget(null)
+    }
+  },
+  methods: {
+    initMap() {
+      console.log('=== OpenLayersMap initMap ===')
+      console.log('refs.olMap exists:', !!this.$refs.olMap)
+      
+      if (!this.$refs.olMap) {
+        console.error('No olMap ref!')
+        return
+      }
+
+      try {
+        // Векторный слой для маркеров
+        this.vectorLayer = new VectorLayer({
+          source: new VectorSource()
+        })
+        console.log('Vector layer created')
+
+        this.mapInstance = new OLMap({
+          target: this.$refs.olMap,
+          layers: [
+            new TileLayer({ source: new OSM() }),
+            this.vectorLayer
+          ],
+          view: new View({
+            center: fromLonLat(this.initialCenter),
+            zoom: this.initialZoom
+          })
+        })
+        console.log('Map instance created')
+
+        this.createHomeButton()
+        this.createLayersControl()
+        this.createPopupOverlays()
+        this.setupEventHandlers()
+        
+        console.log('Calling updateMarkers with', this.settlements?.length || 0, 'settlements')
+        this.updateMarkers()
+        this.loadVectorLayers()
+        
+        console.log('=== OpenLayersMap initialization complete ===')
+      } catch (error) {
+        console.error('Error in initMap:', error)
+      }
+    },
+
+    createHomeButton() {
+      const btn = document.createElement('button')
+      btn.innerHTML = '🏠'
+      btn.title = 'Вернуться к исходному виду'
+      btn.style.cssText = `
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+        background: white;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        border: none;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      `
+      btn.onclick = () => this.resetView()
+      this.$refs.olMap.appendChild(btn)
+    },
+
+    createLayersControl() {
+      const controlDiv = document.createElement('div')
+      controlDiv.className = 'ol-layers-control'
+      controlDiv.style.cssText = `
+        position: absolute;
+        top: 50px;
+        right: 10px;
+        z-index: 1000;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+        padding: 6px 10px 6px 10px;
+        min-width: 150px;
+      `
+
+      const title = document.createElement('div')
+      title.textContent = 'Слои'
+      title.style.cssText = 'font-weight: 600; font-size: 11px; margin-bottom: 5px;'
+      controlDiv.appendChild(title)
+
+      this.layersControlDiv = controlDiv
+      this.$refs.olMap.appendChild(controlDiv)
+    },
+
+    updateLayersControl() {
+      if (!this.layersControlDiv) return
+
+      const checkboxes = this.layersControlDiv.querySelectorAll('.layer-checkbox-wrapper')
+      checkboxes.forEach(cb => cb.remove())
+
+      this.vectorLayersMap.forEach((layer, layerId) => {
+        const layerInfo = this.vectorLayers.find(l => l.id === layerId)
+        if (!layerInfo) return
+
+        const wrapper = document.createElement('label')
+        wrapper.className = 'layer-checkbox-wrapper'
+        wrapper.style.cssText = `
+          display: flex;
+          align-items: center;
+          padding: 2px 0;
+          cursor: pointer;
+          font-size: 11px;
+          line-height: 1.4;
+        `
+
+        const checkbox = document.createElement('input')
+        checkbox.type = 'checkbox'
+        checkbox.checked = true
+        checkbox.style.cssText = 'margin-right: 5px; cursor: pointer;'
+
+        const label = document.createElement('span')
+        label.textContent = layerInfo.name
+        label.style.cssText = 'user-select: none;'
+
+        wrapper.addEventListener('mouseenter', () => {
+          wrapper.style.backgroundColor = '#f4f4f4'
+        })
+
+        wrapper.addEventListener('mouseleave', () => {
+          wrapper.style.backgroundColor = 'transparent'
+        })
+
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            this.mapInstance.addLayer(layer)
+          } else {
+            this.mapInstance.removeLayer(layer)
+          }
+        })
+
+        wrapper.appendChild(checkbox)
+        wrapper.appendChild(label)
+        this.layersControlDiv.appendChild(wrapper)
+      })
+    },
+
+    createPopupOverlays() {
+      const { generateSettlementPopup } = useMapMarkers()
+
+      // Popup
+      const popupEl = document.createElement('div')
+      popupEl.className = 'ol-popup'
+      
+      // Добавляем кнопку закрытия
+      const closeBtn = document.createElement('button')
+      closeBtn.className = 'ol-popup-close'
+      closeBtn.innerHTML = '×'
+      closeBtn.title = 'Закрыть'
+      closeBtn.onclick = () => {
+        this.popupOverlay.setPosition(undefined)
+      }
+      popupEl.appendChild(closeBtn)
+      
+      // Контейнер для контента
+      const contentDiv = document.createElement('div')
+      contentDiv.className = 'ol-popup-content'
+      popupEl.appendChild(contentDiv)
+      
+      this.$refs.olMap.appendChild(popupEl)
+      
+      this.popupOverlay = new Overlay({
+        element: popupEl,
+        offset: [0, -10],
+        positioning: 'bottom-center',
+        stopEvent: true
+      })
+      this.mapInstance.addOverlay(this.popupOverlay)
+
+      // Tooltip
+      const tooltipEl = document.createElement('div')
+      tooltipEl.className = 'ol-tooltip'
+      this.$refs.olMap.appendChild(tooltipEl)
+      
+      this.tooltipOverlay = new Overlay({
+        element: tooltipEl,
+        offset: [0, -15],
+        positioning: 'bottom-center',
+        stopEvent: false
+      })
+      this.mapInstance.addOverlay(this.tooltipOverlay)
+    },
+
+    setupEventHandlers() {
+      const { generateSettlementPopup } = useMapMarkers()
+
+      this.mapInstance.on('singleclick', (evt) => {
+        let shown = false
+        this.mapInstance.forEachFeatureAtPixel(evt.pixel, (feature) => {
+          const settlement = {
+            name: feature.get('name') || '—',
+            nameModern: feature.get('nameModern') || '—',
+            district: feature.get('district') || '—',
+            male: feature.get('male') || 0,
+            female: feature.get('female') || 0,
+            estates: feature.get('estates') || []
+          }
+          
+          const contentDiv = this.popupOverlay.getElement().querySelector('.ol-popup-content')
+          contentDiv.innerHTML = generateSettlementPopup(settlement)
+          
+          // Добавляем обработчик для кнопки "Детали" программно
+          const detailsBtn = contentDiv.querySelector('.popup-details-btn')
+          if (detailsBtn) {
+            detailsBtn.onclick = () => {
+              console.log('OpenLayers popup: Details button clicked', settlement)
+              window.dispatchEvent(new CustomEvent('show-settlement-details', { 
+                detail: { settlement } 
+              }))
+            }
+          }
+          
+          this.popupOverlay.setPosition(evt.coordinate)
+          shown = true
+          return true
+        })
+        
+        if (!shown) {
+          this.popupOverlay.setPosition(undefined)
+        }
+      })
+
+      this.mapInstance.on('pointermove', (evt) => {
+        const hit = this.mapInstance.hasFeatureAtPixel(evt.pixel)
+        this.$refs.olMap.style.cursor = hit ? 'pointer' : 'default'
+        
+        if (hit) {
+          this.mapInstance.forEachFeatureAtPixel(evt.pixel, (feature) => {
+            const name = feature.get('name') || ''
+            const district = feature.get('district') || ''
+            this.tooltipOverlay.getElement().innerHTML = `
+              <div class="settlement-tooltip">
+                <div class="tooltip-name">${name}</div>
+                <div class="tooltip-district">${district}</div>
+              </div>
+            `
+            this.tooltipOverlay.setPosition(evt.coordinate)
+            return true
+          })
+        } else {
+          this.tooltipOverlay.setPosition(undefined)
+        }
+      })
+
+      this.mapInstance.on('moveend', () => {
+        const view = this.mapInstance.getView()
+        const center = transform(view.getCenter(), 'EPSG:3857', 'EPSG:4326')
+        this.$emit('view-change', {
+          center: { lat: center[1], lng: center[0] },
+          zoom: view.getZoom()
+        })
+      })
+    },
+
+    updateMarkers() {
+      console.log('=== OpenLayers updateMarkers ===')
+      console.log('vectorLayer exists:', !!this.vectorLayer)
+      console.log('settlements length:', this.settlements?.length || 0)
+      console.log('settlements sample:', this.settlements?.slice(0, 2))
+      
+      if (!this.vectorLayer) {
+        console.warn('No vectorLayer in updateMarkers')
+        return
+      }
+
+      const source = this.vectorLayer.getSource()
+      source.clear()
+
+      let addedCount = 0
+      this.settlements.forEach(settlement => {
+        if (settlement.lat && settlement.lon) {
+          const lat = parseFloat(settlement.lat)
+          const lon = parseFloat(settlement.lon)
+
+          if (isNaN(lat) || isNaN(lon)) {
+            console.warn('Invalid coordinates:', settlement)
+            return
+          }
+
+          const [x, y] = fromLonLat([lon, lat])
+          const estateTypes = settlement.estateTypes || []
+
+          const feature = new Feature({
+            geometry: new Point([x, y]),
+            name: settlement.name,
+            nameModern: settlement.nameModern,
+            district: settlement.district,
+            male: settlement.male,
+            female: settlement.female,
+            estates: settlement.estates || []
+          })
+
+          const styles = this.createMarkerStyle(estateTypes)
+          feature.setStyle(styles)
+          source.addFeature(feature)
+          addedCount++
+        }
+      })
+      
+      console.log('Added markers count:', addedCount)
+      console.log('Total features in source:', source.getFeatures().length)
+    },
+
+    createMarkerStyle(estateTypes) {
+      if (!estateTypes || estateTypes.length === 0) {
+        return new Style({
+          image: new Circle({
+            radius: 8,
+            fill: new Fill({ color: 'transparent' }),
+            stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 3 })
+          })
+        })
+      }
+
+      const totalPopulation = estateTypes.reduce((sum, type) => sum + type.population, 0)
+      const minRadius = 2.5
+      const maxRadius = 12
+      const normalizedPopulation = Math.min(Math.max(totalPopulation - 10, 0) / 990, 1)
+      const radius = minRadius + (maxRadius - minRadius) * normalizedPopulation
+
+      if (estateTypes.length === 1) {
+        return new Style({
+          image: new Circle({
+            radius,
+            fill: new Fill({ color: 'transparent' }),
+            stroke: new Stroke({ color: estateTypes[0].color, width: 3 })
+          })
+        })
+      }
+
+      return new Style({
+        renderer: (coordinates, state) => {
+          const ctx = state.context
+          const x = coordinates[0]
+          const y = coordinates[1]
+          
+          ctx.save()
+          ctx.translate(x, y)
+          
+          const segmentAngle = (2 * Math.PI) / estateTypes.length
+          
+          estateTypes.forEach((type, index) => {
+            const startAngle = -Math.PI / 2 + (index * segmentAngle)
+            const endAngle = -Math.PI / 2 + ((index + 1) * segmentAngle)
+
+            ctx.beginPath()
+            ctx.arc(0, 0, radius, startAngle, endAngle, false)
+            ctx.strokeStyle = type.color
+            ctx.lineWidth = 3
+            ctx.lineCap = 'butt'
+            ctx.stroke()
+          })
+          
+          ctx.restore()
+        }
+      })
+    },
+
+    loadVectorLayers() {
+      if (!this.mapInstance || this.vectorLayers.length === 0) return
+
+      const { getLayerColor, hslToHsla } = useMapMarkers()
+
+      this.vectorLayers.forEach(layer => {
+        if (!layer.file_url) return
+
+        fetch(layer.file_url)
+          .then(response => response.json())
+          .then(geoJsonData => {
+            const vectorSource = new VectorSource()
+            const layerColor = getLayerColor(layer.id)
+
+            const vectorLayer = new VectorLayer({
+              source: vectorSource,
+              style: new Style({
+                stroke: new Stroke({ color: layerColor, width: 2 }),
+                fill: new Fill({ color: hslToHsla(layerColor, 0.3) })
+              })
+            })
+
+            if (geoJsonData.features) {
+              geoJsonData.features.forEach(feature => {
+                const olFeature = new Feature({
+                  geometry: this.geoJsonToOL(feature.geometry)
+                })
+                vectorSource.addFeature(olFeature)
+              })
+            }
+
+            this.vectorLayersMap.set(layer.id, vectorLayer)
+            this.mapInstance.addLayer(vectorLayer)
+            this.updateLayersControl()
+          })
+          .catch(error => console.error(`Error loading layer ${layer.name}:`, error))
+      })
+    },
+
+    geoJsonToOL(geometry) {
+      if (!geometry) return null
+
+      switch (geometry.type) {
+        case 'Point':
+          return new Point(fromLonLat(geometry.coordinates))
+        case 'MultiPoint':
+          return new MultiPoint(geometry.coordinates.map(coords => fromLonLat(coords)))
+        case 'LineString':
+          return new LineString(geometry.coordinates.map(coords => fromLonLat(coords)))
+        case 'MultiLineString':
+          return new MultiLineString(geometry.coordinates.map(line => line.map(coords => fromLonLat(coords))))
+        case 'Polygon':
+          return new Polygon(geometry.coordinates.map(ring => ring.map(coords => fromLonLat(coords))))
+        case 'MultiPolygon':
+          return new MultiPolygon(geometry.coordinates.map(polygon => polygon.map(ring => ring.map(coords => fromLonLat(coords)))))
+        default:
+          return null
+      }
+    },
+
+    resetView() {
+      if (this.mapInstance) {
+        this.mapInstance.getView().setCenter(fromLonLat(this.initialCenter))
+        this.mapInstance.getView().setZoom(this.initialZoom)
+      }
+    },
+
+    syncView(center, zoom) {
+      if (this.mapInstance && center && zoom) {
+        this.mapInstance.getView().setCenter(fromLonLat([center.lng, center.lat]))
+        this.mapInstance.getView().setZoom(zoom)
+      }
+    },
+
+    updateSize() {
+      if (this.mapInstance) {
+        this.$nextTick(() => {
+          this.mapInstance.updateSize()
+        })
+      }
+    },
+
+    highlightSettlement(lat, lon, name) {
+      if (!this.mapInstance) return
+
+      // Удаляем предыдущую обводку если есть
+      this.clearHighlight()
+
+      const coordinates = fromLonLat([lon, lat])
+
+      // НЕ центрируем карту - оставляем в положении Home
+      // Создаём пульсирующий круг с анимацией
+      const pulseFeature = new Feature({
+        geometry: new Point(coordinates)
+      })
+
+      // Параметры анимации
+      let startTime = Date.now()
+      const duration = 3000 // 3 секунды
+      const baseRadius = 25
+      const maxRadius = 35
+      const minOpacity = 0.2
+      const maxOpacity = 0.5
+
+      const pulseSource = new VectorSource({ features: [pulseFeature] })
+      const pulseLayer = new VectorLayer({ 
+        source: pulseSource,
+        zIndex: 1000 // Высокий z-index чтобы быть поверх всего
+      })
+      
+      // Сохраняем ссылку на текущий слой
+      this.currentHighlightLayer = pulseLayer
+      this.mapInstance.addLayer(pulseLayer)
+
+      // Анимация пульсации через requestAnimationFrame
+      const animate = () => {
+        const elapsed = Date.now() - startTime
+        const progress = (elapsed % 1000) / 1000 // Цикл каждую секунду
+        
+        // Синусоидальная пульсация
+        const sin = Math.sin(progress * Math.PI * 2)
+        const radius = baseRadius + (maxRadius - baseRadius) * (sin + 1) / 2
+        const opacity = minOpacity + (maxOpacity - minOpacity) * (sin + 1) / 2
+
+        // Обновляем стиль
+        pulseFeature.setStyle(new Style({
+          image: new Circle({
+            radius: radius,
+            fill: new Fill({ color: `hsla(197, 100%, 50%, ${opacity})` }),
+            stroke: new Stroke({ 
+              color: 'hsl(197, 100%, 50%)', 
+              width: 3 
+            })
+          })
+        }))
+
+        // Продолжаем анимацию или удаляем слой
+        if (elapsed < duration) {
+          requestAnimationFrame(animate)
+        } else {
+          this.mapInstance.removeLayer(pulseLayer)
+          // Очищаем ссылку если это всё ещё текущий слой
+          if (this.currentHighlightLayer === pulseLayer) {
+            this.currentHighlightLayer = null
+          }
+        }
+      }
+
+      // Запускаем анимацию
+      requestAnimationFrame(animate)
+    },
+
+    clearHighlight() {
+      // Удаляем текущий слой с пульсацией если есть
+      if (this.currentHighlightLayer && this.mapInstance) {
+        this.mapInstance.removeLayer(this.currentHighlightLayer)
+        this.currentHighlightLayer = null
+      }
+    }
+  },
+  watch: {
+    settlements: {
+      handler() {
+        this.updateMarkers()
+      },
+      deep: true
+    },
+    isActive(newVal) {
+      if (newVal) {
+        this.updateSize()
+      }
+    }
+  }
+}
+</script>
+
+<style scoped lang="scss">
+.openlayers-map-container {
+  width: 100%;
+  height: 100%;
+}
+
+// Анимация пульсации для круга выделения в OpenLayers
+@keyframes pulse-openlayers {
+  0% {
+    opacity: 1;
+    r: 25;
+  }
+  50% {
+    opacity: 0.5;
+    r: 30;
+  }
+  100% {
+    opacity: 1;
+    r: 25;
+  }
+}
+
+// Применение анимации к canvas OpenLayers
+:deep(canvas) {
+  animation: none;
+}
+
+:deep(.ol-popup) {
+  position: relative;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+}
+
+:deep(.ol-popup-close) {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+}
+
+:deep(.ol-popup-content) {
+  padding-right: 16px;
+}
+
+:deep(.ol-tooltip) {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  pointer-events: none;
+}
+
+:deep(.settlement-tooltip) {
+  .tooltip-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    text-shadow: -1px -1px 0 var(--bg-primary), 1px -1px 0 var(--bg-primary), -1px 1px 0 var(--bg-primary), 1px 1px 0 var(--bg-primary);
+  }
+
+  .tooltip-district {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-shadow: -1px -1px 0 var(--bg-primary), 1px -1px 0 var(--bg-primary), -1px 1px 0 var(--bg-primary), 1px 1px 0 var(--bg-primary);
+  }
+}
+
+:deep(.settlement-popup-new) {
+  min-width: 200px;
+  max-width: 300px;
+
+  .popup-field {
+    margin: 2px 0;
+    font-size: 12px;
+    color: var(--text-primary);
+
+    &.popup-field-modern {
+      font-style: italic;
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+  }
+
+  .popup-estates {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border-color);
+    max-height: 200px;
+    overflow-y: auto;
+
+    .popup-estate-item {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin: 2px 0;
+    }
+
+    .popup-estate-total {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid var(--border-color);
+    }
+  }
+
+  .popup-actions {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+
+    .popup-details-btn {
+      padding: 4px 12px;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-primary);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: var(--bg-hover);
+        border-color: var(--accent-primary);
+      }
+    }
+  }
+}
+</style>

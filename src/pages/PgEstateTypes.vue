@@ -311,7 +311,7 @@ export default {
 }
 </script>
 
-<style scoped>
+<style scoped lang="scss">
 .pg-estate-types {
   padding: 1rem;
 
@@ -339,6 +339,91 @@ export default {
     height: 24px;
     border-radius: 50%;
     border: 2px solid var(--border-color);
+  }
+
+  // Кастомные стили для скроллбаров таблицы - толще и всегда видимые
+  :deep(.el-table) {
+    // Для Webkit (Chrome, Safari, Edge)
+    &::-webkit-scrollbar {
+      width: 20px;
+      height: 20px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: var(--bg-tertiary);
+      border-radius: 10px;
+      margin: 2px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--accent-primary);
+      border-radius: 10px;
+      border: 3px solid var(--bg-tertiary);
+      min-height: 50px;
+
+      &:hover {
+        background: var(--accent-primary);
+        opacity: 0.8;
+      }
+
+      &:active {
+        background: var(--accent-primary);
+        opacity: 1;
+      }
+    }
+
+    &::-webkit-scrollbar-corner {
+      background: var(--bg-tertiary);
+    }
+
+    &::-webkit-scrollbar-button {
+      display: none;
+    }
+
+    // Для Firefox
+    scrollbar-width: auto;
+    scrollbar-color: var(--accent-primary) var(--bg-tertiary);
+
+    .el-table__body-wrapper {
+      &::-webkit-scrollbar {
+        width: 20px;
+        height: 20px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: var(--bg-tertiary);
+        border-radius: 10px;
+        margin: 2px;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--accent-primary);
+        border-radius: 10px;
+        border: 3px solid var(--bg-tertiary);
+        min-height: 50px;
+
+        &:hover {
+          background: var(--accent-primary);
+          opacity: 0.8;
+        }
+
+        &:active {
+          background: var(--accent-primary);
+          opacity: 1;
+        }
+      }
+
+      &::-webkit-scrollbar-corner {
+        background: var(--bg-tertiary);
+      }
+
+      &::-webkit-scrollbar-button {
+        display: none;
+      }
+
+      scrollbar-width: auto;
+      scrollbar-color: var(--accent-primary) var(--bg-tertiary);
+    }
   }
 }
 </style>

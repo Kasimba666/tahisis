@@ -26,11 +26,10 @@
         <el-table
           :data="settlementsData"
           v-loading="loading"
-          style="width: 100%; height: 100%"
+          style="width: 100%"
           border
           stripe
           size="small"
-          height="calc(100vh - 200px)"
           @row-dblclick="viewSettlementDetails"
           :show-summary="true"
           sum-text="Итого"
@@ -162,7 +161,7 @@
               <el-table-column prop="female" label="Ж" width="60" align="right" />
               <el-table-column prop="total" label="Всего" width="80" align="right">
                 <template #default="scope">
-                  <el-tag size="mini" type="primary">{{ formatNumber(scope.row.total) }}</el-tag>
+                  <el-tag size="small" type="primary">{{ formatNumber(scope.row.total) }}</el-tag>
                 </template>
               </el-table-column>
             </el-table>
@@ -191,7 +190,7 @@
               <el-table-column prop="female" label="Ж" width="55" align="right" />
               <el-table-column prop="total" label="Всего" width="80" align="right">
                 <template #default="scope">
-                  <el-tag size="mini" type="success">{{ formatNumber(scope.row.total) }}</el-tag>
+                  <el-tag size="small" type="success">{{ formatNumber(scope.row.total) }}</el-tag>
                 </template>
               </el-table-column>
             </el-table>
@@ -202,7 +201,13 @@
       </div>
 
       <template #footer>
-        <el-button size="small" @click="closeDetailsDrawer">Закрыть</el-button>
+        <div style="display: flex; gap: 8px;">
+          <el-button type="primary" size="small" @click="showOnMap" v-if="selectedSettlement && hasCoordinates">
+            <el-icon><Location /></el-icon>
+            Карта
+          </el-button>
+          <el-button size="small" @click="closeDetailsDrawer">Закрыть</el-button>
+        </div>
       </template>
     </el-drawer>
 
@@ -210,7 +215,7 @@
 </template>
 
 <script>
-import { Download, DataBoard } from '@element-plus/icons-vue'
+import { Download, DataBoard, Location } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import * as XLSX from 'xlsx'
@@ -233,6 +238,7 @@ export default {
   name: 'SettlementsListAndMap',
   components: {
     Download,
+    Location,
     MapView,
     ViewModeSelector,
     GeoJsonViewer
@@ -315,6 +321,11 @@ export default {
     }
   },
   computed: {
+    hasCoordinates() {
+      if (!this.selectedSettlement) return false
+      return this.selectedSettlement.lat && this.selectedSettlement.lon
+    },
+
     totalPopulation() {
       return this.settlementsData.reduce((sum, settlement) => sum + (settlement.total || 0), 0)
     },
@@ -426,16 +437,28 @@ export default {
   methods: {
     // Обработчик события из popup карты
     handleShowDetailsFromMap(event) {
+      console.log('=== SettlementsListAndMap: handleShowDetailsFromMap ===')
+      console.log('Event:', event)
+      console.log('Event detail:', event.detail)
+      
       const settlement = event.detail?.settlement
+      console.log('Settlement from event:', settlement)
+      
       if (settlement) {
         // Находим полную запись settlement in settlementsData по имени
         const fullSettlement = this.settlementsData.find(s => 
           s.settlement_name_old === settlement.name || 
           s.settlement_name_modern === settlement.nameModern
         )
+        console.log('Full settlement found:', fullSettlement)
+        
         if (fullSettlement) {
           this.viewSettlementDetails(fullSettlement)
+        } else {
+          console.warn('Settlement not found in settlementsData:', settlement.name, settlement.nameModern)
         }
+      } else {
+        console.warn('No settlement in event.detail')
       }
     },
 
@@ -1039,11 +1062,52 @@ export default {
     viewSettlementDetails(row) {
       this.selectedSettlement = row
       this.detailsDrawerVisible = true
+      
+      // Автоматически выделяем объект на карте при открытии деталей
+      if (row.lat && row.lon && (this.viewMode === 'map' || this.viewMode === 'split')) {
+        this.$nextTick(() => {
+          window.dispatchEvent(new CustomEvent('show-settlement-on-map', {
+            detail: { 
+              lat: parseFloat(row.lat), 
+              lon: parseFloat(row.lon), 
+              name: row.settlement_name_modern || row.settlement_name_old 
+            }
+          }))
+        })
+      }
     },
 
     closeDetailsDrawer() {
       this.detailsDrawerVisible = false
       this.selectedSettlement = null
+      
+      // Убираем обводку на карте
+      window.dispatchEvent(new CustomEvent('clear-settlement-highlight'))
+    },
+
+    showOnMap() {
+      if (!this.selectedSettlement || !this.hasCoordinates) return
+      
+      const lat = this.selectedSettlement.lat
+      const lon = this.selectedSettlement.lon
+      const name = this.selectedSettlement.settlement_name_modern || this.selectedSettlement.settlement_name_old
+      
+      if (lat && lon) {
+        // Закрываем drawer деталей
+        this.detailsDrawerVisible = false
+        
+        // Переключаемся на режим карты если нужно
+        if (this.viewMode === 'list' || this.viewMode === 'geojson') {
+          this.viewMode = 'split'
+        }
+        
+        // Вызываем метод выделения на карте
+        this.$nextTick(() => {
+          window.dispatchEvent(new CustomEvent('show-settlement-on-map', {
+            detail: { lat: parseFloat(lat), lon: parseFloat(lon), name }
+          }))
+        })
+      }
     },
 
     formatNumber(num) {
@@ -1053,18 +1117,12 @@ export default {
     // Метод для расчёта итоговой строки
     getSummary() {
       const sums = {
-        revision_count: 0,
-        estates_count: 0,
-        religions_count: 0,
         male: 0,
         female: 0,
         total: this.totalPopulation
       }
 
       this.settlementsData.forEach(settlement => {
-        sums.revision_count += settlement.revision_count || 0
-        sums.estates_count += settlement.estates_count || 0
-        sums.religions_count += settlement.religions_count || 0
         sums.male += settlement.male || 0
         sums.female += settlement.female || 0
       })
@@ -1073,9 +1131,9 @@ export default {
         'Итого:',
         '',
         '',
-        sums.revision_count.toLocaleString(),
-        sums.estates_count.toLocaleString(),
-        sums.religions_count.toLocaleString(),
+        '',
+        '',
+        '',
         sums.male.toLocaleString(),
         sums.female.toLocaleString(),
         sums.total.toLocaleString()
@@ -1621,10 +1679,8 @@ export default {
         flex: 1;
         min-width: 0;
         min-height: 0;
-        max-height: 50vh;
-        min-height: 250px;
         overflow-y: auto;
-        overflow-x: hidden;
+        overflow-x: auto;
         border: 1px solid var(--border-color);
         border-radius: 8px;
         background-color: var(--bg-secondary);
@@ -1671,31 +1727,32 @@ export default {
       overflow-x: auto;
       overflow-y: auto;
 
-      // Кастомные стили для скроллбара
+      // Кастомные стили для скроллбара - толще и всегда видимые
       &::-webkit-scrollbar {
-        width: 16px;
-        height: 16px;
+        width: 20px;
+        height: 20px;
       }
 
       &::-webkit-scrollbar-track {
         background: var(--bg-tertiary);
-        border-radius: 8px;
+        border-radius: 10px;
         margin: 2px;
       }
 
       &::-webkit-scrollbar-thumb {
-        background: var(--border-color);
-        border-radius: 8px;
-        border: 2px solid var(--bg-tertiary);
-        min-height: 40px;
+        background: var(--accent-primary);
+        border-radius: 10px;
+        border: 3px solid var(--bg-tertiary);
+        min-height: 50px;
 
         &:hover {
-          background: var(--text-muted);
-          border-color: var(--bg-hover);
+          background: var(--accent-primary);
+          opacity: 0.8;
         }
 
         &:active {
           background: var(--accent-primary);
+          opacity: 1;
         }
       }
 
@@ -1708,9 +1765,9 @@ export default {
         display: none;
       }
 
-      // Для Firefox
+      // Для Firefox - толще и всегда видимые
       scrollbar-width: auto;
-      scrollbar-color: var(--border-color) var(--bg-tertiary);
+      scrollbar-color: var(--accent-primary) var(--bg-tertiary);
 
       // Обеспечиваем что таблица занимает всю высоту контейнера
       :deep(.el-table) {
