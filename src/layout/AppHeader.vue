@@ -20,8 +20,11 @@
           <router-link to="/about" class="nav-item" :class="{ active: isActive('/about') }">
             О проекте
           </router-link>
-          <router-link to="/estates-list" class="nav-item" :class="{ active: isActive('/estates-list') }">
-            Список сословий
+          <router-link to="/estates" class="nav-item" :class="{ active: isActive('/estates') }">
+            По сословиям
+          </router-link>
+          <router-link to="/revisions" class="nav-item" :class="{ active: isActive('/revisions') }">
+            По записям ревизий
           </router-link>
           <router-link to="/settlements" class="nav-item" :class="{ active: isActive('/settlements') }">
             Населённые пункты

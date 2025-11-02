@@ -151,9 +151,16 @@ const routes = [
     }
   },
   {
-    path: '/estates-list',
-    name: 'EstatesList',
-    component: PgEstatesList
+    path: '/estates',
+    name: 'Estates',
+    component: PgEstatesList,
+    meta: { dataMode: 'estate' }
+  },
+  {
+    path: '/revisions',
+    name: 'Revisions',
+    component: PgEstatesList,
+    meta: { dataMode: 'report' }
   },
   {
     path: '/settlements',

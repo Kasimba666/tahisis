@@ -12,6 +12,7 @@
       <div class="main-panel">
         <EstatesListAndMap 
           ref="listAndMap"
+          :initial-data-mode="dataMode"
           @data-mode-change="handleDataModeChange"
         />
       </div>
@@ -31,9 +32,23 @@ export default {
   },
   data() {
     return {
-      dataMode: 'estate',
+      dataMode: this.$route.meta.dataMode || 'estate',
       currentFilters: null,
       filterOptions: null
+    }
+  },
+  watch: {
+    '$route.meta.dataMode': {
+      handler(newMode) {
+        if (newMode && newMode !== this.dataMode) {
+          this.dataMode = newMode
+          if (this.$refs.listAndMap) {
+            this.$refs.listAndMap.dataMode = newMode
+            this.$refs.listAndMap.loadData()
+          }
+        }
+      },
+      immediate: true
     }
   },
   methods: {

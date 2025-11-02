@@ -1,15 +1,6 @@
 <template>
   <div class="estates-list-and-map">
     <div class="view-controls">
-      <div class="mode-selector">
-        <el-radio-group v-model="dataMode" size="small">
-          <el-radio-button label="estate">По сословиям</el-radio-button>
-          <el-radio-button label="report">По записям ревизий</el-radio-button>
-        </el-radio-group>
-      </div>
-      
-
-      
       <div class="stats">
         <el-popover
           v-model:visible="columnsPopoverVisible"
@@ -335,6 +326,8 @@ import { Location, Loading, Setting, Brush, Download } from '@element-plus/icons
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import Sortable from 'sortablejs'
+import ColorSchemeSelector from '@/components/ColorSchemeSelector.vue'
+import MapView from '@/components/MapView.vue'
 
 import { useTableSorting } from '@/composables/useStorage.js'
 import {
@@ -354,7 +347,15 @@ export default {
   components: {
     Location,
     Loading,
-    Setting
+    Setting,
+    ColorSchemeSelector,
+    MapView
+  },
+  props: {
+    initialDataMode: {
+      type: String,
+      default: 'estate'
+    }
   },
   setup() {
     // Используем composable для управления сортировкой с сохранением в localStorage
@@ -368,8 +369,9 @@ export default {
   },
   data() {
     return {
-      dataMode: 'estate',
-      viewMode: 'list', // Added missing viewMode property
+      dataMode: this.initialDataMode || 'estate',
+      viewMode: 'list',
+      showColorSettings: false,
       estateData: [],
       reportData: [],
       allEstateData: [],
