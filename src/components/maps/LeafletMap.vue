@@ -166,13 +166,11 @@ export default {
         fetch(layer.file_url)
           .then(response => response.json())
           .then(geoJsonData => {
+            // Получаем стиль из БД или используем стандартный
+            const layerStyle = this.getLayerStyle(layer)
+            
             const vectorLayer = L.geoJSON(geoJsonData, {
-              style: {
-                color: getLayerColor(layer.id),
-                weight: 2,
-                opacity: 0.7,
-                fillOpacity: 0.3
-              }
+              style: layerStyle
             })
 
             this.vectorLayersMap.set(layer.id, vectorLayer)
@@ -180,6 +178,56 @@ export default {
           })
           .catch(error => console.error(`Error loading layer ${layer.name}:`, error))
       })
+    },
+
+    getLayerStyle(layer) {
+      const { getLayerColor } = useMapMarkers()
+      
+      // Если есть стиль в БД, используем его
+      if (layer.style) {
+        try {
+          const style = typeof layer.style === 'string' ? JSON.parse(layer.style) : layer.style
+          
+          // Возвращаем стиль в зависимости от типа геометрии
+          if (style.point) {
+            return {
+              color: style.point.strokeColor || '#ffffff',
+              weight: style.point.strokeWidth || 2,
+              fillColor: style.point.fillColor || '#3388ff',
+              fillOpacity: 0.8,
+              radius: style.point.radius || 8
+            }
+          }
+          
+          if (style.line) {
+            return {
+              color: style.line.strokeColor || '#3388ff',
+              weight: style.line.strokeWidth || 2,
+              opacity: style.line.opacity || 0.7
+            }
+          }
+          
+          if (style.polygon) {
+            return {
+              color: style.polygon.strokeColor || '#3388ff',
+              weight: style.polygon.strokeWidth || 2,
+              opacity: style.polygon.opacity || 0.7,
+              fillColor: style.polygon.fillColor || '#3388ff',
+              fillOpacity: style.polygon.fillOpacity || 0.3
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing layer style:', error)
+        }
+      }
+      
+      // Стиль по умолчанию
+      return {
+        color: getLayerColor(layer.id),
+        weight: 2,
+        opacity: 0.7,
+        fillOpacity: 0.3
+      }
     },
 
     resetView() {
@@ -264,6 +312,24 @@ export default {
     settlements: {
       handler() {
         this.updateMarkers()
+      },
+      deep: true
+    },
+    vectorLayers: {
+      handler(newLayers, oldLayers) {
+        // Перезагружаем слои при изменении данных
+        if (this.mapInstance && newLayers && newLayers.length > 0) {
+          // Очищаем старые векторные слои
+          this.vectorLayersMap.forEach(layer => {
+            if (this.mapInstance.hasLayer(layer)) {
+              this.mapInstance.removeLayer(layer)
+            }
+          })
+          this.vectorLayersMap.clear()
+          
+          // Загружаем новые векторные слои
+          this.loadVectorLayers()
+        }
       },
       deep: true
     },

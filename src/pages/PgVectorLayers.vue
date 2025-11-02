@@ -133,7 +133,7 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="Действия" width="250">
+      <el-table-column label="Действия" width="320">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">
             <el-button type="success" size="small" @click="updateRow(row.id)">Сохранить</el-button>
@@ -143,10 +143,17 @@
             <el-button type="primary" size="small" @click="startEdit(row)">Редактировать</el-button>
             <el-button type="danger" size="small" @click="deleteRow(row.id)">Удалить</el-button>
             <el-button type="info" size="small" @click="downloadLayer(row)">Скачать</el-button>
+            <el-button v-if="row.file_url" size="small" @click="editStyle(row)">🎨 Стиль</el-button>
           </div>
         </template>
       </el-table-column>
     </el-table>
+
+    <VectorLayerStyleEditor
+      v-model="styleEditorVisible"
+      :layer="currentEditingLayer"
+      @save="handleStyleSave"
+    />
   </div>
 </template>
 
@@ -154,11 +161,13 @@
 import { vectorLayerService } from "@/services/vectorLayers"
 import { supabaseAdmin } from "@/services/supabase"
 import VectorLayerUpload from '@/components/VectorLayerUpload.vue'
+import VectorLayerStyleEditor from '@/components/VectorLayerStyleEditor.vue'
 
 export default {
   name: "PgVectorLayers",
   components: {
-    VectorLayerUpload
+    VectorLayerUpload,
+    VectorLayerStyleEditor
   },
   data() {
     return {
@@ -169,7 +178,9 @@ export default {
       activeTab: 'upload',
       linkFileList: [],
       targetRecordId: null,
-      linking: false
+      linking: false,
+      styleEditorVisible: false,
+      currentEditingLayer: null
     }
   },
   computed: {
@@ -391,6 +402,40 @@ export default {
       this.linkFileList = []
       if (this.$refs.linkUpload) {
         this.$refs.linkUpload.clearFiles()
+      }
+    },
+
+    editStyle(row) {
+      // Создаём копию объекта чтобы избежать мутаций
+      this.currentEditingLayer = { ...row }
+      this.styleEditorVisible = true
+      console.log('Editing style for layer:', this.currentEditingLayer.id, this.currentEditingLayer.name)
+    },
+
+    async handleStyleSave(styleJSON) {
+      if (!this.currentEditingLayer || !this.currentEditingLayer.id) {
+        console.error('No layer selected for style save')
+        this.$message.error('Ошибка: не выбран слой для сохранения стиля')
+        return
+      }
+
+      const layerId = this.currentEditingLayer.id
+      const layerName = this.currentEditingLayer.name
+
+      console.log('Saving style for layer ID:', layerId, 'Name:', layerName)
+      console.log('Style JSON:', styleJSON)
+
+      try {
+        await vectorLayerService.updateVectorLayer(layerId, {
+          style: styleJSON
+        })
+        this.$message.success(`Стиль слоя "${layerName}" сохранён`)
+        this.currentEditingLayer = null
+        this.fetchData()
+        this.refreshMapLayers()
+      } catch (error) {
+        console.error('Error saving style for layer', layerId, error)
+        this.$message.error(`Ошибка сохранения стиля: ${error.message}`)
       }
     },
 

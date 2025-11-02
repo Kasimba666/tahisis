@@ -360,8 +360,6 @@ export default {
     loadVectorLayers() {
       if (!this.mapInstance || this.vectorLayers.length === 0) return
 
-      const { getLayerColor, hslToHsla } = useMapMarkers()
-
       this.vectorLayers.forEach(layer => {
         if (!layer.file_url) return
 
@@ -369,14 +367,11 @@ export default {
           .then(response => response.json())
           .then(geoJsonData => {
             const vectorSource = new VectorSource()
-            const layerColor = getLayerColor(layer.id)
+            const layerStyle = this.getLayerStyle(layer)
 
             const vectorLayer = new VectorLayer({
               source: vectorSource,
-              style: new Style({
-                stroke: new Stroke({ color: layerColor, width: 2 }),
-                fill: new Fill({ color: hslToHsla(layerColor, 0.3) })
-              })
+              style: layerStyle
             })
 
             if (geoJsonData.features) {
@@ -392,6 +387,63 @@ export default {
             this.mapInstance.addLayer(vectorLayer)
           })
           .catch(error => console.error(`Error loading layer ${layer.name}:`, error))
+      })
+    },
+
+    getLayerStyle(layer) {
+      const { getLayerColor, hslToHsla } = useMapMarkers()
+      
+      // Если есть стиль в БД, используем его
+      if (layer.style) {
+        try {
+          const style = typeof layer.style === 'string' ? JSON.parse(layer.style) : layer.style
+          
+          // Стиль для Point
+          if (style.point) {
+            return new Style({
+              image: new Circle({
+                radius: style.point.radius || 8,
+                fill: new Fill({ color: style.point.fillColor || '#3388ff' }),
+                stroke: new Stroke({
+                  color: style.point.strokeColor || '#ffffff',
+                  width: style.point.strokeWidth || 2
+                })
+              })
+            })
+          }
+          
+          // Стиль для LineString
+          if (style.line) {
+            return new Style({
+              stroke: new Stroke({
+                color: style.line.strokeColor || '#3388ff',
+                width: style.line.strokeWidth || 2
+              })
+            })
+          }
+          
+          // Стиль для Polygon
+          if (style.polygon) {
+            return new Style({
+              stroke: new Stroke({
+                color: style.polygon.strokeColor || '#3388ff',
+                width: style.polygon.strokeWidth || 2
+              }),
+              fill: new Fill({
+                color: hslToHsla(style.polygon.fillColor || '#3388ff', style.polygon.fillOpacity || 0.3)
+              })
+            })
+          }
+        } catch (error) {
+          console.error('Error parsing layer style:', error)
+        }
+      }
+      
+      // Стиль по умолчанию
+      const layerColor = getLayerColor(layer.id)
+      return new Style({
+        stroke: new Stroke({ color: layerColor, width: 2 }),
+        fill: new Fill({ color: hslToHsla(layerColor, 0.3) })
       })
     },
 
@@ -542,6 +594,22 @@ export default {
     settlements: {
       handler() {
         this.updateMarkers()
+      },
+      deep: true
+    },
+    vectorLayers: {
+      handler(newLayers, oldLayers) {
+        // Перезагружаем слои при изменении данных
+        if (this.mapInstance && newLayers && newLayers.length > 0) {
+          // Очищаем старые слои
+          this.vectorLayersMap.forEach(layer => {
+            this.mapInstance.removeLayer(layer)
+          })
+          this.vectorLayersMap.clear()
+          
+          // Загружаем новые
+          this.loadVectorLayers()
+        }
       },
       deep: true
     },
