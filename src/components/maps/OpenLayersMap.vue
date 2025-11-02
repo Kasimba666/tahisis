@@ -51,8 +51,7 @@ export default {
       vectorLayersMap: new Map(),
       popupOverlay: null,
       tooltipOverlay: null,
-      layersControlDiv: null,
-      currentHighlightLayer: null // Текущий слой с пульсацией
+      currentHighlightLayer: null
     }
   },
   mounted() {
@@ -103,7 +102,6 @@ export default {
         console.log('Map instance created')
 
         this.createHomeButton()
-        this.createLayersControl()
         this.createPopupOverlays()
         this.setupEventHandlers()
         
@@ -136,82 +134,6 @@ export default {
       `
       btn.onclick = () => this.resetView()
       this.$refs.olMap.appendChild(btn)
-    },
-
-    createLayersControl() {
-      const controlDiv = document.createElement('div')
-      controlDiv.className = 'ol-layers-control'
-      controlDiv.style.cssText = `
-        position: absolute;
-        top: 50px;
-        right: 10px;
-        z-index: 1000;
-        background: white;
-        border-radius: 4px;
-        box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-        padding: 6px 10px 6px 10px;
-        min-width: 150px;
-      `
-
-      const title = document.createElement('div')
-      title.textContent = 'Слои'
-      title.style.cssText = 'font-weight: 600; font-size: 11px; margin-bottom: 5px;'
-      controlDiv.appendChild(title)
-
-      this.layersControlDiv = controlDiv
-      this.$refs.olMap.appendChild(controlDiv)
-    },
-
-    updateLayersControl() {
-      if (!this.layersControlDiv) return
-
-      const checkboxes = this.layersControlDiv.querySelectorAll('.layer-checkbox-wrapper')
-      checkboxes.forEach(cb => cb.remove())
-
-      this.vectorLayersMap.forEach((layer, layerId) => {
-        const layerInfo = this.vectorLayers.find(l => l.id === layerId)
-        if (!layerInfo) return
-
-        const wrapper = document.createElement('label')
-        wrapper.className = 'layer-checkbox-wrapper'
-        wrapper.style.cssText = `
-          display: flex;
-          align-items: center;
-          padding: 2px 0;
-          cursor: pointer;
-          font-size: 11px;
-          line-height: 1.4;
-        `
-
-        const checkbox = document.createElement('input')
-        checkbox.type = 'checkbox'
-        checkbox.checked = true
-        checkbox.style.cssText = 'margin-right: 5px; cursor: pointer;'
-
-        const label = document.createElement('span')
-        label.textContent = layerInfo.name
-        label.style.cssText = 'user-select: none;'
-
-        wrapper.addEventListener('mouseenter', () => {
-          wrapper.style.backgroundColor = '#f4f4f4'
-        })
-
-        wrapper.addEventListener('mouseleave', () => {
-          wrapper.style.backgroundColor = 'transparent'
-        })
-
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            this.mapInstance.addLayer(layer)
-          } else {
-            this.mapInstance.removeLayer(layer)
-          }
-        })
-
-        wrapper.appendChild(checkbox)
-        wrapper.appendChild(label)
-        this.layersControlDiv.appendChild(wrapper)
-      })
     },
 
     createPopupOverlays() {
@@ -468,7 +390,6 @@ export default {
 
             this.vectorLayersMap.set(layer.id, vectorLayer)
             this.mapInstance.addLayer(vectorLayer)
-            this.updateLayersControl()
           })
           .catch(error => console.error(`Error loading layer ${layer.name}:`, error))
       })
@@ -588,11 +509,33 @@ export default {
     },
 
     clearHighlight() {
-      // Удаляем текущий слой с пульсацией если есть
       if (this.currentHighlightLayer && this.mapInstance) {
         this.mapInstance.removeLayer(this.currentHighlightLayer)
         this.currentHighlightLayer = null
       }
+    },
+
+    toggleLayerVisibility(layerId, visible) {
+      const layer = this.vectorLayersMap.get(layerId)
+      if (layer) {
+        if (visible) {
+          this.mapInstance.addLayer(layer)
+        } else {
+          this.mapInstance.removeLayer(layer)
+        }
+      }
+    },
+
+    getView() {
+      if (this.mapInstance) {
+        const view = this.mapInstance.getView()
+        const center = transform(view.getCenter(), 'EPSG:3857', 'EPSG:4326')
+        return {
+          center: { lat: center[1], lng: center[0] },
+          zoom: view.getZoom()
+        }
+      }
+      return null
     }
   },
   watch: {

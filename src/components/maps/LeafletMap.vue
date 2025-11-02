@@ -36,8 +36,7 @@ export default {
       mapInstance: null,
       markers: [],
       vectorLayersMap: new Map(),
-      layersControl: null,
-      currentHighlightCircle: null // Текущий круг выделения
+      currentHighlightCircle: null
     }
   },
   mounted() {
@@ -84,12 +83,6 @@ export default {
         }
       })
       new L.Control.HomeButton({ position: 'topleft' }).addTo(this.mapInstance)
-
-      // Контрол слоёв
-      this.layersControl = L.control.layers(null, null, {
-        position: 'topright',
-        collapsed: false
-      }).addTo(this.mapInstance)
 
       // События карты
       this.mapInstance.on('moveend zoomend', () => {
@@ -183,11 +176,6 @@ export default {
             })
 
             this.vectorLayersMap.set(layer.id, vectorLayer)
-            
-            if (this.layersControl) {
-              this.layersControl.addOverlay(vectorLayer, layer.name)
-            }
-
             vectorLayer.addTo(this.mapInstance)
           })
           .catch(error => console.error(`Error loading layer ${layer.name}:`, error))
@@ -243,11 +231,33 @@ export default {
     },
 
     clearHighlight() {
-      // Удаляем текущий круг выделения если есть
       if (this.currentHighlightCircle && this.mapInstance) {
         this.mapInstance.removeLayer(this.currentHighlightCircle)
         this.currentHighlightCircle = null
       }
+    },
+
+    toggleLayerVisibility(layerId, visible) {
+      const layer = this.vectorLayersMap.get(layerId)
+      if (layer) {
+        if (visible) {
+          this.mapInstance.addLayer(layer)
+        } else {
+          this.mapInstance.removeLayer(layer)
+        }
+      }
+    },
+
+    getView() {
+      if (this.mapInstance) {
+        const center = this.mapInstance.getCenter()
+        const zoom = this.mapInstance.getZoom()
+        return {
+          center: { lat: center.lat, lng: center.lng },
+          zoom
+        }
+      }
+      return null
     }
   },
   watch: {

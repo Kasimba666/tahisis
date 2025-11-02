@@ -5,6 +5,12 @@
         <el-radio-button label="leaflet">Leaflet</el-radio-button>
         <el-radio-button label="openlayers">OpenLayers</el-radio-button>
       </el-radio-group>
+      
+      <vector-layers-control
+        v-if="vectorLayers.length > 0"
+        :vector-layers="vectorLayers"
+        @layer-visibility-changed="handleLayerVisibilityChange"
+      />
     </div>
 
     <map-legend :estate-types-legend="estateTypesLegend" />
@@ -39,6 +45,7 @@
 import MapLegend from './MapLegend.vue'
 import LeafletMap from './maps/LeafletMap.vue'
 import OpenLayersMap from './maps/OpenLayersMap.vue'
+import VectorLayersControl from './VectorLayersControl.vue'
 import { vectorLayerService } from '@/services/vectorLayers.js'
 
 export default {
@@ -46,7 +53,8 @@ export default {
   components: {
     MapLegend,
     LeafletMap,
-    OpenLayersMap
+    OpenLayersMap,
+    VectorLayersControl
   },
   props: {
     settlements: {
@@ -164,22 +172,51 @@ export default {
     },
 
     handleClearHighlight() {
-      // Очищаем highlight на текущей активной карте
       if (this.mapProvider === 'leaflet' && this.$refs.leafletMap && typeof this.$refs.leafletMap.clearHighlight === 'function') {
         this.$refs.leafletMap.clearHighlight()
       } else if (this.mapProvider === 'openlayers' && this.$refs.olMap && typeof this.$refs.olMap.clearHighlight === 'function') {
         this.$refs.olMap.clearHighlight()
       }
+    },
+
+    handleLayerVisibilityChange(event) {
+      const { layerId, visible } = event
+      
+      if (this.$refs.leafletMap && typeof this.$refs.leafletMap.toggleLayerVisibility === 'function') {
+        this.$refs.leafletMap.toggleLayerVisibility(layerId, visible)
+      }
+      
+      if (this.$refs.olMap && typeof this.$refs.olMap.toggleLayerVisibility === 'function') {
+        this.$refs.olMap.toggleLayerVisibility(layerId, visible)
+      }
     }
   },
   watch: {
-    mapProvider(newVal) {
+    mapProvider(newVal, oldVal) {
       this.$nextTick(() => {
         setTimeout(() => {
-          if (newVal === 'leaflet' && this.$refs.leafletMap && typeof this.$refs.leafletMap.invalidateSize === 'function') {
-            this.$refs.leafletMap.invalidateSize()
-          } else if (newVal === 'openlayers' && this.$refs.olMap && typeof this.$refs.olMap.updateSize === 'function') {
-            this.$refs.olMap.updateSize()
+          if (newVal === 'leaflet' && this.$refs.leafletMap) {
+            if (typeof this.$refs.leafletMap.invalidateSize === 'function') {
+              this.$refs.leafletMap.invalidateSize()
+            }
+            // Синхронизируем позицию с OpenLayers
+            if (this.$refs.olMap && typeof this.$refs.olMap.getView === 'function') {
+              const olView = this.$refs.olMap.getView()
+              if (olView && typeof this.$refs.leafletMap.syncView === 'function') {
+                this.$refs.leafletMap.syncView(olView.center, olView.zoom)
+              }
+            }
+          } else if (newVal === 'openlayers' && this.$refs.olMap) {
+            if (typeof this.$refs.olMap.updateSize === 'function') {
+              this.$refs.olMap.updateSize()
+            }
+            // Синхронизируем позицию с Leaflet
+            if (this.$refs.leafletMap && typeof this.$refs.leafletMap.getView === 'function') {
+              const leafletView = this.$refs.leafletMap.getView()
+              if (leafletView && typeof this.$refs.olMap.syncView === 'function') {
+                this.$refs.olMap.syncView(leafletView.center, leafletView.zoom)
+              }
+            }
           }
         }, 100)
       })
