@@ -284,8 +284,8 @@ export default {
           const nameOldAlt = String(row.nameoldalt || '').trim()
           const nameModern = String(row.namemod || '').trim() || null
           const districtName = String(row.admunitmod || '').trim()
-          const lat = row.lat ? Number(row.lat) : 0
-          const lon = row.lon ? Number(row.lon) : 0
+          const lat = (row.lat && Number(row.lat) !== 0) ? Number(row.lat) : null
+          const lon = (row.lon && Number(row.lon) !== 0) ? Number(row.lon) : null
 
           // Пропускаем строки без кода или названия старого
           if (!code || !nameOld) {
@@ -541,39 +541,92 @@ export default {
       this.validationLog = []
       this.currentStatus = 'Валидация данных'
       const errors = []
+      
       rows.forEach((row, index) => {
         this.currentStatus = `Валидация: строка ${index + 2} из ${rows.length + 1}`
         this.progress = Math.round(((index + 1) / rows.length) * 10) // progress до 10%
         const missingFields = []
+        const invalidFields = []
+        
         // Support case insensitive column names
         const id = row.id || row.ID || row.Id || row.iD
-        if (!id || String(id).trim() === '') missingFields.push('id')
+        if (!id || String(id).trim() === '') {
+          missingFields.push('id')
+        } else {
+          const idStr = String(id).trim()
+          if (idStr === '.' || isNaN(Number(idStr))) {
+            invalidFields.push(`id="${idStr}" (недопустимое значение)`)
+          }
+        }
+        
         const nameoldVal = row.nameold || row.NAMEOLD || row.Nameold || row.nameOld
         if (!nameoldVal || String(nameoldVal).trim() === '') missingFields.push('nameold')
+        
         const admunitmodVal = row.admunitmod || row.ADMUNITMOD || row.Admunitmod || row.admunitMod || row.admunitmod || row.icon || row.ADMUNITMOD
         if (!admunitmodVal || String(admunitmodVal).trim() === '') missingFields.push('admunitmod')
-        const latVal = row.lat || row.LAT || row.Lat
-        const latValid = latVal !== null && latVal !== undefined && String(latVal).trim() !== '' && !isNaN(Number(latVal))
-        const lonVal = row.lon || row.LON || row.Lon
-        const lonValid = lonVal !== null && lonVal !== undefined && String(lonVal).trim() !== '' && !isNaN(Number(lonVal))
-        const namemod = String(row.namemod || row.NAMEMOD || row.Namemod || row.nameMod || '').trim()
-        // If namemod is filled but lat or lon is missing, it's an error
-        if (namemod && (!latValid || !lonValid)) {
-          if (!latValid) missingFields.push('lat')
-          if (!lonValid) missingFields.push('lon')
+        
+        // Валидация числовых полей male/female
+        for (let i = 1; i <= 5; i++) {
+          const maleKey = `male${i}`
+          const femaleKey = `female${i}`
+          
+          if (row[maleKey] !== null && row[maleKey] !== undefined && row[maleKey] !== '') {
+            const maleStr = String(row[maleKey]).trim()
+            if (maleStr === '.' || (maleStr !== '' && isNaN(Number(maleStr)))) {
+              invalidFields.push(`${maleKey}="${maleStr}" (недопустимое значение)`)
+            }
+          }
+          
+          if (row[femaleKey] !== null && row[femaleKey] !== undefined && row[femaleKey] !== '') {
+            const femaleStr = String(row[femaleKey]).trim()
+            if (femaleStr === '.' || (femaleStr !== '' && isNaN(Number(femaleStr)))) {
+              invalidFields.push(`${femaleKey}="${femaleStr}" (недопустимое значение)`)
+            }
+          }
         }
+        
+        // Валидация populall
+        if (row.populall !== null && row.populall !== undefined && row.populall !== '') {
+          const populallStr = String(row.populall).trim()
+          if (populallStr === '.' || (populallStr !== '' && isNaN(Number(populallStr)))) {
+            invalidFields.push(`populall="${populallStr}" (недопустимое значение)`)
+          }
+        }
+        
+        // Валидация координат lat/lon
+        if (row.lat !== null && row.lat !== undefined && row.lat !== '') {
+          const latStr = String(row.lat).trim()
+          if (latStr === '.' || (latStr !== '' && latStr !== '0' && isNaN(Number(latStr)))) {
+            invalidFields.push(`lat="${latStr}" (недопустимое значение)`)
+          }
+        }
+        
+        if (row.lon !== null && row.lon !== undefined && row.lon !== '') {
+          const lonStr = String(row.lon).trim()
+          if (lonStr === '.' || (lonStr !== '' && lonStr !== '0' && isNaN(Number(lonStr)))) {
+            invalidFields.push(`lon="${lonStr}" (недопустимое значение)`)
+          }
+        }
+        
         // Check at least one estate field is filled
         const estatePresent = !!(String(row.estate1 || '').trim() || String(row.estate2 || '').trim() || String(row.estate3 || '').trim() || String(row.estate4 || '').trim() || String(row.estate5 || '').trim())
         if (!estatePresent) missingFields.push('estate (хотя бы одно поле estate должно быть заполнено)')
-        const status = missingFields.length === 0 ? 'OK' : `MISSING: ${missingFields.join(', ')}`
+        
+        // Формируем статус валидации
+        const problems = []
+        if (missingFields.length > 0) problems.push(`MISSING: ${missingFields.join(', ')}`)
+        if (invalidFields.length > 0) problems.push(`INVALID: ${invalidFields.join(', ')}`)
+        
+        const status = problems.length === 0 ? 'OK' : problems.join(' | ')
         this.validationLog.push(`Строка ${index + 2}: ${status}`)
-        if (missingFields.length > 0) {
+        
+        if (missingFields.length > 0 || invalidFields.length > 0) {
           errors.push({
             row: index + 2,
             id: String(id || '').trim(),
             nameold: String(nameoldVal || '').trim(),
             admunitmod: String(admunitmodVal || '').trim(),
-            missing: missingFields.join(', ')
+            missing: [...missingFields, ...invalidFields].join(', ')
           })
         }
       })
