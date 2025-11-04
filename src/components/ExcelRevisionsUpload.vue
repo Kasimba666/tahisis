@@ -24,18 +24,25 @@
 
     <div class="button-container">
       <el-button
+          type="info"
+          :disabled="!file || isLoading"
+          @click="validateOnly"
+          :loading="isLoading"
+      >
+        Валидировать файл
+      </el-button>
+      <el-button
           type="primary"
-          :disabled="!file"
+          :disabled="!isValidated || isLoading"
           @click="openRevisionDialog"
           :loading="isLoading"
-          class="process-button"
       >
-        Обработать и загрузить данные
+        Загрузить в базу данных
       </el-button>
       <el-button
           type="danger"
+          :disabled="isLoading"
           @click="clearSupabaseTables"
-          class="clear-button"
       >
         Очистить таблицы Supabase
       </el-button>
@@ -55,6 +62,7 @@
         <el-button type="primary" @click="processFile">Загрузить</el-button>
       </template>
     </el-dialog>
+
 
     <el-alert
         v-if="error"
@@ -82,8 +90,11 @@
     />
 
     <div v-if="validationLog.length" class="validation-log">
-      <h3>Проверка данных:</h3>
-      <pre class="validation-text">{{ validationLogText }}</pre>
+      <h3 @click="validationLogExpanded = !validationLogExpanded" class="validation-log-header">
+        Проверка данных ({{ validationLog.length }} {{ validationLog.length === 1 ? 'ошибка' : validationLog.length < 5 ? 'ошибки' : 'ошибок' }})
+        <span class="expand-icon">{{ validationLogExpanded ? '▼' : '▶' }}</span>
+      </h3>
+      <pre v-show="validationLogExpanded" class="validation-text">{{ validationLogText }}</pre>
     </div>
 
     <div v-if="validationErrors.length > 0" class="errors-report">
@@ -110,9 +121,10 @@ export default {
   emits: ['dataProcessed'],
   computed: {
     errorReportText() {
-      let text = 'Отчёт об ошибках валидации:\n\n'
+      const fileName = this.file ? this.file.name : 'неизвестный файл'
+      let text = `Валидация файла (${fileName})\n`
       this.validationErrors.forEach(err => {
-        text += `Строка ${err.row}: ID "${err.id}", nameold "${err.nameold}", admunitmod "${err.admunitmod}" - отсутствующие поля: ${err.missing}\n`
+        text += `Строка ${err.row}: ID "${err.id}", nameold "${err.nameold}", admunitmod "${err.admunitmod}" - ${err.missing}\n`
       })
       return text
     },
@@ -134,7 +146,10 @@ export default {
       progress: 0,
       validationErrors: [],
       validationLog: [],
-      currentStatus: 'Готов к работе'
+      currentStatus: 'Готов к работе',
+      validatedData: null,
+      validationLogExpanded: false,
+      isValidated: false
     }
   },
   methods: {
@@ -178,14 +193,73 @@ export default {
       this.validationErrors = []
       this.validationLog = []
       this.currentStatus = 'Готов к работе'
+      this.isValidated = false
+      this.validatedData = null
+      // Очищаем форму ревизии
+      this.revisionForm.number = ''
+      this.revisionForm.year = ''
     },
-    openRevisionDialog() {
+    
+    validateOnly() {
       if (!this.file) return
+      this.isLoading = true
+
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+          const jsonData = XLSX.utils.sheet_to_json(worksheet)
+
+          if (!jsonData || jsonData.length === 0) throw new Error('Файл пуст')
+
+          this.currentStatus = 'Валидация данных'
+          const { errors, hasCriticalErrors } = this.validateRows(jsonData)
+          this.validationErrors = errors
+          
+          if (hasCriticalErrors) {
+            this.currentStatus = 'Валидация завершена с ошибками'
+            this.error = `Найдены критические ошибки валидации. Проверьте отчет ниже.`
+            this.isLoading = false
+            this.isValidated = false
+            return
+          }
+          
+          // Сохраняем данные для последующей загрузки
+          this.validatedData = jsonData
+          this.isValidated = true
+          
+          if (errors.length > 0) {
+            ElMessage.warning(`Валидация завершена с предупреждениями (${errors.length}). Данные можно загрузить.`)
+          } else {
+            ElMessage.success('Валидация прошла успешно. Данные готовы к загрузке.')
+          }
+          this.currentStatus = 'Файл валидирован и готов к загрузке'
+          this.isLoading = false
+        } catch (err) {
+          this.error = err.message || 'Ошибка обработки файла'
+          this.isLoading = false
+          this.currentStatus = 'Готов к работе'
+          this.isValidated = false
+        }
+      }
+      reader.onerror = () => {
+        this.error = 'Не удалось прочитать файл'
+        this.isLoading = false
+        this.currentStatus = 'Ошибка чтения файла'
+        this.isValidated = false
+      }
+      reader.readAsArrayBuffer(this.file)
+    },
+    
+    openRevisionDialog() {
+      if (!this.isValidated || !this.validatedData) return
       this.dialogVisible = true
     },
-    processFile() {
+    
+    startProcessing() {
       if (!this.file) return
-      this.dialogVisible = false
       this.isLoading = true
 
       const reader = new FileReader()
@@ -200,24 +274,31 @@ export default {
 
           this.currentStatus = 'Валидация данных'
           // Валидация обязательных полей
-          const validationErrors = this.validateRows(jsonData)
-          if (validationErrors.length > 0) {
+          const { errors, hasCriticalErrors } = this.validateRows(jsonData)
+          this.validationErrors = errors
+          
+          if (hasCriticalErrors) {
             this.currentStatus = 'Валидация завершена с ошибками'
-            this.validationErrors = validationErrors
-            this.error = `Найдены ошибки валидации. Проверьте отчет ниже.`
+            this.error = `Найдены критические ошибки валидации. Проверьте отчет ниже.`
+            this.isLoading = false
             return
           }
-          ElMessage.success('Валидация прошла успешно')
-          this.currentStatus = 'Обработка данных'
-
-          await this.processSupabaseData(jsonData)
-          this.success = `Загрузка успешно завершена. Обработано записей: ${jsonData.length}`
-          this.$emit('dataProcessed')
-          this.file = null
-          this.$refs.upload.clearFiles()
+          
+          if (errors.length > 0) {
+            ElMessage.warning(`Валидация завершена с предупреждениями (${errors.length})`)
+          } else {
+            ElMessage.success('Валидация прошла успешно')
+          }
+          this.currentStatus = 'Валидация завершена успешно'
+          // Очищаем лог валидации при успешной валидации
+          this.validationLog = []
+          
+          // Сохраняем данные и показываем диалог ввода ревизии
+          this.validatedData = jsonData
+          this.dialogVisible = true
+          this.isLoading = false
         } catch (err) {
           this.error = err.message || 'Ошибка обработки файла'
-        } finally {
           this.isLoading = false
           this.currentStatus = 'Готов к работе'
         }
@@ -230,9 +311,35 @@ export default {
       reader.readAsArrayBuffer(this.file)
     },
 
+    async processFile() {
+      // Закрываем диалог и сразу начинаем загрузку
+      this.dialogVisible = false
+      this.isLoading = true
+      this.currentStatus = 'Обработка данных'
+      
+      try {
+        await this.processSupabaseData(this.validatedData)
+        this.success = `Загрузка успешно завершена. Обработано записей: ${this.validatedData.length}`
+        this.$emit('dataProcessed', { revisionNumber: Number(this.revisionForm.number) })
+        this.file = null
+        this.$refs.upload.clearFiles()
+        this.validatedData = null
+        this.isValidated = false
+      } catch (err) {
+        this.error = err.message || 'Ошибка обработки данных'
+      } finally {
+        this.isLoading = false
+        this.currentStatus = 'Готов к работе'
+      }
+    },
+
     async processSupabaseData(rows) {
       this.currentStatus = 'Обработка ревизии'
       this.progress = 10
+      
+      // Отслеживаем обработанные ID для пропуска дубликатов
+      const processedIds = new Set()
+      
       // 1. Проверить, существует ли ревизия с таким номером
       const { data: existingRevision, error: findErr } = await supabase
           .from('Revision_report')
@@ -279,6 +386,13 @@ export default {
           this.currentStatus = `Обработка строк: ${i + 1} из ${rows.length}`
           this.progress = Math.round(10 + ((i + 1) / rows.length) * 89)
           const code = String(row.id || '').trim()
+          
+          // Пропускаем дублирующиеся ID (обрабатываем только первое вхождение)
+          if (processedIds.has(code)) {
+            console.warn(`Пропущена дублирующаяся строка с ID: ${code}`)
+            continue
+          }
+          processedIds.add(code)
           const populationAll = row.populall || null
           const nameOld = String(row.nameold || '').trim()
           const nameOldAlt = String(row.nameoldalt || '').trim()
@@ -541,6 +655,33 @@ export default {
       this.validationLog = []
       this.currentStatus = 'Валидация данных'
       const errors = []
+      let hasCriticalErrors = false
+      
+      // Проверка на дублирующиеся ID
+      // Отслеживаем индекс первого вхождения каждого ID
+      const idFirstOccurrence = {}
+      const duplicateIds = new Set()
+      
+      rows.forEach((row, index) => {
+        const id = row.id || row.ID || row.Id || row.iD
+        if (id) {
+          const idStr = String(id).trim()
+          if (idFirstOccurrence.hasOwnProperty(idStr)) {
+            // Это не первое вхождение - дубликат
+            duplicateIds.add(idStr)
+          } else {
+            // Первое вхождение - записываем индекс
+            idFirstOccurrence[idStr] = index
+          }
+        }
+      })
+      
+      // Если найдены дубликаты, добавляем в лог
+      if (duplicateIds.size > 0) {
+        const duplicatesList = Array.from(duplicateIds).join(', ')
+        this.validationLog.push(`ОШИБКА: Найдены дублирующиеся ID: ${duplicatesList}`)
+        this.validationLog.push('Каждый ID в файле должен быть уникальным!')
+      }
       
       rows.forEach((row, index) => {
         this.currentStatus = `Валидация: строка ${index + 2} из ${rows.length + 1}`
@@ -556,6 +697,10 @@ export default {
           const idStr = String(id).trim()
           if (idStr === '.' || isNaN(Number(idStr))) {
             invalidFields.push(`id="${idStr}" (недопустимое значение)`)
+          } else if (duplicateIds.has(idStr) && idFirstOccurrence[idStr] !== index) {
+            // Дубликат, и это НЕ первое вхождение
+            const firstRow = idFirstOccurrence[idStr] + 2 // +2 потому что индекс с 0, а строки в Excel с 1, плюс заголовок
+            invalidFields.push(`id="${idStr}" (найден повтор id в строке ${firstRow})`)
           }
         }
         
@@ -617,10 +762,22 @@ export default {
         if (missingFields.length > 0) problems.push(`MISSING: ${missingFields.join(', ')}`)
         if (invalidFields.length > 0) problems.push(`INVALID: ${invalidFields.join(', ')}`)
         
-        const status = problems.length === 0 ? 'OK' : problems.join(' | ')
-        this.validationLog.push(`Строка ${index + 2}: ${status}`)
+        // Добавляем в лог только если есть проблемы
+        if (problems.length > 0) {
+          const status = problems.join(' | ')
+          this.validationLog.push(`Строка ${index + 2}: ${status}`)
+        }
         
         if (missingFields.length > 0 || invalidFields.length > 0) {
+          // Проверяем, есть ли критические ошибки (не считая дубликаты ID)
+          const isDuplicateOnly = invalidFields.length === 1 && 
+                                  invalidFields[0].includes('найден повтор id') && 
+                                  missingFields.length === 0
+          
+          if (!isDuplicateOnly) {
+            hasCriticalErrors = true
+          }
+          
           errors.push({
             row: index + 2,
             id: String(id || '').trim(),
@@ -630,7 +787,7 @@ export default {
           })
         }
       })
-      return errors
+      return { errors, hasCriticalErrors }
     },
 
     copyErrors() {
@@ -659,7 +816,8 @@ export default {
       this.validationLog = []
       this.error = null
       this.currentStatus = 'Готов к работе'
-    }
+    },
+
   }
 }
 </script>
@@ -688,10 +846,26 @@ export default {
 }
 .validation-log {
   margin-top: 1.5rem;
-  h3 {
+  
+  .validation-log-header {
     color: var(--text-color);
     margin-bottom: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    
+    &:hover {
+      color: var(--el-color-primary);
+    }
+    
+    .expand-icon {
+      font-size: 0.8em;
+      transition: transform 0.2s;
+    }
   }
+  
   .validation-text {
     white-space: pre-wrap;
     padding: 0.5rem;

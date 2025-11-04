@@ -41,60 +41,36 @@
     </div>
 
     <el-table :data="tableData" style="width: 100%" border stripe>
-      <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="revision" label="Ревизия" width="100" />
+      <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="code" label="Код" width="100" />
-      <el-table-column label="Нас.пункт старый">
+      <el-table-column label="Нас.пункт (старый)">
         <template #default="{ row }">
-          {{ row.settlement_name_old || '-' }}
+          {{ row.settlement_name_old }}
         </template>
       </el-table-column>
-      <el-table-column label="Населенный пункт альт">
+      <el-table-column label="Нас. пункт (альт)">
         <template #default="{ row }">
-          {{ row.settlement_name_old_alt || '-' }}
+          {{ row.settlement_name_old_alt }}
         </template>
       </el-table-column>
-      <el-table-column label="Нас. пункт совр.">
+      <el-table-column label="Нас. пункт (совр)">
         <template #default="{ row }">
-          {{ row.settlement_name_modern || '-' }}
+          {{ row.settlement_name_modern }}
         </template>
       </el-table-column>
       <el-table-column label="Район">
         <template #default="{ row }">
-          {{ row.district_name || '-' }}
+          {{ row.district_name }}
         </template>
       </el-table-column>
-      <el-table-column label="Широта" width="100">
+      <el-table-column label="Широта" width="90">
         <template #default="{ row }">
-          {{ row.settlement_lat || '-' }}
+          {{ row.settlement_lat }}
         </template>
       </el-table-column>
-      <el-table-column label="Долгота" width="100">
+      <el-table-column label="Долгота" width="90">
         <template #default="{ row }">
-          {{ row.settlement_lon || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Сословие">
-        <template #default="{ row }">
-          {{ row.subtype_name }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="male" label="Муж." width="100" />
-      <el-table-column prop="female" label="Жен." width="100" />
-      <el-table-column prop="population_all" label="Всего" width="100" />
-      <el-table-column label="Волость">
-        <template #default="{ row }">
-          {{ row.volost_name || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Помещик">
-        <template #default="{ row }">
-          {{ row.landowner_description || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Воинская часть">
-        <template #default="{ row }">
-          {{ row.military_unit_description || '-' }}
+          {{ row.settlement_lon }}
         </template>
       </el-table-column>
     </el-table>
@@ -137,73 +113,107 @@ export default {
     },
 
     async fetchData() {
-      let query = supabase
-          .from('Estate')
+      // Если ревизия не выбрана, очищаем таблицу
+      if (!this.selectedRevision) {
+        this.tableData = []
+        return
+      }
+
+      // Получаем Report_record для выбранной ревизии
+      const { data: reportRecords, error: reportError } = await supabase
+          .from('Report_record')
           .select(`
-          id, male, female, id_volost, id_landowner, id_military_unit,
-          Report_record (
             id, code, population_all,
-            Revision_report ( year, number ),
+            Revision_report!inner ( id, year, number ),
             Settlement (
               name_old, name_old_alt, name_modern, lat, lon,
               District ( name )
             )
-          ),
-          Subtype_estate ( name ),
-          Volost ( name ),
-          Landowner ( description ),
-          Military_unit ( description )
-        `)
+          `)
+          .eq('Revision_report.number', this.selectedRevision)
 
-      // Если выбрана конкретная ревизия, фильтруем по ней
-      if (this.selectedRevision) {
-        query = query.eq('Report_record.Revision_report.number', this.selectedRevision)
-      }
-
-      const { data, error } = await query
-      if (error) {
-        console.error(error)
+      if (reportError) {
+        console.error(reportError)
         return
       }
 
-      let filteredData = data || []
+      // Получаем все Estate записи для этих Report_record
+      const reportIds = (reportRecords || []).map(r => r.id)
+      
+      let estatesData = []
+      if (reportIds.length > 0) {
+        const { data: estates, error: estatesError } = await supabase
+            .from('Estate')
+            .select(`
+              id_report_record, male, female,
+              Volost ( name ),
+              Landowner ( description ),
+              Military_unit ( description )
+            `)
+            .in('id_report_record', reportIds)
 
-      // Если выбрана ревизия, дополнительно фильтруем на клиенте
-      if (this.selectedRevision) {
-        filteredData = filteredData.filter(e =>
-          e.Report_record?.Revision_report?.number === this.selectedRevision
-        )
+        if (estatesError) {
+          console.error(estatesError)
+        } else {
+          estatesData = estates || []
+        }
       }
 
-      this.tableData = filteredData.map(e => ({
-        id: e.id,
-        code: e.Report_record?.code || '',
-        population_all: e.Report_record?.population_all || '',
-        revision: e.Report_record?.Revision_report
-            ? `${e.Report_record.Revision_report.number} (${e.Report_record.Revision_report.year})`
-            : '',
-        settlement_name_old: e.Report_record?.Settlement?.name_old || '',
-        settlement_name_old_alt: e.Report_record?.Settlement?.name_old_alt || '',
-        settlement_name_modern: e.Report_record?.Settlement?.name_modern || '',
-        settlement_lat: e.Report_record?.Settlement?.lat || '',
-        settlement_lon: e.Report_record?.Settlement?.lon || '',
-        district_name: e.Report_record?.Settlement?.District?.name || '',
-        subtype_name: e.Subtype_estate?.name || '',
-        male: e.male || '',
-        female: e.female || '',
-        volost_name: e.Volost?.name || '',
-        landowner_description: e.Landowner?.description || '',
-        military_unit_description: e.Military_unit?.description || ''
-      }))
+      // Группируем Estate данные по id_report_record
+      const estatesByReport = {}
+      estatesData.forEach(estate => {
+        if (!estatesByReport[estate.id_report_record]) {
+          estatesByReport[estate.id_report_record] = []
+        }
+        estatesByReport[estate.id_report_record].push(estate)
+      })
+
+      // Формируем данные для таблицы
+      this.tableData = (reportRecords || []).map(record => {
+        const estates = estatesByReport[record.id] || []
+        
+        // Суммируем мужчин и женщин
+        const totalMale = estates.reduce((sum, e) => sum + (Number(e.male) || 0), 0)
+        const totalFemale = estates.reduce((sum, e) => sum + (Number(e.female) || 0), 0)
+        
+        // Собираем уникальные волости, помещиков и воинские части
+        const volosts = [...new Set(estates.map(e => e.Volost?.name).filter(Boolean))]
+        const landowners = [...new Set(estates.map(e => e.Landowner?.description).filter(Boolean))]
+        const militaryUnits = [...new Set(estates.map(e => e.Military_unit?.description).filter(Boolean))]
+
+        return {
+          id: record.id,
+          code: record.code || '',
+          settlement_name_old: record.Settlement?.name_old || '-',
+          settlement_name_old_alt: record.Settlement?.name_old_alt || '-',
+          settlement_name_modern: record.Settlement?.name_modern || '-',
+          district_name: record.Settlement?.District?.name || '-',
+          settlement_lat: record.Settlement?.lat || '-',
+          settlement_lon: record.Settlement?.lon || '-',
+          male: totalMale || '-',
+          female: totalFemale || '-',
+          population_all: record.population_all || '-',
+          volost_name: volosts.join(', ') || '-',
+          landowner_description: landowners.join(', ') || '-',
+          military_unit_description: militaryUnits.join(', ') || '-'
+        }
+      }).sort((a, b) => {
+        // Сортируем по ID
+        return a.id - b.id
+      })
     },
 
     handleRevisionFilter() {
       this.fetchData()
     },
 
-    async handleDataProcessed() {
+    async handleDataProcessed(payload) {
       // Обновляем список ревизий после загрузки новых данных
       await this.fetchRevisions()
+      // Автоматически выбираем загруженную ревизию
+      if (payload && payload.revisionNumber) {
+        this.selectedRevision = payload.revisionNumber
+      }
       // Обновляем данные таблицы
       this.fetchData()
     },
@@ -269,7 +279,7 @@ export default {
   },
   async mounted() {
     await this.fetchRevisions()
-    this.fetchData()
+    // Не загружаем данные при mounted, ждём выбора ревизии
   }
 }
 </script>

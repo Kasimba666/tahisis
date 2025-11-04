@@ -1043,7 +1043,7 @@ export default {
     applyFilters() {
       // Проверяем, есть ли активные фильтры
       const hasActiveFilters =
-        this.filters.revision ||
+        this.filters.revisionNumber ||
         this.filters.districts?.length > 0 ||
         this.filters.settlementNamesOld?.length > 0 ||
         this.filters.settlementNamesModern?.length > 0 ||
