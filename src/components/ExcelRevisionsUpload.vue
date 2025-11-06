@@ -91,7 +91,7 @@
 
     <div v-if="validationLog.length" class="validation-log">
       <h3 @click="validationLogExpanded = !validationLogExpanded" class="validation-log-header">
-        Проверка данных ({{ validationLog.length }} {{ validationLog.length === 1 ? 'ошибка' : validationLog.length < 5 ? 'ошибки' : 'ошибок' }})
+        Проверка данных ({{ validationErrors.length }} {{ validationErrors.length === 1 ? 'ошибка' : validationErrors.length < 5 ? 'ошибки' : 'ошибок' }})
         <span class="expand-icon">{{ validationLogExpanded ? '▼' : '▶' }}</span>
       </h3>
       <pre v-show="validationLogExpanded" class="validation-text">{{ validationLogText }}</pre>
@@ -122,9 +122,13 @@ export default {
   computed: {
     errorReportText() {
       const fileName = this.file ? this.file.name : 'неизвестный файл'
-      let text = `Валидация файла (${fileName})\n`
+      let text = `Валидация файла (${fileName})\n\n`
       this.validationErrors.forEach(err => {
-        text += `Строка ${err.row}: ID "${err.id}", nameold "${err.nameold}", admunitmod "${err.admunitmod}" - ${err.missing}\n`
+        text += `Строка ${err.row}:\n`
+        text += `  ID: "${err.id}"\n`
+        text += `  namemod: "${err.namemod}"\n`
+        text += `  admunitmod: "${err.admunitmod}"\n`
+        text += `  Ошибки: ${err.missing}\n\n`
       })
       return text
     },
@@ -337,8 +341,10 @@ export default {
       this.currentStatus = 'Обработка ревизии'
       this.progress = 10
       
-      // Отслеживаем обработанные ID для пропуска дубликатов
-      const processedIds = new Set()
+      // Статистика обработки
+      let processedRowsCount = 0
+      let createdReportRecordsCount = 0
+      let createdEstatesCount = 0
       
       // 1. Проверить, существует ли ревизия с таким номером
       const { data: existingRevision, error: findErr } = await supabase
@@ -360,10 +366,9 @@ export default {
             })
             .eq('id', existingRevision.id)
             .select('id')
-            .single()
 
         if (updateErr) throw updateErr
-        revisionId = updatedRevision.id
+        revisionId = Array.isArray(updatedRevision) ? updatedRevision[0].id : updatedRevision.id
       } else {
         // Если ревизии нет, создаем новую
         const { data: newRevision, error: insertErr } = await supabase
@@ -375,100 +380,77 @@ export default {
               }
             ])
             .select()
-            .single()
 
         if (insertErr) throw insertErr
-        revisionId = newRevision.id
+        revisionId = Array.isArray(newRevision) ? newRevision[0].id : newRevision.id
       }
         // 2. Для каждой строки Excel
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i]
           this.currentStatus = `Обработка строк: ${i + 1} из ${rows.length}`
           this.progress = Math.round(10 + ((i + 1) / rows.length) * 89)
-          const code = String(row.id || '').trim()
           
-          // Пропускаем дублирующиеся ID (обрабатываем только первое вхождение)
-          if (processedIds.has(code)) {
-            console.warn(`Пропущена дублирующаяся строка с ID: ${code}`)
-            continue
-          }
-          processedIds.add(code)
           const populationAll = row.populall || null
           const nameOld = String(row.nameold || '').trim()
           const nameOldAlt = String(row.nameoldalt || '').trim()
-          const nameModern = String(row.namemod || '').trim() || null
+          const nameModern = String(row.namemod || '').trim()
           const districtName = String(row.admunitmod || '').trim()
           const lat = (row.lat && Number(row.lat) !== 0) ? Number(row.lat) : null
           const lon = (row.lon && Number(row.lon) !== 0) ? Number(row.lon) : null
 
-          // Пропускаем строки без кода или названия старого
-          if (!code || !nameOld) {
-            console.warn('Пропущена строка без кода или названия:', row)
+          // Пропускаем строки без обязательных полей
+          if (!nameModern || !districtName) {
+            console.warn('Пропущена строка без namemod или admunitmod:', row)
             continue
           }
 
-          // Проверяем, существует ли уже запись с таким code
-          const { data: existingReport, error: findErr } = await supabase
+          // Создаём уникальный код из namemod + admunitmod + индекс строки
+          const code = `${nameModern}_${districtName}_${i}`
+          
+          // Создаем новую запись Report_record для каждой строки
+          const { data: newReport, error: insertErr } = await supabase
               .from('Report_record')
-              .select('id')
-              .eq('code', code)
-              .maybeSingle()
-
-          let reportId
-
-          if (existingReport && !findErr) {
-            // Если запись существует, обновляем её данные
-            const { data: updatedReport, error: updateErr } = await supabase
-                .from('Report_record')
-                .update({
+              .insert([
+                {
+                  code,
                   population_all: populationAll,
                   id_revision_report: revisionId
-                })
-                .eq('id', existingReport.id)
-                .select('id')
-                .single()
+                }
+              ])
+              .select()
 
-            if (updateErr) throw updateErr
-            reportId = updatedReport.id
-
-            // Удаляем старые записи Estate для этого report_record
-            await supabase
-                .from('Estate')
-                .delete()
-                .eq('id_report_record', reportId)
-          } else {
-            // Если записи нет, создаем новую
-            const { data: newReport, error: insertErr } = await supabase
-                .from('Report_record')
-                .insert([
-                  {
-                    code,
-                    population_all: populationAll,
-                    id_revision_report: revisionId
-                  }
-                ])
-                .select()
-                .single()
-
-            if (insertErr) throw insertErr
-            reportId = newReport.id
-          }
+          if (insertErr) throw insertErr
+          const reportId = Array.isArray(newReport) ? newReport[0].id : newReport.id
+          createdReportRecordsCount++
 
           // 3. Обработка Settlement и District
           let settlementId = null
 
-          if (nameOld) {
-            // Ищем существующий Settlement по name_old
+          if (nameModern && districtName) {
+            // Ищем существующий Settlement по паре namemod + admunitmod
             const { data: existingSettlement, error: settleFindErr } = await supabase
                 .from('Settlement')
-                .select('id')
-                .eq('name_old', nameOld)
+                .select('id, id_district')
+                .eq('name_modern', nameModern)
                 .maybeSingle()
 
             if (settleFindErr) throw settleFindErr
 
             if (existingSettlement) {
-              settlementId = existingSettlement.id
+              // Нашли Settlement, обновляем его данные (координаты, старое название)
+              const { data: updatedSettlement, error: updateErr } = await supabase
+                  .from('Settlement')
+                  .update({
+                    name_old: nameOld,
+                    name_old_alt: nameOldAlt || null,
+                    lat: lat,
+                    lon: lon
+                  })
+                  .eq('id', existingSettlement.id)
+                  .select('id')
+
+              if (updateErr) throw updateErr
+              settlementId = Array.isArray(updatedSettlement) ? updatedSettlement[0].id : updatedSettlement.id
             } else {
               // Создаем новый Settlement
               let districtId = null
@@ -490,10 +472,9 @@ export default {
                       .from('District')
                       .insert([{ name: districtName }])
                       .select('id')
-                      .single()
 
                   if (distInsertErr) throw distInsertErr
-                  districtId = newDistrict.id
+                  districtId = Array.isArray(newDistrict) ? newDistrict[0].id : newDistrict.id
                 }
               }
 
@@ -515,10 +496,9 @@ export default {
                   .from('Settlement')
                   .insert([settlementData])
                   .select('id')
-                  .single()
 
               if (settleInsertErr) throw settleInsertErr
-              settlementId = newSettlement.id
+              settlementId = Array.isArray(newSettlement) ? newSettlement[0].id : newSettlement.id
             }
 
             // Связываем Report_record с Settlement
@@ -527,6 +507,9 @@ export default {
                 .update({ id_settlment: settlementId })
                 .eq('id', reportId)
           }
+          
+          // Увеличиваем счётчик обработанных строк
+          processedRowsCount++
 
         // 4. Обработка estate колонок с соответствующими male/female данными
         for (let i = 1; i <= 5; i++) {
@@ -586,9 +569,8 @@ export default {
                       .from('Volost')
                       .insert([{ name: admunitValue }])
                       .select('id')
-                      .single()
                   if (insertVolErr) throw insertVolErr
-                  volost = newVolost
+                  volost = Array.isArray(newVolost) ? newVolost[0] : newVolost
                 }
 
                 estateData.id_volost = volost.id
@@ -608,9 +590,8 @@ export default {
                       .from('Military_unit')
                       .insert([{ description: admunitValue }])
                       .select('id')
-                      .single()
                   if (insertMilErr) throw insertMilErr
-                  militaryUnit = newMilitaryUnit
+                  militaryUnit = Array.isArray(newMilitaryUnit) ? newMilitaryUnit[0] : newMilitaryUnit
                 }
 
                 estateData.id_military_unit = militaryUnit.id
@@ -630,9 +611,8 @@ export default {
                       .from('Landowner')
                       .insert([{ description: admunitValue }])
                       .select('id')
-                      .single()
                   if (insertLandErr) throw insertLandErr
-                  landowner = newLandowner
+                  landowner = Array.isArray(newLandowner) ? newLandowner[0] : newLandowner
                 }
 
                 estateData.id_landowner = landowner.id
@@ -645,10 +625,13 @@ export default {
                 .insert([estateData])
 
             if (estateErr) throw estateErr
+            createdEstatesCount++
           }
         }
       }
+      
       this.progress = 100
+      this.success = `Обработано строк: ${processedRowsCount}, создано записей о ревизиях: ${createdReportRecordsCount}, создано записей о сословиях: ${createdEstatesCount}`
     },
 
     validateRows(rows) {
@@ -657,8 +640,7 @@ export default {
       const errors = []
       let hasCriticalErrors = false
       
-      // Проверка на дублирующиеся ID
-      // Отслеживаем индекс первого вхождения каждого ID
+      // Проверка на дублирующиеся ID - теперь только предупреждение
       const idFirstOccurrence = {}
       const duplicateIds = new Set()
       
@@ -667,50 +649,49 @@ export default {
         if (id) {
           const idStr = String(id).trim()
           if (idFirstOccurrence.hasOwnProperty(idStr)) {
-            // Это не первое вхождение - дубликат
             duplicateIds.add(idStr)
           } else {
-            // Первое вхождение - записываем индекс
             idFirstOccurrence[idStr] = index
           }
         }
       })
       
-      // Если найдены дубликаты, добавляем в лог
+      // Если найдены дубликаты ID, добавляем предупреждение в лог
       if (duplicateIds.size > 0) {
         const duplicatesList = Array.from(duplicateIds).join(', ')
-        this.validationLog.push(`ОШИБКА: Найдены дублирующиеся ID: ${duplicatesList}`)
-        this.validationLog.push('Каждый ID в файле должен быть уникальным!')
+        this.validationLog.push(`[НЕ КРИТИЧНО] Найдены дублирующиеся ID: ${duplicatesList}`)
+        this.validationLog.push('  → Это не критично, но рекомендуется иметь уникальные ID')
+        this.validationLog.push('')
       }
       
       rows.forEach((row, index) => {
         this.currentStatus = `Валидация: строка ${index + 2} из ${rows.length + 1}`
-        this.progress = Math.round(((index + 1) / rows.length) * 10) // progress до 10%
-        const missingFields = []
-        const invalidFields = []
+        this.progress = Math.round(((index + 1) / rows.length) * 10)
+        const criticalFields = []
+        const nonCriticalFields = []
         
-        // Support case insensitive column names
+        // ID - не обязателен, но если есть - проверяем формат (НЕ КРИТИЧНО)
         const id = row.id || row.ID || row.Id || row.iD
-        if (!id || String(id).trim() === '') {
-          missingFields.push('id')
-        } else {
+        if (id && String(id).trim() !== '') {
           const idStr = String(id).trim()
           if (idStr === '.' || isNaN(Number(idStr))) {
-            invalidFields.push(`id="${idStr}" (недопустимое значение)`)
-          } else if (duplicateIds.has(idStr) && idFirstOccurrence[idStr] !== index) {
-            // Дубликат, и это НЕ первое вхождение
-            const firstRow = idFirstOccurrence[idStr] + 2 // +2 потому что индекс с 0, а строки в Excel с 1, плюс заголовок
-            invalidFields.push(`id="${idStr}" (найден повтор id в строке ${firstRow})`)
+            nonCriticalFields.push(`id="${idStr}" (недопустимое значение)`)
           }
         }
         
-        const nameoldVal = row.nameold || row.NAMEOLD || row.Nameold || row.nameOld
-        if (!nameoldVal || String(nameoldVal).trim() === '') missingFields.push('nameold')
+        // namemod (современное название) - ОБЯЗАТЕЛЬНО (КРИТИЧНО)
+        const namemodVal = row.namemod || row.NAMEMOD || row.Namemod || row.nameMod
+        if (!namemodVal || String(namemodVal).trim() === '') {
+          criticalFields.push('namemod (обязательное поле)')
+        }
         
-        const admunitmodVal = row.admunitmod || row.ADMUNITMOD || row.Admunitmod || row.admunitMod || row.admunitmod || row.icon || row.ADMUNITMOD
-        if (!admunitmodVal || String(admunitmodVal).trim() === '') missingFields.push('admunitmod')
+        // admunitmod (район) - ОБЯЗАТЕЛЬНО (КРИТИЧНО)
+        const admunitmodVal = row.admunitmod || row.ADMUNITMOD || row.Admunitmod || row.admunitMod
+        if (!admunitmodVal || String(admunitmodVal).trim() === '') {
+          criticalFields.push('admunitmod (обязательное поле)')
+        }
         
-        // Валидация числовых полей male/female
+        // Валидация числовых полей male/female (КРИТИЧНО - если некорректное значение)
         for (let i = 1; i <= 5; i++) {
           const maleKey = `male${i}`
           const femaleKey = `female${i}`
@@ -718,72 +699,68 @@ export default {
           if (row[maleKey] !== null && row[maleKey] !== undefined && row[maleKey] !== '') {
             const maleStr = String(row[maleKey]).trim()
             if (maleStr === '.' || (maleStr !== '' && isNaN(Number(maleStr)))) {
-              invalidFields.push(`${maleKey}="${maleStr}" (недопустимое значение)`)
+              criticalFields.push(`${maleKey}="${maleStr}" (недопустимое значение)`)
             }
           }
           
           if (row[femaleKey] !== null && row[femaleKey] !== undefined && row[femaleKey] !== '') {
             const femaleStr = String(row[femaleKey]).trim()
             if (femaleStr === '.' || (femaleStr !== '' && isNaN(Number(femaleStr)))) {
-              invalidFields.push(`${femaleKey}="${femaleStr}" (недопустимое значение)`)
+              criticalFields.push(`${femaleKey}="${femaleStr}" (недопустимое значение)`)
             }
           }
         }
         
-        // Валидация populall
+        // Валидация populall (КРИТИЧНО)
         if (row.populall !== null && row.populall !== undefined && row.populall !== '') {
           const populallStr = String(row.populall).trim()
           if (populallStr === '.' || (populallStr !== '' && isNaN(Number(populallStr)))) {
-            invalidFields.push(`populall="${populallStr}" (недопустимое значение)`)
+            criticalFields.push(`populall="${populallStr}" (недопустимое значение)`)
           }
         }
         
-        // Валидация координат lat/lon
+        // Валидация координат lat/lon (НЕ КРИТИЧНО)
         if (row.lat !== null && row.lat !== undefined && row.lat !== '') {
           const latStr = String(row.lat).trim()
           if (latStr === '.' || (latStr !== '' && latStr !== '0' && isNaN(Number(latStr)))) {
-            invalidFields.push(`lat="${latStr}" (недопустимое значение)`)
+            nonCriticalFields.push(`lat="${latStr}" (недопустимое значение)`)
           }
         }
         
         if (row.lon !== null && row.lon !== undefined && row.lon !== '') {
           const lonStr = String(row.lon).trim()
           if (lonStr === '.' || (lonStr !== '' && lonStr !== '0' && isNaN(Number(lonStr)))) {
-            invalidFields.push(`lon="${lonStr}" (недопустимое значение)`)
+            nonCriticalFields.push(`lon="${lonStr}" (недопустимое значение)`)
           }
         }
         
-        // Check at least one estate field is filled
+        // Check at least one estate field is filled (КРИТИЧНО)
         const estatePresent = !!(String(row.estate1 || '').trim() || String(row.estate2 || '').trim() || String(row.estate3 || '').trim() || String(row.estate4 || '').trim() || String(row.estate5 || '').trim())
-        if (!estatePresent) missingFields.push('estate (хотя бы одно поле estate должно быть заполнено)')
-        
-        // Формируем статус валидации
-        const problems = []
-        if (missingFields.length > 0) problems.push(`MISSING: ${missingFields.join(', ')}`)
-        if (invalidFields.length > 0) problems.push(`INVALID: ${invalidFields.join(', ')}`)
+        if (!estatePresent) {
+          criticalFields.push('estate (хотя бы одно поле estate должно быть заполнено)')
+        }
         
         // Добавляем в лог только если есть проблемы
-        if (problems.length > 0) {
-          const status = problems.join(' | ')
-          this.validationLog.push(`Строка ${index + 2}: ${status}`)
-        }
-        
-        if (missingFields.length > 0 || invalidFields.length > 0) {
-          // Проверяем, есть ли критические ошибки (не считая дубликаты ID)
-          const isDuplicateOnly = invalidFields.length === 1 && 
-                                  invalidFields[0].includes('найден повтор id') && 
-                                  missingFields.length === 0
+        if (criticalFields.length > 0 || nonCriticalFields.length > 0) {
+          this.validationLog.push(`Строка ${index + 2}:`)
           
-          if (!isDuplicateOnly) {
+          if (criticalFields.length > 0) {
+            this.validationLog.push(`  [КРИТИЧНО] ${criticalFields.join(', ')}`)
             hasCriticalErrors = true
           }
+          
+          if (nonCriticalFields.length > 0) {
+            this.validationLog.push(`  [НЕ КРИТИЧНО] ${nonCriticalFields.join(', ')}`)
+          }
+          
+          this.validationLog.push('')
           
           errors.push({
             row: index + 2,
             id: String(id || '').trim(),
-            nameold: String(nameoldVal || '').trim(),
+            namemod: String(namemodVal || '').trim(),
             admunitmod: String(admunitmodVal || '').trim(),
-            missing: [...missingFields, ...invalidFields].join(', ')
+            missing: [...criticalFields, ...nonCriticalFields].join(', ')
           })
         }
       })
