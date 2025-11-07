@@ -720,16 +720,23 @@ export default {
         }
         
         // Валидация координат lat/lon (НЕ КРИТИЧНО)
-        if (row.lat !== null && row.lat !== undefined && row.lat !== '') {
-          const latStr = String(row.lat).trim()
-          if (latStr === '.' || (latStr !== '' && latStr !== '0' && isNaN(Number(latStr)))) {
+        const latVal = row.lat
+        const lonVal = row.lon
+        
+        if (latVal === null || latVal === undefined || String(latVal).trim() === '' || String(latVal).trim() === '0') {
+          nonCriticalFields.push('lat (отсутствует)')
+        } else {
+          const latStr = String(latVal).trim()
+          if (latStr === '.' || isNaN(Number(latStr))) {
             nonCriticalFields.push(`lat="${latStr}" (недопустимое значение)`)
           }
         }
         
-        if (row.lon !== null && row.lon !== undefined && row.lon !== '') {
-          const lonStr = String(row.lon).trim()
-          if (lonStr === '.' || (lonStr !== '' && lonStr !== '0' && isNaN(Number(lonStr)))) {
+        if (lonVal === null || lonVal === undefined || String(lonVal).trim() === '' || String(lonVal).trim() === '0') {
+          nonCriticalFields.push('lon (отсутствует)')
+        } else {
+          const lonStr = String(lonVal).trim()
+          if (lonStr === '.' || isNaN(Number(lonStr))) {
             nonCriticalFields.push(`lon="${lonStr}" (недопустимое значение)`)
           }
         }
