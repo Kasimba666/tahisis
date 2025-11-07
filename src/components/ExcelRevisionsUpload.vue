@@ -393,19 +393,25 @@ export default {
           const populationAll = row.populall || null
           const nameOld = String(row.nameold || '').trim()
           const nameOldAlt = String(row.nameoldalt || '').trim()
-          const nameModern = String(row.namemod || '').trim()
+          let nameModern = String(row.namemod || '').trim()
           const districtName = String(row.admunitmod || '').trim()
           const lat = (row.lat && Number(row.lat) !== 0) ? Number(row.lat) : null
           const lon = (row.lon && Number(row.lon) !== 0) ? Number(row.lon) : null
 
+          // Если namemod отсутствует, используем nameold
+          if (!nameModern && nameOld) {
+            nameModern = nameOld
+          }
+
           // Пропускаем строки без обязательных полей
           if (!nameModern || !districtName) {
-            console.warn('Пропущена строка без namemod или admunitmod:', row)
+            console.warn('Пропущена строка без названия или района:', row)
             continue
           }
 
-          // Создаём уникальный код из namemod + admunitmod + индекс строки
-          const code = `${nameModern}_${districtName}_${i}`
+          // Берём code из поля id исходного файла (может быть не уникальным)
+          const idVal = row.id || row.ID || row.Id || row.iD
+          const code = idVal ? Number(String(idVal).trim()) : null
           
           // Создаем новую запись Report_record для каждой строки
           const { data: newReport, error: insertErr } = await supabase
@@ -679,10 +685,16 @@ export default {
           }
         }
         
-        // namemod (современное название) - ОБЯЗАТЕЛЬНО (КРИТИЧНО)
+        // namemod (современное название) - НЕ КРИТИЧНО, можно взять из nameold
         const namemodVal = row.namemod || row.NAMEMOD || row.Namemod || row.nameMod
+        const nameoldVal = row.nameold || row.NAMEOLD || row.Nameold || row.nameOld
+        
         if (!namemodVal || String(namemodVal).trim() === '') {
-          criticalFields.push('namemod (обязательное поле)')
+          if (!nameoldVal || String(nameoldVal).trim() === '') {
+            criticalFields.push('namemod и nameold (хотя бы одно поле должно быть заполнено)')
+          } else {
+            nonCriticalFields.push('namemod (отсутствует, будет использовано nameold)')
+          }
         }
         
         // admunitmod (район) - ОБЯЗАТЕЛЬНО (КРИТИЧНО)

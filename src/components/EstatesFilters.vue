@@ -412,7 +412,12 @@
 
       <!-- Кнопки действий -->
       <div class="filter-actions">
-        <el-button type="primary" size="large" @click="applyFilters">
+        <el-button 
+          type="primary" 
+          size="large" 
+          @click="applyFilters"
+          :class="{ 'has-changes': hasChanges }"
+        >
           Применить
         </el-button>
         <el-button size="large" @click="resetFilters">
@@ -514,6 +519,9 @@ export default {
       searchSettlementModern: '',
       searchLandowner: '',
       searchMilitaryUnit: '',
+      // Отслеживание изменений
+      hasChanges: false,
+      appliedFilters: null
 
     }
   },
@@ -855,6 +863,12 @@ export default {
         affiliations: this.allAffiliations,
         volosts: this.allVolosts
       })
+    },
+    filters: {
+      handler() {
+        this.hasChanges = true
+      },
+      deep: true
     }
   },
   methods: {
@@ -1002,14 +1016,8 @@ export default {
         })
     },
     
-    onRevisionChange() {
-      this.applyFilters()
-    },
-
     onDistrictsChange() {
-      // Обновляем маркеры при изменении районов
-      this.onFiltersChange()
-      // Также обновляем доступные населенные пункты
+      // Обновляем доступные населенные пункты
       this.updateSettlementNames()
     },
 
@@ -1019,10 +1027,8 @@ export default {
     },
 
     onFiltersChange() {
-      // Обновляем маркеры при любом изменении фильтров
-      this.$emit('filter-change', this.filters)
-      // Обновляем URL с текущими фильтрами
-      this.updateURLWithFilters()
+      // Больше не применяем автоматически, только помечаем что есть изменения
+      // hasChanges устанавливается через watch
     },
 
     onTypeEstatesChange() {
@@ -1036,14 +1042,12 @@ export default {
         // Если не выбраны типы сословий, очищаем подтипы
         this.filters.subtypeEstates = []
       }
-      // Обновляем маркеры при изменении типов сословий
-      this.onFiltersChange()
     },
     
     applyFilters() {
       // Проверяем, есть ли активные фильтры
       const hasActiveFilters =
-        this.filters.revisionNumber ||
+        this.filters.revision?.length > 0 ||
         this.filters.districts?.length > 0 ||
         this.filters.settlementNamesOld?.length > 0 ||
         this.filters.settlementNamesModern?.length > 0 ||
@@ -1070,12 +1074,26 @@ export default {
             confirmButtonClass: 'el-button--primary'
           }
         ).then(() => {
+          // Применяем фильтры
           this.$emit('filter-change', this.filters)
+          // Обновляем URL
+          this.updateURLWithFilters()
+          // Сохраняем в localStorage
+          this.applyStoredFilters()
+          // Сбрасываем флаг изменений
+          this.hasChanges = false
         }).catch(() => {
           // Пользователь отменил действие
         })
       } else {
+        // Применяем фильтры
         this.$emit('filter-change', this.filters)
+        // Обновляем URL
+        this.updateURLWithFilters()
+        // Сохраняем в localStorage
+        this.applyStoredFilters()
+        // Сбрасываем флаг изменений
+        this.hasChanges = false
       }
     },
     
@@ -1490,6 +1508,42 @@ export default {
         }
       }
     }
+  }
+}
+
+// Пульсация кнопки "Применить" при изменениях
+@keyframes pulse-moderate {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--accent-primary);
+  }
+  25% {
+    transform: scale(1.025);
+    box-shadow: 0 0 0 5px rgba(var(--accent-primary-rgb, 64, 158, 255), 0.5);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 7.5px rgba(var(--accent-primary-rgb, 64, 158, 255), 0);
+    filter: brightness(1.08);
+  }
+  75% {
+    transform: scale(1.025);
+    box-shadow: 0 0 0 5px rgba(var(--accent-primary-rgb, 64, 158, 255), 0.5);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--accent-primary);
+  }
+}
+
+.filter-actions {
+  :deep(.el-button.has-changes) {
+    animation: pulse-moderate 1s infinite;
+    background-color: var(--accent-primary) !important;
+    border-color: var(--accent-primary) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    box-shadow: 0 0 7.5px rgba(var(--accent-primary-rgb, 64, 158, 255), 0.8);
   }
 }
 
