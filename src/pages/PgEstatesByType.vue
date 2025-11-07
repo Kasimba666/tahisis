@@ -14,16 +14,8 @@
     </div>
 
     <div v-else class="content">
-      <h3>Данные по сословиям</h3>
-      
-      <!-- Итоговая информация -->
-      <el-alert type="info" :closable="false" style="margin-bottom: 16px;">
-        <template #title>
-          Всего подтипов с населением: {{ tableData.length }} | Всего записей: {{ filteredEstates.length }}
-        </template>
-      </el-alert>
 
-      <!-- Единая таблица -->
+     <!-- Единая таблица -->
       <el-table
         :data="tableData"
         style="width: 100%"

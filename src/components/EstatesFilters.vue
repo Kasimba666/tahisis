@@ -1340,20 +1340,21 @@ export default {
       width: 100%;
       height: 32px;
       justify-content: space-between;
-      background-color: hsl(220, 15%, 18%);
-      border-color: hsl(220, 15%, 30%);
-      color: hsl(0, 0%, 85%);
+      background-color: var(--bg-secondary);
+      border-color: var(--border-color);
+      color: var(--text-primary);
       
       &:hover {
-        background-color: hsl(220, 15%, 22%);
-        border-color: hsl(220, 15%, 35%);
-        color: hsl(0, 0%, 90%);
+        background-color: var(--bg-tertiary);
+        border-color: var(--border-hover);
+        color: var(--text-primary);
       }
       
       &:disabled {
-        background-color: hsl(220, 15%, 12%);
-        border-color: hsl(220, 15%, 20%);
-        color: hsl(0, 0%, 40%);
+        background-color: var(--bg-primary);
+        border-color: var(--border-color);
+        color: var(--text-disabled);
+        opacity: 0.6;
       }
     }
   }
@@ -1421,27 +1422,27 @@ export default {
 
 :deep(.filter-dropdown-menu) {
   max-width: 300px;
-  background-color: hsl(220, 15%, 15%) !important;
-  border: 1px solid hsl(220, 15%, 25%) !important;
-  box-shadow: 0 4px 12px hsla(0, 0%, 0%, 0.3) !important;
+  background-color: var(--el-bg-color) !important;
+  border: 1px solid var(--el-border-color) !important;
+  box-shadow: var(--el-box-shadow) !important;
   
   .filter-search {
     padding: 3px;
-    border-bottom: 1px solid hsl(220, 15%, 25%);
-    background-color: hsl(220, 15%, 15%);
+    border-bottom: 1px solid var(--el-border-color);
+    background-color: var(--el-bg-color);
     
     .el-input__wrapper {
-      background-color: hsl(220, 15%, 20%) !important;
+      background-color: var(--el-fill-color-light) !important;
       box-shadow: none !important;
-      border: 1px solid hsl(220, 15%, 30%);
+      border: 1px solid var(--el-border-color);
       
       &:hover {
-        background-color: hsl(220, 15%, 25%) !important;
-        border-color: hsl(220, 15%, 35%);
+        background-color: var(--el-fill-color-light) !important;
+        border-color: var(--el-color-primary);
       }
       
       .el-input__inner {
-        color: hsl(0, 0%, 90%);
+        color: var(--el-text-color-primary);
       }
     }
   }
@@ -1450,7 +1451,7 @@ export default {
     max-height: 300px;
     overflow-y: auto;
     padding: 3px;
-    background-color: hsl(220, 15%, 15%);
+    background-color: var(--el-bg-color);
     
     .el-checkbox-group {
       display: flex;
@@ -1464,23 +1465,23 @@ export default {
       border-radius: 3px;
       
       &:hover {
-        background-color: hsl(220, 15%, 22%);
+        background-color: var(--el-fill-color-light);
       }
       
       .el-checkbox__input {
         .el-checkbox__inner {
-          background-color: hsl(220, 15%, 25%);
-          border: 2px solid hsl(220, 15%, 40%);
+          background-color: var(--el-fill-color-light);
+          border: 2px solid var(--el-border-color);
         }
         
         &.is-checked .el-checkbox__inner {
-          background-color: var(--accent-primary);
-          border-color: var(--accent-primary);
+          background-color: var(--el-color-primary);
+          border-color: var(--el-color-primary);
         }
       }
       
       .el-checkbox__label {
-        color: hsl(0, 0%, 85%);
+        color: var(--el-text-color-primary);
         font-weight: 400;
       }
     }
@@ -1490,21 +1491,22 @@ export default {
     display: flex;
     justify-content: space-between;
     padding: 3px;
-    border-top: 1px solid hsl(220, 15%, 25%);
-    background-color: hsl(220, 15%, 15%);
+    border-top: 1px solid var(--el-border-color);
+    background-color: var(--el-bg-color);
     
     .el-button {
-      color: hsl(0, 0%, 80%);
+      color: var(--el-text-color-regular);
 
       &:hover {
-        color: var(--accent-primary);
+        color: var(--el-color-primary);
       }
 
       &.el-button--danger {
-        color: hsl(0, 70%, 60%);
+        color: var(--el-color-danger);
 
         &:hover {
-          color: hsl(0, 70%, 50%);
+          color: var(--el-color-danger);
+          opacity: 0.8;
         }
       }
     }
@@ -1598,4 +1600,180 @@ export default {
 }
 
 
+</style>
+
+<style lang="scss">
+// Глобальные стили для dropdown меню (они рендерятся вне компонента)
+.filter-dropdown-menu.el-dropdown-menu {
+  max-width: 300px;
+  background-color: var(--el-bg-color) !important;
+  border: 2px solid var(--el-border-color) !important;
+  box-shadow: var(--el-box-shadow) !important;
+  
+  .filter-search {
+    padding: 3px;
+    border-bottom: 2px solid var(--el-border-color);
+    background-color: var(--el-bg-color);
+    
+    .el-input__wrapper {
+      background-color: var(--el-fill-color-light) !important;
+      box-shadow: none !important;
+      border: 1px solid var(--el-border-color) !important;
+      
+      &:hover {
+        background-color: var(--el-fill-color-light) !important;
+        border-color: var(--el-color-primary) !important;
+      }
+      
+      .el-input__inner {
+        color: var(--el-text-color-primary) !important;
+      }
+    }
+  }
+  
+  .filter-options {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 3px;
+    background-color: var(--el-bg-color);
+    
+    .el-checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    
+    .el-checkbox {
+      margin: 0;
+      padding: 2px 3px;
+      border-radius: 3px;
+      
+      &:hover {
+        background-color: var(--el-fill-color-light);
+        outline: 1px solid var(--el-border-color);
+      }
+      
+      .el-checkbox__input {
+        .el-checkbox__inner {
+          background-color: white;
+          border: 2px solid var(--el-border-color) !important;
+        }
+        
+        &.is-checked .el-checkbox__inner {
+          background-color: var(--el-color-primary) !important;
+          border-color: var(--el-color-primary) !important;
+        }
+      }
+      
+      .el-checkbox__label {
+        color: var(--el-text-color-primary) !important;
+        font-weight: 500;
+      }
+    }
+  }
+  
+  .filter-actions-dropdown {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px;
+    border-top: 2px solid var(--el-border-color);
+    background-color: var(--el-bg-color);
+    
+    .el-button {
+      color: var(--el-text-color-regular);
+      font-weight: 500;
+
+      &:hover {
+        color: var(--el-color-primary);
+      }
+
+      &.el-button--danger {
+        color: var(--el-color-danger);
+
+        &:hover {
+          color: var(--el-color-danger);
+          opacity: 0.8;
+        }
+      }
+    }
+  }
+}
+
+// Дополнительная контрастность для светлой темы
+:root {
+  .filter-dropdown-menu.el-dropdown-menu {
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) !important;
+    
+    .el-checkbox {
+      // Очень светлый hover для светлой темы - СВЕТЛО-СЕРЫЙ!
+      &:hover {
+        background-color: hsl(0, 0%, 97%) !important;
+        outline: none !important;
+      }
+      
+      .el-checkbox__input {
+        // Отступ 2px между чекбоксом и текстом
+        margin-right: 2px;
+        
+        .el-checkbox__inner {
+          // Белый фон чекбокса
+          background-color: white !important;
+          border-color: hsl(214, 20%, 80%) !important;
+        }
+        
+        &.is-checked .el-checkbox__inner {
+          // Синий чекбокс при выборе
+          background-color: var(--el-color-primary) !important;
+          border-color: var(--el-color-primary) !important;
+        }
+      }
+      
+      // Очень светлые выбранные элементы для светлой темы
+      .el-checkbox__input.is-checked {
+        & + .el-checkbox__label {
+          background-color: hsl(237, 60%, 96%);
+          padding: 2px 6px;
+          margin-left: -4px;
+          border-radius: 3px;
+          color: hsl(217, 25%, 45%) !important;
+          font-weight: 600;
+        }
+      }
+      
+      .el-checkbox__label {
+        // Светло-серый текст для мягкого контраста
+        color: hsl(217, 20%, 50%) !important;
+        font-weight: 400;
+      }
+    }
+  }
+}
+
+// Темная тема - темные цвета
+[data-theme="dark"] {
+  .filter-dropdown-menu.el-dropdown-menu {
+    .el-checkbox {
+      &:hover {
+        background-color: hsl(215, 25%, 22%);
+        outline: 1px solid var(--el-border-color);
+      }
+      
+      .el-checkbox__input {
+        .el-checkbox__inner {
+          background-color: hsl(215, 25%, 18%) !important;
+          border-color: hsl(215, 19%, 45%) !important;
+        }
+      }
+      
+      .el-checkbox__input.is-checked {
+        & + .el-checkbox__label {
+          background-color: hsl(237, 50%, 25%);
+          padding: 2px 6px;
+          margin-left: -6px;
+          border-radius: 3px;
+        }
+      }
+    }
+  }
+}
 </style>
