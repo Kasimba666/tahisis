@@ -25,8 +25,9 @@
         :summary-method="getSummaries"
         @row-click="handleRowClick"
         highlight-current-row
+        :default-sort="{ prop: 'subtypeName', order: 'ascending' }"
       >
-        <el-table-column label="Тип сословия" width="200">
+        <el-table-column label="Тип сословия" min-width="200" sortable prop="typeName">
           <template #default="{ row }">
             <div class="type-cell">
               <div class="type-badge" :style="{ backgroundColor: row.typeColor }"></div>
@@ -35,43 +36,43 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="Подтип сословия" width="250">
+        <el-table-column label="Подтип сословия" min-width="250" sortable prop="subtypeName">
           <template #default="{ row }">
             <strong>{{ row.subtypeName }}</strong>
           </template>
         </el-table-column>
 
-        <el-table-column label="Религия" width="150">
+        <el-table-column label="Религия" min-width="150" sortable prop="religion">
           <template #default="{ row }">
             {{ row.religion || '—' }}
           </template>
         </el-table-column>
 
-        <el-table-column label="Принадлежность" width="150">
+        <el-table-column label="Принадлежность" min-width="150" sortable prop="affiliation">
           <template #default="{ row }">
             {{ row.affiliation || '—' }}
           </template>
         </el-table-column>
 
-        <el-table-column label="Количество хозяйств" width="150" align="right">
+        <el-table-column label="Населённые пункты" min-width="150" align="right" sortable prop="estateCount">
           <template #default="{ row }">
             {{ row.estateCount }}
           </template>
         </el-table-column>
 
-        <el-table-column label="Мужчин" width="120" align="right">
+        <el-table-column label="Мужчин" min-width="120" align="right" sortable prop="maleCount">
           <template #default="{ row }">
             {{ row.maleCount }}
           </template>
         </el-table-column>
 
-        <el-table-column label="Женщин" width="120" align="right">
+        <el-table-column label="Женщин" min-width="120" align="right" sortable prop="femaleCount">
           <template #default="{ row }">
             {{ row.femaleCount }}
           </template>
         </el-table-column>
 
-        <el-table-column label="Всего" width="120" align="right">
+        <el-table-column label="Всего" min-width="120" align="right" sortable prop="totalCount">
           <template #default="{ row }">
             <strong>{{ row.totalCount }}</strong>
           </template>
@@ -114,6 +115,7 @@ export default {
       affiliations: [],
       allRevisions: [],
       reportRecords: [],
+      revisions: [], // Полная информация о ревизиях для сопоставления
       detailsVisible: false,
       selectedSubtypeId: null
     }
@@ -126,10 +128,14 @@ export default {
         const subtype = this.subtypeEstates.find(s => s.id === estate.id_subtype_estate)
         if (!subtype) return false
 
-        // Фильтр по ревизиям
+        // Фильтр по ревизиям (сопоставляем number из фильтра с id через revisions)
         if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
           const reportRecord = this.reportRecords.find(r => r.id === estate.id_report_record)
-          if (!reportRecord || !this.currentFilters.revision.includes(reportRecord.id_revision_report)) {
+          if (!reportRecord) return false
+          
+          // Находим ревизию по id и проверяем её номер
+          const revision = this.revisions.find(r => r.id === reportRecord.id_revision_report)
+          if (!revision || !this.currentFilters.revision.includes(revision.number)) {
             return false
           }
         }
@@ -321,6 +327,15 @@ export default {
       this.loading = true
 
       try {
+        // Загружаем ревизии для сопоставления id и number
+        const { data: revisions, error: revisionsError } = await supabase
+          .from('Revision_report')
+          .select('id, year, number')
+          .order('year')
+
+        if (revisionsError) throw revisionsError
+        this.revisions = revisions || []
+
         // Загружаем типы сословий
         const { data: types, error: typesError } = await supabase
           .from('Type_estate')

@@ -120,6 +120,7 @@
           size="small"
           @header-dragend="handleHeaderDragEnd"
           @row-dblclick="viewDetails"
+          :default-sort="{ prop: 'settlement_name_old', order: 'ascending' }"
         >
           <el-table-column v-if="visibleReportColumns.id" prop="id" label="ID" width="50" sortable />
           <el-table-column v-if="visibleReportColumns.code" prop="code" label="Код" width="80" sortable />

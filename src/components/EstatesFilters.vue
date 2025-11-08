@@ -21,14 +21,14 @@
 
     <div class="filters-row">
       <!-- Фильтр по ревизиям -->
-      <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
+      <el-dropdown v-if="allRevisions.length > 0" trigger="click" :hide-on-click="false" class="filter-dropdown">
         <el-button size="large">
           Ревизия ({{ (filters.revision && filters.revision.length > 0) ? filters.revision.length : 0 }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.revision" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.revision">
                 <el-checkbox
                   v-for="revision in allRevisions"
                   :key="revision.number"
@@ -39,7 +39,6 @@
               </el-checkbox-group>
             </div>
             <div class="filter-actions-dropdown">
-              <el-button link size="small" @click="selectAllRevisions">Выбрать все</el-button>
               <el-button link size="small" type="danger" @click="filters.revision = []">Сбросить</el-button>
             </div>
           </el-dropdown-menu>
@@ -57,7 +56,7 @@
               <el-input v-model="searchDistrict" placeholder="Поиск..." size="small" clearable />
             </div>
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.districts" @change="onDistrictsChange">
+              <el-checkbox-group v-model="filters.districts">
                 <el-checkbox 
                   v-for="district in filteredDistrictsSearch" 
                   :key="district.id" 
@@ -85,7 +84,7 @@
               <el-input v-model="searchSettlementOld" placeholder="Поиск..." size="small" clearable />
             </div>
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.settlementNamesOld" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.settlementNamesOld">
                 <el-checkbox
                   v-for="settlementName in filteredSettlementNamesOldSearch"
                   :key="settlementName"
@@ -113,7 +112,7 @@
               <el-input v-model="searchSettlementModern" placeholder="Поиск..." size="small" clearable />
             </div>
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.settlementNamesModern" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.settlementNamesModern">
                 <el-checkbox
                   v-for="settlementName in filteredSettlementNamesModernSearch"
                   :key="settlementName"
@@ -138,7 +137,7 @@
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.typeEstates" @change="onTypeEstatesChange">
+              <el-checkbox-group v-model="filters.typeEstates">
                 <el-checkbox 
                   v-for="type in filteredTypeEstates" 
                   :key="type.id" 
@@ -163,7 +162,7 @@
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.subtypeEstates" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.subtypeEstates">
                 <el-checkbox
                   v-for="subtype in filteredSubtypeEstates"
                   :key="subtype.id"
@@ -188,7 +187,7 @@
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.religions" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.religions">
                 <el-checkbox
                   v-for="religion in filteredReligions"
                   :key="religion.id"
@@ -213,7 +212,7 @@
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.affiliations" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.affiliations">
                 <el-checkbox
                   v-for="affiliation in filteredAffiliations"
                   :key="affiliation.id"
@@ -238,7 +237,7 @@
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.volosts" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.volosts">
                 <el-checkbox
                   v-for="volost in filteredVolosts"
                   :key="volost.id"
@@ -266,7 +265,7 @@
               <el-input v-model="searchLandowner" placeholder="Поиск..." size="small" clearable />
             </div>
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.landowners" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.landowners">
                 <el-checkbox
                   v-for="landowner in filteredLandownersSearch"
                   :key="landowner.id"
@@ -294,7 +293,7 @@
               <el-input v-model="searchMilitaryUnit" placeholder="Поиск..." size="small" clearable />
             </div>
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.militaryUnits" @change="onFiltersChange">
+              <el-checkbox-group v-model="filters.militaryUnits">
                 <el-checkbox
                   v-for="unit in filteredMilitaryUnitsSearch"
                   :key="unit.id"
@@ -522,7 +521,6 @@ export default {
       // Отслеживание изменений
       hasChanges: false,
       appliedFilters: null
-
     }
   },
   computed: {
@@ -1016,33 +1014,6 @@ export default {
         })
     },
     
-    onDistrictsChange() {
-      // Обновляем доступные населенные пункты
-      this.updateSettlementNames()
-    },
-
-    updateSettlementNames() {
-      // Принудительно пересчитываем computed свойства для названий населенных пунктов
-      this.$forceUpdate()
-    },
-
-    onFiltersChange() {
-      // Больше не применяем автоматически, только помечаем что есть изменения
-      // hasChanges устанавливается через watch
-    },
-
-    onTypeEstatesChange() {
-      // Убираем подтипы, которые не относятся к выбранным типам
-      if (this.filters.typeEstates.length > 0 && this.filters.subtypeEstates.length > 0) {
-        this.filters.subtypeEstates = this.filters.subtypeEstates.filter(subtypeId => {
-          const subtype = this.allSubtypeEstates.find(s => s.id === subtypeId)
-          return subtype && this.filters.typeEstates.includes(subtype.id_type_estate)
-        })
-      } else if (this.filters.typeEstates.length === 0) {
-        // Если не выбраны типы сословий, очищаем подтипы
-        this.filters.subtypeEstates = []
-      }
-    },
     
     applyFilters() {
       // Проверяем, есть ли активные фильтры
@@ -1109,7 +1080,6 @@ export default {
     
     selectAllTypeEstates() {
       this.filters.typeEstates = this.filteredTypeEstates.map(t => t.id)
-      this.onTypeEstatesChange()
     },
     
     selectAllSubtypeEstates() {
@@ -1138,16 +1108,6 @@ export default {
 
     selectAllRevisions() {
       this.filters.revision = this.allRevisions.map(r => r.number)
-    },
-
-    onSettlementNamesOldChange() {
-      // Обновляем маркеры при изменении старых названий населенных пунктов
-      this.onFiltersChange()
-    },
-
-    onSettlementNamesModernChange() {
-      // Обновляем маркеры при изменении современных названий населенных пунктов
-      this.onFiltersChange()
     },
 
     selectAllSettlementNamesOld() {
@@ -1316,9 +1276,6 @@ export default {
           this.filters.estatesCountMax = null
           break
       }
-
-      // Обновляем данные и URL
-      this.onFiltersChange()
     }
   }
 }

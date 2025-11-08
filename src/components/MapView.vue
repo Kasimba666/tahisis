@@ -58,7 +58,7 @@ export default {
   },
   props: {
     settlements: {
-      type: Array,
+      type: [Array, Object],
       default: () => []
     },
     geoJsonData: {
@@ -75,13 +75,23 @@ export default {
   },
   computed: {
     estateTypesLegend() {
-      if (!this.settlements || this.settlements.length === 0) {
+      // Поддержка как массива settlements, так и GeoJSON
+      let settlementsArray = []
+      if (this.settlements && this.settlements.type === 'FeatureCollection') {
+        settlementsArray = this.settlements.features.map(f => f.properties)
+      } else if (Array.isArray(this.settlements)) {
+        settlementsArray = this.settlements
+      } else {
+        return []
+      }
+
+      if (settlementsArray.length === 0) {
         return []
       }
 
       const typesMap = new Map()
       
-      this.settlements.forEach(settlement => {
+      settlementsArray.forEach(settlement => {
         if (settlement.estateTypes && settlement.estateTypes.length > 0) {
           settlement.estateTypes.forEach(type => {
             if (!typesMap.has(type.id)) {

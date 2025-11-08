@@ -30,40 +30,17 @@
         </el-descriptions-item>
       </el-descriptions>
 
-      <!-- Статистика -->
-      <div class="stats-section">
-        <h4>Статистика</h4>
-        <el-row :gutter="16">
-          <el-col :span="6">
-            <div class="stat-card">
-              <div class="stat-label">Хозяйств</div>
-              <div class="stat-value">{{ subtypeData.estateCount }}</div>
-            </div>
-          </el-col>
-          <el-col :span="6">
-            <div class="stat-card">
-              <div class="stat-label">Мужчин</div>
-              <div class="stat-value">{{ subtypeData.maleCount }}</div>
-            </div>
-          </el-col>
-          <el-col :span="6">
-            <div class="stat-card">
-              <div class="stat-label">Женщин</div>
-              <div class="stat-value">{{ subtypeData.femaleCount }}</div>
-            </div>
-          </el-col>
-          <el-col :span="6">
-            <div class="stat-card highlight">
-              <div class="stat-label">Всего</div>
-              <div class="stat-value">{{ subtypeData.totalCount }}</div>
-            </div>
-          </el-col>
-        </el-row>
+      <!-- Карта -->
+      <div v-if="showMap" class="map-section">
+        <h4>Карта населённых пунктов</h4>
+        <div class="map-wrapper">
+          <MapView :geo-json-data="settlementsGeoJson" />
+        </div>
       </div>
 
-      <!-- Список хозяйств -->
+      <!-- Список населённых пунктов -->
       <div class="estates-section">
-        <h4>Хозяйства ({{ estates.length }})</h4>
+        <h4>Список населённых пунктов</h4>
         <el-table
           :data="paginatedEstates"
           style="width: 100%"
@@ -75,9 +52,19 @@
               {{ row.settlementName || '—' }}
             </template>
           </el-table-column>
-          <el-table-column label="Волость" width="120">
+          <el-table-column label="Волость" min-width="120">
             <template #default="{ row }">
               {{ row.volostName || '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="Помещик" min-width="150">
+            <template #default="{ row }">
+              {{ row.landownerName || '—' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="Военная организация" min-width="150">
+            <template #default="{ row }">
+              {{ row.militaryUnitName || '—' }}
             </template>
           </el-table-column>
           <el-table-column label="Мужчин" width="80" align="right">
@@ -95,6 +82,13 @@
               <strong>{{ (row.male || 0) + (row.female || 0) }}</strong>
             </template>
           </el-table-column>
+          <el-table-column label="" width="100" fixed="right">
+            <template #default="{ row }">
+              <el-button size="small" @click="showEstateDetails(row)">
+                Детали
+              </el-button>
+            </template>
+          </el-table-column>
         </el-table>
 
         <!-- Пагинация -->
@@ -109,21 +103,36 @@
         />
       </div>
 
-      <!-- Кнопка перехода -->
+      <!-- Кнопки действий -->
       <div class="actions">
-        <el-button type="primary" @click="goToEstatesList">
+        <el-button type="primary" @click="toggleMap">
+          {{ showMap ? 'Скрыть карту' : 'Показать карту' }}
+        </el-button>
+        <el-button @click="goToEstatesList">
           Перейти к полному списку ревизий
         </el-button>
       </div>
     </div>
+
+    <!-- Детали отдельной записи -->
+    <EstateRecordDetails
+      v-model="showingEstateDetails"
+      :estate-id="selectedEstateId"
+    />
   </el-drawer>
 </template>
 
 <script>
 import { supabase } from '@/services/supabase.js'
+import MapView from '@/components/MapView.vue'
+import EstateRecordDetails from '@/components/EstateRecordDetails.vue'
 
 export default {
   name: 'SubtypeEstateDetails',
+  components: {
+    MapView,
+    EstateRecordDetails
+  },
   props: {
     modelValue: {
       type: Boolean,
@@ -141,7 +150,11 @@ export default {
       subtypeData: null,
       estates: [],
       currentPage: 1,
-      pageSize: 20
+      pageSize: 20,
+      showMap: false,
+      settlements: [],
+      showingEstateDetails: false,
+      selectedEstateId: null
     }
   },
   computed: {
@@ -162,6 +175,52 @@ export default {
       const start = (this.currentPage - 1) * this.pageSize
       const end = start + this.pageSize
       return this.estates.slice(start, end)
+    },
+    settlementsGeoJson() {
+      // Формируем GeoJSON из уникальных населённых пунктов
+      const features = []
+      const uniqueSettlements = new Map()
+      
+      this.settlements.forEach(settlement => {
+        if (!uniqueSettlements.has(settlement.id)) {
+          // Собираем все estate для этого settlement
+          const settleEstates = this.estates.filter(e => e.settlementId === settlement.id)
+          
+          // Считаем общую численность
+          const maleCount = settleEstates.reduce((sum, e) => sum + (e.male || 0), 0)
+          const femaleCount = settleEstates.reduce((sum, e) => sum + (e.female || 0), 0)
+          
+          // Создаем GeoJSON Feature
+          features.push({
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [parseFloat(settlement.lon), parseFloat(settlement.lat)]
+            },
+            properties: {
+              id: settlement.id,
+              name: settlement.name_old,
+              name_old: settlement.name_old,
+              estateTypes: [{
+                id: this.subtypeData.typeId,
+                name: this.subtypeData.typeName,
+                color: this.subtypeData.typeColor,
+                population: maleCount + femaleCount
+              }],
+              maleCount,
+              femaleCount,
+              totalCount: maleCount + femaleCount
+            }
+          })
+          
+          uniqueSettlements.set(settlement.id, true)
+        }
+      })
+      
+      return {
+        type: 'FeatureCollection',
+        features
+      }
     }
   },
   watch: {
@@ -230,6 +289,8 @@ export default {
             male,
             female,
             id_volost,
+            id_landowner,
+            id_military_unit,
             id_report_record
           `)
           .eq('id_subtype_estate', this.subtypeId)
@@ -248,10 +309,12 @@ export default {
         const settlementIds = [...new Set(reportRecords.map(r => r.id_settlment).filter(Boolean))]
         const { data: settlements, error: settlementError } = await supabase
           .from('Settlement')
-          .select('id, name_old')
+          .select('id, name_old, lat, lon')
           .in('id', settlementIds)
 
         if (settlementError) throw settlementError
+        
+        this.settlements = settlements || []
 
         // Загружаем волости
         const volostIds = [...new Set(estates.map(e => e.id_volost).filter(Boolean))]
@@ -262,6 +325,32 @@ export default {
 
         if (volostError) throw volostError
 
+        // Загружаем помещиков
+        const landownerIds = [...new Set(estates.map(e => e.id_landowner).filter(Boolean))]
+        let landowners = []
+        if (landownerIds.length > 0) {
+          const { data: landownersData, error: landownersError } = await supabase
+            .from('Landowner')
+            .select('id, description, person')
+            .in('id', landownerIds)
+
+          if (landownersError) throw landownersError
+          landowners = landownersData || []
+        }
+
+        // Загружаем военные организации
+        const militaryUnitIds = [...new Set(estates.map(e => e.id_military_unit).filter(Boolean))]
+        let militaryUnits = []
+        if (militaryUnitIds.length > 0) {
+          const { data: militaryUnitsData, error: militaryUnitsError } = await supabase
+            .from('Military_unit')
+            .select('id, description, person')
+            .in('id', militaryUnitIds)
+
+          if (militaryUnitsError) throw militaryUnitsError
+          militaryUnits = militaryUnitsData || []
+        }
+
         // Формируем данные подтипа
         const maleCount = estates.reduce((sum, e) => sum + (e.male || 0), 0)
         const femaleCount = estates.reduce((sum, e) => sum + (e.female || 0), 0)
@@ -269,6 +358,7 @@ export default {
         this.subtypeData = {
           subtypeId: subtype.id,
           subtypeName: subtype.name,
+          typeId: type.id,
           typeName: type.name,
           typeColor: type.color || 'hsl(0, 0%, 50%)',
           religion: religion.name,
@@ -284,11 +374,16 @@ export default {
           const reportRecord = reportRecords.find(r => r.id === estate.id_report_record)
           const settlement = settlements.find(s => s.id === reportRecord?.id_settlment)
           const volost = volosts.find(v => v.id === estate.id_volost)
+          const landowner = landowners.find(l => l.id === estate.id_landowner)
+          const militaryUnit = militaryUnits.find(m => m.id === estate.id_military_unit)
 
           return {
             ...estate,
             settlementName: settlement?.name_old,
-            volostName: volost?.name
+            settlementId: settlement?.id,
+            volostName: volost?.name,
+            landownerName: landowner ? (landowner.description || landowner.person) : null,
+            militaryUnitName: militaryUnit ? (militaryUnit.description || militaryUnit.person) : null
           }
         })
 
@@ -298,6 +393,10 @@ export default {
       } finally {
         this.loading = false
       }
+    },
+
+    toggleMap() {
+      this.showMap = !this.showMap
     },
 
     goToEstatesList() {
@@ -310,6 +409,11 @@ export default {
         }
       })
       this.visible = false
+    },
+
+    showEstateDetails(estate) {
+      this.selectedEstateId = estate.id
+      this.showingEstateDetails = true
     }
   }
 }
@@ -340,7 +444,7 @@ export default {
     }
   }
 
-  .stats-section {
+  .map-section {
     margin-top: 24px;
 
     h4 {
@@ -350,33 +454,11 @@ export default {
       color: var(--text-primary);
     }
 
-    .stat-card {
-      padding: 16px;
-      background: var(--bg-secondary);
+    .map-wrapper {
+      height: 500px;
+      border: 1px solid var(--border-color);
       border-radius: 8px;
-      text-align: center;
-
-      &.highlight {
-        background: var(--accent-primary);
-        color: white;
-
-        .stat-label,
-        .stat-value {
-          color: white;
-        }
-      }
-
-      .stat-label {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        margin-bottom: 8px;
-      }
-
-      .stat-value {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: var(--text-primary);
-      }
+      overflow: hidden;
     }
   }
 
@@ -393,7 +475,9 @@ export default {
 
   .actions {
     margin-top: 24px;
-    text-align: center;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
   }
 }
 </style>

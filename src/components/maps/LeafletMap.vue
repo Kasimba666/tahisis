@@ -11,7 +11,7 @@ export default {
   name: 'LeafletMap',
   props: {
     settlements: {
-      type: Array,
+      type: [Array, Object],
       default: () => []
     },
     vectorLayers: {
@@ -104,7 +104,23 @@ export default {
       this.markers.forEach(marker => marker.remove())
       this.markers = []
 
-      this.settlements.forEach(settlement => {
+      // Поддержка как массива, так и GeoJSON
+      let settlementsArray = []
+      if (this.settlements && this.settlements.type === 'FeatureCollection') {
+        // Обработка GeoJSON
+        this.settlements.features.forEach(feature => {
+          const settlement = {
+            ...feature.properties,
+            lat: feature.geometry.coordinates[1],
+            lon: feature.geometry.coordinates[0]
+          }
+          settlementsArray.push(settlement)
+        })
+      } else if (Array.isArray(this.settlements)) {
+        settlementsArray = this.settlements
+      }
+
+      settlementsArray.forEach(settlement => {
         if (settlement.lat && settlement.lon) {
           const lat = parseFloat(settlement.lat)
           const lon = parseFloat(settlement.lon)
