@@ -97,7 +97,7 @@
           </el-table-column>
 
 
-          <el-table-column label="Религия" sortable resizable min-width="150">
+          <el-table-column prop="id_type_religion" label="Религия" sortable resizable min-width="150">
             <template #default="{ row }">
               <div v-if="editSubtypeId === row.id">
                 <el-select v-model="editSubtype.id_type_religion" placeholder="Выберите религию" filterable>
@@ -115,7 +115,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="Принадлежность" sortable resizable min-width="150">
+          <el-table-column prop="id_type_affiliation" label="Принадлежность" sortable resizable min-width="150">
             <template #default="{ row }">
               <div v-if="editSubtypeId === row.id">
                 <el-select v-model="editSubtype.id_type_affiliation" placeholder="Выберите принадлежность" filterable>
@@ -186,7 +186,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="Соответствует подтипу" sortable resizable min-width="200">
+          <el-table-column prop="id_subtype_estate" label="Соответствует подтипу" sortable resizable min-width="200">
             <template #default="{ row }">
               <div v-if="editSourceId === row.id">
                 <el-select v-model="editSource.id_subtype_estate" placeholder="Выберите подтип" filterable>

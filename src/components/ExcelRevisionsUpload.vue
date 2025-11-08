@@ -528,14 +528,27 @@ export default {
             const estateName = String(row[estateKey]).trim()
             if (!estateName) continue
 
-            // ищем Subtype_estate
+            // НОВАЯ ЛОГИКА: ищем в Subtype_estate_source
+            const { data: estateSource, error: sourceErr } = await supabase
+                .from('Subtype_estate_source')
+                .select('id, id_subtype_estate')
+                .ilike('name', estateName)
+                .maybeSingle()
+            
+            if (sourceErr) throw sourceErr
+            if (!estateSource) {
+              console.warn(`Источник подтипа не найден: "${estateName}"`)
+              continue
+            }
+
+            // Получаем информацию о подтипе (для Type_affiliation)
             const { data: subtype, error: subErr } = await supabase
                 .from('Subtype_estate')
                 .select('id, id_type_affiliation')
-                .ilike('name', estateName)
-                .maybeSingle()
+                .eq('id', estateSource.id_subtype_estate)
+                .single()
+            
             if (subErr) throw subErr
-            if (!subtype) continue
 
             // Получаем информацию о типе принадлежности
             const { data: typeAffiliation, error: affErr } = await supabase
@@ -549,6 +562,7 @@ export default {
             let estateData = {
               id_report_record: reportId,
               id_subtype_estate: subtype.id,
+              id_subtype_estate_source: estateSource.id, // Добавляем ссылку на источник
               male: row[maleKey] ? Number(String(row[maleKey]).trim()) || null : null,
               female: row[femaleKey] ? Number(String(row[femaleKey]).trim()) || null : null,
               id_volost: null,
