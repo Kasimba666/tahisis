@@ -99,7 +99,7 @@ export default {
     updateMarkers() {
       if (!this.mapInstance) return
 
-      const { createConcentricCirclesMarker, generateSettlementPopup } = useMapMarkers()
+      const { createConcentricCirclesMarker, generateSettlementPopup, generateSimpleSettlementPopup } = useMapMarkers()
 
       this.markers.forEach(marker => marker.remove())
       this.markers = []
@@ -135,6 +135,11 @@ export default {
             iconAnchor: [14, 14]
           })
 
+          // Используем простой popup если нет district (данные из SubtypeEstateDetails)
+          const popupContent = !settlement.district 
+            ? generateSimpleSettlementPopup(settlement)
+            : generateSettlementPopup(settlement)
+
           const marker = L.marker([lat, lon], { icon: customIcon })
             .bindTooltip(`
               <div class="settlement-tooltip">
@@ -148,23 +153,25 @@ export default {
               className: 'custom-tooltip',
               permanent: false
             })
-            .bindPopup(generateSettlementPopup(settlement))
+            .bindPopup(popupContent)
             .addTo(this.mapInstance)
 
-          // Добавляем обработчик для кнопки "Детали" программно
-          marker.on('popupopen', () => {
-            const popup = marker.getPopup()
-            if (popup) {
-              const detailsBtn = popup.getElement().querySelector('.popup-details-btn')
-              if (detailsBtn) {
-                detailsBtn.onclick = () => {
-                  window.dispatchEvent(new CustomEvent('show-settlement-details', { 
-                    detail: { settlement } 
-                  }))
+          // Добавляем обработчик для кнопки "Детали" программно (только для полного popup)
+          if (settlement.district) {
+            marker.on('popupopen', () => {
+              const popup = marker.getPopup()
+              if (popup) {
+                const detailsBtn = popup.getElement().querySelector('.popup-details-btn')
+                if (detailsBtn) {
+                  detailsBtn.onclick = () => {
+                    window.dispatchEvent(new CustomEvent('show-settlement-details', { 
+                      detail: { settlement } 
+                    }))
+                  }
                 }
               }
-            }
-          })
+            })
+          }
 
           this.markers.push(marker)
         }

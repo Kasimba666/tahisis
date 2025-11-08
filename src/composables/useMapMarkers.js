@@ -47,6 +47,52 @@ export function useMapMarkers() {
     return `<div class="pie-marker">${svg}</div>`
   }
 
+  // Генерация простого popup для деталей сословия (без кнопки "Детали" и без пустых полей)
+  const generateSimpleSettlementPopup = (settlement) => {
+    let html = '<div class="settlement-popup-new">'
+    
+    // Старое название (обязательно)
+    if (settlement.name || settlement.name_old) {
+      html += `<div class="popup-field"><strong>${settlement.name || settlement.name_old}</strong></div>`
+    }
+    
+    // Современное название (только если есть)
+    if (settlement.nameModern) {
+      html += `<div class="popup-field popup-field-modern">${settlement.nameModern}</div>`
+    }
+    
+    // Волость (только если есть)
+    if (settlement.volost) {
+      html += `<div class="popup-field">Волость: ${settlement.volost}</div>`
+    }
+    
+    // Помещик (только если есть)
+    if (settlement.landowner) {
+      html += `<div class="popup-field">Помещик: ${settlement.landowner}</div>`
+    }
+    
+    // Военная организация (только если есть)
+    if (settlement.militaryUnit) {
+      html += `<div class="popup-field">Военная организация: ${settlement.militaryUnit}</div>`
+    }
+    
+    // Численность
+    const male = settlement.male || settlement.maleCount || 0
+    const female = settlement.female || settlement.femaleCount || 0
+    const total = settlement.totalCount || (male + female)
+    
+    if (total > 0) {
+      html += '<div class="popup-estates">'
+      html += `<div class="popup-estate-item">Мужчин: ${male}</div>`
+      html += `<div class="popup-estate-item">Женщин: ${female}</div>`
+      html += `<div class="popup-estate-total">Всего: ${total}</div>`
+      html += '</div>'
+    }
+    
+    html += '</div>'
+    return html
+  }
+
   // Генерация popup для населённого пункта
   const generateSettlementPopup = (settlement) => {
     const nameOld = settlement.name || '—'
@@ -110,6 +156,7 @@ export function useMapMarkers() {
   return {
     createConcentricCirclesMarker,
     generateSettlementPopup,
+    generateSimpleSettlementPopup,
     hslToHsla,
     getLayerColor
   }

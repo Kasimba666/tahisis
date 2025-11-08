@@ -24,7 +24,7 @@ export default {
   name: 'OpenLayersMap',
   props: {
     settlements: {
-      type: Array,
+      type: [Array, Object],
       default: () => []
     },
     vectorLayers: {
@@ -183,22 +183,33 @@ export default {
     },
 
     setupEventHandlers() {
-      const { generateSettlementPopup } = useMapMarkers()
+      const { generateSettlementPopup, generateSimpleSettlementPopup } = useMapMarkers()
 
       this.mapInstance.on('singleclick', (evt) => {
         let shown = false
         this.mapInstance.forEachFeatureAtPixel(evt.pixel, (feature) => {
           const settlement = {
             name: feature.get('name') || '—',
-            nameModern: feature.get('nameModern') || '—',
-            district: feature.get('district') || '—',
+            nameModern: feature.get('nameModern'),
+            district: feature.get('district'),
+            volost: feature.get('volost'),
+            landowner: feature.get('landowner'),
+            militaryUnit: feature.get('militaryUnit'),
             male: feature.get('male') || 0,
             female: feature.get('female') || 0,
+            maleCount: feature.get('maleCount') || 0,
+            femaleCount: feature.get('femaleCount') || 0,
+            totalCount: feature.get('totalCount') || 0,
             estates: feature.get('estates') || []
           }
           
           const contentDiv = this.popupOverlay.getElement().querySelector('.ol-popup-content')
-          contentDiv.innerHTML = generateSettlementPopup(settlement)
+          // Используем простой popup если нет district (данные из SubtypeEstateDetails)
+          if (!settlement.district) {
+            contentDiv.innerHTML = generateSimpleSettlementPopup(settlement)
+          } else {
+            contentDiv.innerHTML = generateSettlementPopup(settlement)
+          }
           
           // Добавляем обработчик для кнопки "Детали" программно
           const detailsBtn = contentDiv.querySelector('.popup-details-btn')
@@ -256,8 +267,6 @@ export default {
     updateMarkers() {
       console.log('=== OpenLayers updateMarkers ===')
       console.log('vectorLayer exists:', !!this.vectorLayer)
-      console.log('settlements length:', this.settlements?.length || 0)
-      console.log('settlements sample:', this.settlements?.slice(0, 2))
       
       if (!this.vectorLayer) {
         console.warn('No vectorLayer in updateMarkers')
@@ -267,8 +276,26 @@ export default {
       const source = this.vectorLayer.getSource()
       source.clear()
 
+      // Поддержка как массива, так и GeoJSON
+      let settlementsArray = []
+      if (this.settlements && this.settlements.type === 'FeatureCollection') {
+        // Обработка GeoJSON
+        this.settlements.features.forEach(feature => {
+          const settlement = {
+            ...feature.properties,
+            lat: feature.geometry.coordinates[1],
+            lon: feature.geometry.coordinates[0]
+          }
+          settlementsArray.push(settlement)
+        })
+        console.log('Converted GeoJSON to array:', settlementsArray.length, 'settlements')
+      } else if (Array.isArray(this.settlements)) {
+        settlementsArray = this.settlements
+        console.log('Using array directly:', settlementsArray.length, 'settlements')
+      }
+
       let addedCount = 0
-      this.settlements.forEach(settlement => {
+      settlementsArray.forEach(settlement => {
         if (settlement.lat && settlement.lon) {
           const lat = parseFloat(settlement.lat)
           const lon = parseFloat(settlement.lon)
@@ -286,8 +313,14 @@ export default {
             name: settlement.name,
             nameModern: settlement.nameModern,
             district: settlement.district,
+            volost: settlement.volost,
+            landowner: settlement.landowner,
+            militaryUnit: settlement.militaryUnit,
             male: settlement.male,
             female: settlement.female,
+            maleCount: settlement.maleCount,
+            femaleCount: settlement.femaleCount,
+            totalCount: settlement.totalCount,
             estates: settlement.estates || []
           })
 

@@ -116,6 +116,7 @@ export default {
       allRevisions: [],
       reportRecords: [],
       revisions: [], // Полная информация о ревизиях для сопоставления
+      settlements: [], // Населённые пункты для фильтрации
       detailsVisible: false,
       selectedSubtypeId: null
     }
@@ -128,15 +129,41 @@ export default {
         const subtype = this.subtypeEstates.find(s => s.id === estate.id_subtype_estate)
         if (!subtype) return false
 
+        // Получаем связанную запись ревизии
+        const reportRecord = this.reportRecords.find(r => r.id === estate.id_report_record)
+        if (!reportRecord) return false
+
         // Фильтр по ревизиям (сопоставляем number из фильтра с id через revisions)
         if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
-          const reportRecord = this.reportRecords.find(r => r.id === estate.id_report_record)
-          if (!reportRecord) return false
-          
-          // Находим ревизию по id и проверяем её номер
           const revision = this.revisions.find(r => r.id === reportRecord.id_revision_report)
           if (!revision || !this.currentFilters.revision.includes(revision.number)) {
             return false
+          }
+        }
+
+        // Фильтр по районам и населённым пунктам
+        if (reportRecord.id_settlment) {
+          const settlement = this.settlements.find(s => s.id === reportRecord.id_settlment)
+          
+          // Фильтр по районам
+          if (this.currentFilters.districts && this.currentFilters.districts.length > 0) {
+            if (!settlement || !this.currentFilters.districts.includes(settlement.id_district)) {
+              return false
+            }
+          }
+
+          // Фильтр по старым названиям населённых пунктов
+          if (this.currentFilters.settlementNamesOld && this.currentFilters.settlementNamesOld.length > 0) {
+            if (!settlement || !this.currentFilters.settlementNamesOld.includes(settlement.name_old)) {
+              return false
+            }
+          }
+
+          // Фильтр по современным названиям населённых пунктов
+          if (this.currentFilters.settlementNamesModern && this.currentFilters.settlementNamesModern.length > 0) {
+            if (!settlement || !settlement.name_modern || !this.currentFilters.settlementNamesModern.includes(settlement.name_modern)) {
+              return false
+            }
           }
         }
 
@@ -166,6 +193,36 @@ export default {
           if (!this.currentFilters.affiliations.includes(subtype.id_type_affiliation)) {
             return false
           }
+        }
+
+        // Фильтр по мужчинам
+        if (this.currentFilters.maleEnabled) {
+          const maleCount = estate.male || 0
+          const maleMin = this.currentFilters.maleMin || 0
+          const maleMax = this.currentFilters.maleMax
+          
+          if (maleCount < maleMin) return false
+          if (maleMax !== null && maleMax !== undefined && maleCount > maleMax) return false
+        }
+
+        // Фильтр по женщинам
+        if (this.currentFilters.femaleEnabled) {
+          const femaleCount = estate.female || 0
+          const femaleMin = this.currentFilters.femaleMin || 0
+          const femaleMax = this.currentFilters.femaleMax
+          
+          if (femaleCount < femaleMin) return false
+          if (femaleMax !== null && femaleMax !== undefined && femaleCount > femaleMax) return false
+        }
+
+        // Фильтр по общей численности
+        if (this.currentFilters.populationEnabled) {
+          const totalCount = (estate.male || 0) + (estate.female || 0)
+          const popMin = this.currentFilters.populationMin || 0
+          const popMax = this.currentFilters.populationMax
+          
+          if (totalCount < popMin) return false
+          if (popMax !== null && popMax !== undefined && totalCount > popMax) return false
         }
 
         return true
@@ -262,7 +319,11 @@ export default {
         if (urlParams.filters) {
           if (urlParams.filters && typeof urlParams.filters === 'object') {
             const allowedFields = [
-              'revision', 'typeEstates', 'subtypeEstates', 'religions', 'affiliations'
+              'revision', 'districts', 'settlementNamesOld', 'settlementNamesModern',
+              'typeEstates', 'subtypeEstates', 'religions', 'affiliations',
+              'maleEnabled', 'femaleEnabled', 'populationEnabled',
+              'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
+              'populationMin', 'populationMax'
             ]
 
             const cleanedFilters = {}
@@ -365,10 +426,18 @@ export default {
         // Загружаем записи ревизий для фильтра
         const { data: reportRecords, error: reportError } = await supabase
           .from('Report_record')
-          .select('id, id_revision_report')
+          .select('id, id_revision_report, id_settlment')
 
         if (reportError) throw reportError
         this.reportRecords = reportRecords || []
+
+        // Загружаем населённые пункты для фильтрации
+        const { data: settlements, error: settlementsError } = await supabase
+          .from('Settlement')
+          .select('id, name_old, name_modern, id_district')
+
+        if (settlementsError) throw settlementsError
+        this.settlements = settlements || []
 
         // Загружаем религии
         const { data: religions, error: religionsError } = await supabase

@@ -34,7 +34,7 @@
       <div v-if="showMap" class="map-section">
         <h4>Карта населённых пунктов</h4>
         <div class="map-wrapper">
-          <MapView :geo-json-data="settlementsGeoJson" />
+          <MapView :settlements="settlementsGeoJson" />
         </div>
       </div>
 
@@ -47,24 +47,14 @@
           size="small"
           stripe
         >
-          <el-table-column label="Населённый пункт" min-width="150">
+          <el-table-column label="Старое название" min-width="150">
             <template #default="{ row }">
               {{ row.settlementName || '—' }}
             </template>
           </el-table-column>
-          <el-table-column label="Волость" min-width="120">
+          <el-table-column label="Современное название" min-width="150">
             <template #default="{ row }">
-              {{ row.volostName || '—' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="Помещик" min-width="150">
-            <template #default="{ row }">
-              {{ row.landownerName || '—' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="Военная организация" min-width="150">
-            <template #default="{ row }">
-              {{ row.militaryUnitName || '—' }}
+              {{ row.settlementNameModern || '—' }}
             </template>
           </el-table-column>
           <el-table-column label="Мужчин" width="80" align="right">
@@ -80,13 +70,6 @@
           <el-table-column label="Всего" width="80" align="right">
             <template #default="{ row }">
               <strong>{{ (row.male || 0) + (row.female || 0) }}</strong>
-            </template>
-          </el-table-column>
-          <el-table-column label="" width="100" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" @click="showEstateDetails(row)">
-                Детали
-              </el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -177,45 +160,84 @@ export default {
       return this.estates.slice(start, end)
     },
     settlementsGeoJson() {
-      // Формируем GeoJSON из уникальных населённых пунктов
-      const features = []
-      const uniqueSettlements = new Map()
+      if (!this.subtypeData || !this.estates.length || !this.settlements.length) {
+        return {
+          type: 'FeatureCollection',
+          features: []
+        }
+      }
+
+      // Собираем уникальные населённые пункты из estates
+      const uniqueSettlementsMap = new Map()
       
-      this.settlements.forEach(settlement => {
-        if (!uniqueSettlements.has(settlement.id)) {
-          // Собираем все estate для этого settlement
-          const settleEstates = this.estates.filter(e => e.settlementId === settlement.id)
-          
-          // Считаем общую численность
-          const maleCount = settleEstates.reduce((sum, e) => sum + (e.male || 0), 0)
-          const femaleCount = settleEstates.reduce((sum, e) => sum + (e.female || 0), 0)
-          
-          // Создаем GeoJSON Feature
-          features.push({
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [parseFloat(settlement.lon), parseFloat(settlement.lat)]
-            },
-            properties: {
-              id: settlement.id,
-              name: settlement.name_old,
-              name_old: settlement.name_old,
-              estateTypes: [{
-                id: this.subtypeData.typeId,
-                name: this.subtypeData.typeName,
-                color: this.subtypeData.typeColor,
-                population: maleCount + femaleCount
-              }],
-              maleCount,
-              femaleCount,
-              totalCount: maleCount + femaleCount
+      this.estates.forEach(estate => {
+        if (estate.settlementId && estate.settlementName) {
+          if (!uniqueSettlementsMap.has(estate.settlementId)) {
+            // Находим settlement с координатами
+            const settlement = this.settlements.find(s => s.id === estate.settlementId)
+            
+            if (settlement && settlement.lat && settlement.lon) {
+              uniqueSettlementsMap.set(estate.settlementId, {
+                id: estate.settlementId,
+                name: estate.settlementName,
+                nameModern: estate.settlementNameModern,
+                lat: settlement.lat,
+                lon: settlement.lon,
+                male: 0,
+                female: 0,
+                volosts: new Set(),
+                landowners: new Set(),
+                militaryUnits: new Set()
+              })
             }
-          })
+          }
           
-          uniqueSettlements.set(settlement.id, true)
+          // Добавляем данные к settlement
+          if (uniqueSettlementsMap.has(estate.settlementId)) {
+            const settlementData = uniqueSettlementsMap.get(estate.settlementId)
+            settlementData.male += (estate.male || 0)
+            settlementData.female += (estate.female || 0)
+            
+            // Собираем уникальные значения
+            if (estate.volostName) settlementData.volosts.add(estate.volostName)
+            if (estate.landownerName) settlementData.landowners.add(estate.landownerName)
+            if (estate.militaryUnitName) settlementData.militaryUnits.add(estate.militaryUnitName)
+          }
         }
       })
+
+      // Преобразуем в GeoJSON features
+      const features = Array.from(uniqueSettlementsMap.values()).map(settlement => ({
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [parseFloat(settlement.lon), parseFloat(settlement.lat)]
+        },
+        properties: {
+          id: settlement.id,
+          name: settlement.name,
+          name_old: settlement.name,
+          nameModern: settlement.nameModern,
+          volost: Array.from(settlement.volosts).join(', ') || null,
+          landowner: Array.from(settlement.landowners).join(', ') || null,
+          militaryUnit: Array.from(settlement.militaryUnits).join(', ') || null,
+          estateTypes: [{
+            id: this.subtypeData.typeId,
+            name: this.subtypeData.typeName,
+            color: this.subtypeData.typeColor,
+            population: settlement.male + settlement.female
+          }],
+          maleCount: settlement.male,
+          femaleCount: settlement.female,
+          totalCount: settlement.male + settlement.female,
+          male: settlement.male,
+          female: settlement.female
+        }
+      }))
+
+      console.log('SubtypeEstateDetails - создано GeoJSON features:', features.length, 'из', uniqueSettlementsMap.size, 'уникальных settlements')
+      console.log('Estates с settlementId:', this.estates.filter(e => e.settlementId).length)
+      console.log('Загружено settlements:', this.settlements.length)
       
       return {
         type: 'FeatureCollection',
@@ -309,7 +331,7 @@ export default {
         const settlementIds = [...new Set(reportRecords.map(r => r.id_settlment).filter(Boolean))]
         const { data: settlements, error: settlementError } = await supabase
           .from('Settlement')
-          .select('id, name_old, lat, lon')
+          .select('id, name_old, name_modern, lat, lon')
           .in('id', settlementIds)
 
         if (settlementError) throw settlementError
@@ -380,6 +402,7 @@ export default {
           return {
             ...estate,
             settlementName: settlement?.name_old,
+            settlementNameModern: settlement?.name_modern,
             settlementId: settlement?.id,
             volostName: volost?.name,
             landownerName: landowner ? (landowner.description || landowner.person) : null,

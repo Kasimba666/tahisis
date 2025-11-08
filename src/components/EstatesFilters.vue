@@ -27,6 +27,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-options">
               <el-checkbox-group v-model="filters.revision">
                 <el-checkbox
@@ -52,6 +57,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-search">
               <el-input v-model="searchDistrict" placeholder="Поиск..." size="small" clearable />
             </div>
@@ -80,6 +90,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-search">
               <el-input v-model="searchSettlementOld" placeholder="Поиск..." size="small" clearable />
             </div>
@@ -108,6 +123,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-search">
               <el-input v-model="searchSettlementModern" placeholder="Поиск..." size="small" clearable />
             </div>
@@ -136,6 +156,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-options">
               <el-checkbox-group v-model="filters.typeEstates">
                 <el-checkbox 
@@ -161,6 +186,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-options">
               <el-checkbox-group v-model="filters.subtypeEstates">
                 <el-checkbox
@@ -186,6 +216,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-options">
               <el-checkbox-group v-model="filters.religions">
                 <el-checkbox
@@ -211,6 +246,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-options">
               <el-checkbox-group v-model="filters.affiliations">
                 <el-checkbox
@@ -236,6 +276,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-options">
               <el-checkbox-group v-model="filters.volosts">
                 <el-checkbox
@@ -261,6 +306,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-search">
               <el-input v-model="searchLandowner" placeholder="Поиск..." size="small" clearable />
             </div>
@@ -289,6 +339,11 @@
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
             <div class="filter-search">
               <el-input v-model="searchMilitaryUnit" placeholder="Поиск..." size="small" clearable />
             </div>
@@ -433,13 +488,14 @@
 <script>
 import { supabase } from '@/services/supabase'
 import { ElMessage } from 'element-plus'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, Close } from '@element-plus/icons-vue'
 import { useEstatesFilters } from '@/composables/useStorage.js'
 
 export default {
   name: 'EstatesFilters',
   components: {
-    ArrowDown
+    ArrowDown,
+    Close
   },
   props: {
     dataMode: {
@@ -1219,6 +1275,10 @@ export default {
     },
 
     // Удаление конкретного фильтра
+    closeDropdown() {
+      document.body.click()
+    },
+
     removeFilter(filter) {
       switch (filter.type) {
         case 'revision':
@@ -1382,6 +1442,18 @@ export default {
   background-color: var(--el-bg-color) !important;
   border: 1px solid var(--el-border-color) !important;
   box-shadow: var(--el-box-shadow) !important;
+  
+  .dropdown-close {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 10;
+    
+    .el-button {
+      padding: 4px;
+      min-width: auto;
+    }
+  }
   
   .filter-search {
     padding: 3px;
