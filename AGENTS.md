@@ -14,12 +14,14 @@ female bigint,
 id_volost bigint,
 id_landowner bigint,
 id_military_unit bigint,
+id_subtype_estate_source bigint,
 CONSTRAINT Estate_pkey PRIMARY KEY (id),
 CONSTRAINT Estate_id_report_record_fkey FOREIGN KEY (id_report_record) REFERENCES public.Report_record(id),
 CONSTRAINT Estate_id_subtype_estate_fkey FOREIGN KEY (id_subtype_estate) REFERENCES public.Subtype_estate(id),
 CONSTRAINT Estate_id_volost_fkey FOREIGN KEY (id_volost) REFERENCES public.Volost(id),
 CONSTRAINT Estate_id_landowner_fkey FOREIGN KEY (id_landowner) REFERENCES public.Landowner(id),
-CONSTRAINT Estate_id_military_unit_fkey FOREIGN KEY (id_military_unit) REFERENCES public.Military_unit(id)
+CONSTRAINT Estate_id_military_unit_fkey FOREIGN KEY (id_military_unit) REFERENCES public.Military_unit(id),
+CONSTRAINT Estate_id_subtype_estate_source_fkey FOREIGN KEY (id_subtype_estate_source) REFERENCES public.Subtype_estate_source(id)
 );
 CREATE TABLE public.Landowner (
 id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -67,11 +69,17 @@ id_type_estate bigint NOT NULL,
 id_type_religion bigint NOT NULL,
 id_type_affiliation bigint NOT NULL,
 color character varying DEFAULT 'hsl(0, 0%, 255%)'::character varying,
-name_source character varying NOT NULL,
 CONSTRAINT Subtype_estate_pkey PRIMARY KEY (id),
 CONSTRAINT Subtype_estate_id_type_estate_fkey FOREIGN KEY (id_type_estate) REFERENCES public.Type_estate(id),
 CONSTRAINT Subtype_estate_id_type_religion_fkey FOREIGN KEY (id_type_religion) REFERENCES public.Type_religion(id),
 CONSTRAINT Subtype_estate_id_type_affiliation_fkey FOREIGN KEY (id_type_affiliation) REFERENCES public.Type_affiliation(id)
+);
+CREATE TABLE public.Subtype_estate_source (
+id bigint GENERATED ALWAYS AS IDENTITY NOT NULL UNIQUE,
+name character varying NOT NULL,
+id_subtype_estate bigint,
+CONSTRAINT Subtype_estate_source_pkey PRIMARY KEY (id),
+CONSTRAINT subtype_estate_mapping_id_subtype_estate_fkey FOREIGN KEY (id_subtype_estate) REFERENCES public.Subtype_estate(id)
 );
 CREATE TABLE public.Type_affiliation (
 id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,

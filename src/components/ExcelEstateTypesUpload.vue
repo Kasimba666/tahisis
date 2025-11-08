@@ -150,7 +150,7 @@ export default {
             throw new Error('Файл Excel пуст или не содержит данных.');
           }
 
-          const requiredColumns = ['Subtype_estate', 'Type_affiliation', 'Type_religion', 'Type_estate'];
+          const requiredColumns = ['Subtype_estate', 'Subtype_estate_source', 'Type_affiliation', 'Type_religion', 'Type_estate'];
           const firstRow = jsonData[0];
           const missingColumns = requiredColumns.filter(col => !firstRow.hasOwnProperty(col));
 
@@ -291,8 +291,12 @@ export default {
         if (!row.Subtype_estate) continue;
 
         const subtypeName = row.Subtype_estate.trim();
+        const sourceName = String(row.Subtype_estate_source || '').trim();
 
-        // Проверяем, существует ли уже запись с таким именем
+        if (!sourceName) continue;
+
+        // 1. Найти или создать запись в Subtype_estate
+        let subtypeId;
         const { data: existingSubtypes, error: findError } = await supabase
             .from('Subtype_estate')
             .select('id')
@@ -300,28 +304,66 @@ export default {
 
         if (findError) throw findError;
 
-        const subtypeData = {
-          name: subtypeName,
-          id_type_affiliation: affiliationMap.get(row.Type_affiliation) || null,
-          id_type_religion: religionMap.get(row.Type_religion) || null,
-          id_type_estate: estateMap.get(row.Type_estate) || null,
-        };
-
         if (existingSubtypes && existingSubtypes.length > 0) {
-          // Обновляем существующую запись (берем первую, если несколько)
+          // Подтип существует - обновляем связи
+          subtypeId = existingSubtypes[0].id;
+          
           const { error: updateError } = await supabase
               .from('Subtype_estate')
-              .update(subtypeData)
-              .eq('id', existingSubtypes[0].id);
+              .update({
+                id_type_affiliation: affiliationMap.get(row.Type_affiliation) || null,
+                id_type_religion: religionMap.get(row.Type_religion) || null,
+                id_type_estate: estateMap.get(row.Type_estate) || null,
+              })
+              .eq('id', subtypeId);
 
           if (updateError) throw updateError;
         } else {
-          // Создаем новую запись
-          const { error: insertError } = await supabase
+          // Создаем новый подтип
+          const { data: newSubtype, error: insertError } = await supabase
               .from('Subtype_estate')
-              .insert([subtypeData]);
+              .insert([{
+                name: subtypeName,
+                id_type_affiliation: affiliationMap.get(row.Type_affiliation) || null,
+                id_type_religion: religionMap.get(row.Type_religion) || null,
+                id_type_estate: estateMap.get(row.Type_estate) || null,
+                color: 'hsl(0, 0%, 50%)',
+              }])
+              .select('id');
 
           if (insertError) throw insertError;
+          subtypeId = newSubtype[0].id;
+        }
+
+        // 2. Найти или создать запись в Subtype_estate_source
+        const { data: existingSources, error: sourceError } = await supabase
+            .from('Subtype_estate_source')
+            .select('id, id_subtype_estate')
+            .eq('name', sourceName);
+
+        if (sourceError) throw sourceError;
+
+        if (existingSources && existingSources.length > 0) {
+          // Источник существует - обновляем ссылку на подтип если нужно
+          const existing = existingSources[0];
+          if (existing.id_subtype_estate !== subtypeId) {
+            const { error: updateSourceError } = await supabase
+                .from('Subtype_estate_source')
+                .update({ id_subtype_estate: subtypeId })
+                .eq('id', existing.id);
+
+            if (updateSourceError) throw updateSourceError;
+          }
+        } else {
+          // Создаем новый источник
+          const { error: insertSourceError } = await supabase
+              .from('Subtype_estate_source')
+              .insert([{
+                name: sourceName,
+                id_subtype_estate: subtypeId
+              }]);
+
+          if (insertSourceError) throw insertSourceError;
         }
 
         processedCount++;

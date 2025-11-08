@@ -2,23 +2,25 @@
   <div class="pg-estate-types">
     <h3>Типы сословий</h3>
 
-    <div class="table-info">
-      <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-      >
-        <template #title>
-          Всего типов: {{ totalRecords }}
-        </template>
-      </el-alert>
-    </div>
+    <el-tabs v-model="activeTab" type="card">
+      <el-tab-pane label="Общие типы" name="types">
+        <div class="table-info">
+          <el-alert
+              type="info"
+              :closable="false"
+              show-icon
+          >
+            <template #title>
+              Всего общих типов: {{ totalRecords }}
+            </template>
+          </el-alert>
+        </div>
 
-    <div class="table-header">
-      <el-button type="success" size="small" @click="addRow">Добавить тип</el-button>
-    </div>
+        <div class="table-header">
+          <el-button type="success" size="small" @click="addRow">Добавить общий тип</el-button>
+        </div>
 
-    <el-table :data="tableData" style="width: 100%">
+        <el-table :data="tableData" style="width: 100%">
       <el-table-column prop="id" label="ID" width="60" />
 
       <el-table-column label="Название">
@@ -63,20 +65,161 @@
           </div>
         </template>
       </el-table-column>
-    </el-table>
+        </el-table>
+      </el-tab-pane>
+
+      <el-tab-pane label="Подтипы сословий (обобщённые)" name="subtypes">
+        <div class="table-info">
+          <el-alert type="info" :closable="false" show-icon>
+            <template #title>
+              Всего подтипов: {{ subtypeTableData.length }}
+            </template>
+          </el-alert>
+        </div>
+
+        <div class="table-header">
+          <el-button type="success" size="small" @click="addSubtype">Добавить подтип</el-button>
+        </div>
+
+        <el-table :data="subtypeTableData" style="width: 100%">
+          <el-table-column prop="id" label="ID" width="60" />
+          
+          <el-table-column label="Название" width="200">
+            <template #default="{ row }">
+              <div v-if="editSubtypeId === row.id">
+                <el-input v-model="editSubtype.name" />
+              </div>
+              <div v-else>
+                {{ row.name }}
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="Источники (из Subtype_estate_source)" min-width="300">
+            <template #default="{ row }">
+              <div v-if="row.sources && row.sources.length > 0">
+                {{ row.sources.join(' | ') }}
+              </div>
+              <div v-else style="color: var(--text-secondary); font-style: italic;">
+                Нет источников
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="Цвет" width="120">
+            <template #default="{ row }">
+              <div v-if="editSubtypeId === row.id">
+                <el-color-picker v-model="editSubtype.color" size="small" show-alpha @change="onSubtypeColorChange" />
+              </div>
+              <div v-else>
+                <div class="color-preview" :style="{ backgroundColor: row.color || 'hsl(0, 0%, 50%)' }"></div>
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="Действия" width="200">
+            <template #default="{ row }">
+              <div v-if="editSubtypeId === row.id">
+                <el-button type="success" size="small" @click="updateSubtype(row.id)">Сохранить</el-button>
+                <el-button type="warning" size="small" @click="cancelSubtypeEdit">Отменить</el-button>
+              </div>
+              <div v-else>
+                <el-button type="primary" size="small" @click="startSubtypeEdit(row)">Редактировать</el-button>
+                <el-button type="danger" size="small" @click="deleteSubtype(row.id)">Удалить</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
+      <el-tab-pane label="Подтипы из ревизий" name="sources">
+        <div class="table-info">
+          <el-alert type="info" :closable="false" show-icon>
+            <template #title>
+              Всего источников: {{ sourceTableData.length }}
+            </template>
+          </el-alert>
+        </div>
+
+        <div class="table-header">
+          <el-button type="success" size="small" @click="addSource">Добавить источник</el-button>
+        </div>
+
+        <el-table :data="sourceTableData" style="width: 100%">
+          <el-table-column prop="id" label="ID" width="60" />
+          
+          <el-table-column label="Название из ревизии" min-width="250">
+            <template #default="{ row }">
+              <div v-if="editSourceId === row.id">
+                <el-input v-model="editSource.name" />
+              </div>
+              <div v-else>
+                {{ row.name }}
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="Соответствует подтипу" min-width="250">
+            <template #default="{ row }">
+              <div v-if="editSourceId === row.id">
+                <el-select v-model="editSource.id_subtype_estate" placeholder="Выберите подтип" filterable>
+                  <el-option
+                    v-for="subtype in subtypeTableData"
+                    :key="subtype.id"
+                    :label="subtype.name"
+                    :value="subtype.id"
+                  />
+                </el-select>
+              </div>
+              <div v-else>
+                {{ getSubtypeName(row.id_subtype_estate) }}
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="Действия" width="200">
+            <template #default="{ row }">
+              <div v-if="editSourceId === row.id">
+                <el-button type="success" size="small" @click="updateSource(row.id)">Сохранить</el-button>
+                <el-button type="warning" size="small" @click="cancelSourceEdit">Отменить</el-button>
+              </div>
+              <div v-else>
+                <el-button type="primary" size="small" @click="startSourceEdit(row)">Редактировать</el-button>
+                <el-button type="danger" size="small" @click="deleteSource(row.id)">Удалить</el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+
+      <el-tab-pane label="Загрузка данных" name="upload">
+        <ExcelEstateTypesUpload @dataProcessed="onDataProcessed" />
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
 <script>
 import { supabase } from "@/services/supabase"
+import ExcelEstateTypesUpload from "@/components/ExcelEstateTypesUpload.vue"
 
 export default {
   name: "PgEstateTypes",
+  components: {
+    ExcelEstateTypesUpload
+  },
   data() {
     return {
+      activeTab: 'types',
       tableData: [],
       editRowId: null,
-      editRow: {}
+      editRow: {},
+      subtypeTableData: [],
+      editSubtypeId: null,
+      editSubtype: {},
+      sourceTableData: [],
+      editSourceId: null,
+      editSource: {}
     }
   },
   computed: {
@@ -303,10 +446,224 @@ export default {
         this.editRow.color = newColor
         console.log('Updated editRow.color:', this.editRow.color)
       })
+    },
+
+    // === Методы для работы с подтипами сословий ===
+    
+    async fetchSubtypes() {
+      const { data, error } = await supabase
+        .from('Subtype_estate')
+        .select('*')
+        .order('id', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching subtypes:', error)
+        return
+      }
+
+      // Для каждого подтипа загружаем связанные источники
+      const subtypesWithSources = await Promise.all(
+        (data || []).map(async (row) => {
+          const { data: sources, error: sourcesError } = await supabase
+            .from('Subtype_estate_source')
+            .select('id, name')
+            .eq('id_subtype_estate', row.id)
+
+          if (sourcesError) {
+            console.error('Error fetching sources for subtype:', row.id, sourcesError)
+          }
+
+          return {
+            ...row,
+            color: this.isValidHslColor(row.color) ? row.color : 'hsl(0, 0%, 50%)',
+            sources: (sources || []).map(s => s.name)
+          }
+        })
+      )
+
+      this.subtypeTableData = subtypesWithSources
+      
+      console.log('Loaded subtypes with sources:')
+      this.subtypeTableData.forEach(row => {
+        console.log(`ID: ${row.id}, Name: ${row.name}, Sources: ${row.sources.join(' | ')}`)
+      })
+    },
+
+    startSubtypeEdit(row) {
+      this.editSubtypeId = row.id
+      this.editSubtype = {
+        ...row,
+        color: this.isValidHslColor(row.color) ? row.color : 'hsl(0, 0%, 50%)'
+      }
+    },
+
+    cancelSubtypeEdit() {
+      this.editSubtypeId = null
+      this.editSubtype = {}
+      this.fetchSubtypes()
+    },
+
+    async updateSubtype(id) {
+      const hslColorForDB = this.ensureHslFormatForDatabase(this.editSubtype.color)
+
+      const { error } = await supabase
+        .from('Subtype_estate')
+        .update({
+          name: this.editSubtype.name,
+          color: hslColorForDB
+        })
+        .eq('id', id)
+
+      if (!error) {
+        this.cancelSubtypeEdit()
+      } else {
+        console.error('Error updating subtype:', error)
+      }
+    },
+
+    async deleteSubtype(id) {
+      if (!confirm('Удалить этот подтип сословия?')) return
+
+      const { error } = await supabase
+        .from('Subtype_estate')
+        .delete()
+        .eq('id', id)
+
+      if (!error) {
+        this.fetchSubtypes()
+      } else {
+        console.error('Error deleting subtype:', error)
+      }
+    },
+
+    async addSubtype() {
+      const hslColorForDB = this.ensureHslFormatForDatabase('hsl(0, 0%, 50%)')
+
+      const { data, error } = await supabase
+        .from('Subtype_estate')
+        .insert([{
+          name: 'Новый подтип',
+          color: hslColorForDB,
+          id_type_estate: 1,
+          id_type_religion: 1,
+          id_type_affiliation: 1
+        }])
+        .select()
+
+      if (!error && data?.length) {
+        await this.fetchSubtypes()
+        const newSubtype = this.subtypeTableData.find(s => s.id === data[0].id)
+        if (newSubtype) {
+          this.startSubtypeEdit(newSubtype)
+        }
+      } else {
+        console.error('Error adding subtype:', error)
+      }
+    },
+
+    onSubtypeColorChange(newColor) {
+      this.$nextTick(() => {
+        this.editSubtype.color = newColor
+      })
+    },
+
+    // === Методы для работы с источниками (Subtype_estate_source) ===
+    
+    async fetchSources() {
+      const { data, error } = await supabase
+        .from('Subtype_estate_source')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching sources:', error)
+        return
+      }
+
+      this.sourceTableData = data || []
+      console.log('Loaded sources:', this.sourceTableData.length)
+    },
+
+    getSubtypeName(subtypeId) {
+      if (!subtypeId) return 'Не указано'
+      const subtype = this.subtypeTableData.find(s => s.id === subtypeId)
+      return subtype ? subtype.name : `ID: ${subtypeId}`
+    },
+
+    startSourceEdit(row) {
+      this.editSourceId = row.id
+      this.editSource = { ...row }
+    },
+
+    cancelSourceEdit() {
+      this.editSourceId = null
+      this.editSource = {}
+      this.fetchSources()
+    },
+
+    async updateSource(id) {
+      const { error } = await supabase
+        .from('Subtype_estate_source')
+        .update({
+          name: this.editSource.name,
+          id_subtype_estate: this.editSource.id_subtype_estate
+        })
+        .eq('id', id)
+
+      if (!error) {
+        this.cancelSourceEdit()
+        // Обновляем также подтипы, чтобы показать новые связи
+        this.fetchSubtypes()
+      } else {
+        console.error('Error updating source:', error)
+      }
+    },
+
+    async deleteSource(id) {
+      if (!confirm('Удалить этот источник?')) return
+
+      const { error } = await supabase
+        .from('Subtype_estate_source')
+        .delete()
+        .eq('id', id)
+
+      if (!error) {
+        this.fetchSources()
+        this.fetchSubtypes()
+      } else {
+        console.error('Error deleting source:', error)
+      }
+    },
+
+    async addSource() {
+      const { data, error } = await supabase
+        .from('Subtype_estate_source')
+        .insert([{
+          name: 'Новый источник',
+          id_subtype_estate: this.subtypeTableData.length > 0 ? this.subtypeTableData[0].id : null
+        }])
+        .select()
+
+      if (!error && data?.length) {
+        this.sourceTableData.push(data[0])
+        this.startSourceEdit(data[0])
+      } else {
+        console.error('Error adding source:', error)
+      }
+    },
+
+    // Обработчик события от компонента загрузки
+    onDataProcessed() {
+      // Перезагружаем все данные после успешной загрузки
+      this.fetchData()
+      this.fetchSubtypes()
+      this.fetchSources()
     }
   },
   mounted() {
     this.fetchData()
+    this.fetchSubtypes()
+    this.fetchSources()
   }
 }
 </script>

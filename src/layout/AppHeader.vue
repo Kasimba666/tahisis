@@ -38,9 +38,6 @@
               <router-link to="/estate-types" class="submenu-item">
                 Типы сословий
               </router-link>
-              <router-link to="/estate-types-upload" class="submenu-item">
-                Подтипы сословий
-              </router-link>
               <router-link to="/revisions-upload" class="submenu-item">
                 Ревизии
               </router-link>
