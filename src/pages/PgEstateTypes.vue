@@ -20,10 +20,10 @@
           <el-button type="success" size="small" @click="addRow">Добавить общий тип</el-button>
         </div>
 
-        <el-table :data="tableData" style="width: 100%">
-      <el-table-column prop="id" label="ID" width="60" />
+        <el-table :data="tableData" style="width: 100%" default-sort="{prop: 'name', order: 'ascending'}">
+      <el-table-column prop="id" label="ID" width="60" sortable />
 
-      <el-table-column label="Название">
+      <el-table-column prop="name" label="Название" sortable resizable min-width="150">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">
             <el-input v-model="editRow.name" />
@@ -53,13 +53,14 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="Действия" width="200">
+      <el-table-column label="Действия" width="280" fixed="right">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">
             <el-button type="success" size="small" @click="updateRow(row.id)">Сохранить</el-button>
             <el-button type="warning" size="small" @click="cancelEdit">Отменить</el-button>
           </div>
           <div v-else>
+            <el-button type="info" size="small" @click="showTypeDetails(row)">Детали</el-button>
             <el-button type="primary" size="small" @click="startEdit(row)">Редактировать</el-button>
             <el-button type="danger" size="small" @click="deleteRow(row.id)">Удалить</el-button>
           </div>
@@ -81,10 +82,10 @@
           <el-button type="success" size="small" @click="addSubtype">Добавить подтип</el-button>
         </div>
 
-        <el-table :data="subtypeTableData" style="width: 100%">
-          <el-table-column prop="id" label="ID" width="60" />
+        <el-table :data="subtypeTableData" style="width: 100%" default-sort="{prop: 'name', order: 'ascending'}" @row-click="showSubtypeSourcesDialog">
+          <el-table-column prop="id" label="ID" width="60" sortable />
           
-          <el-table-column label="Название" width="200">
+          <el-table-column prop="name" label="Название" sortable resizable min-width="150">
             <template #default="{ row }">
               <div v-if="editSubtypeId === row.id">
                 <el-input v-model="editSubtype.name" />
@@ -95,13 +96,39 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="Источники (из Subtype_estate_source)" min-width="300">
+
+          <el-table-column label="Религия" sortable resizable min-width="150">
             <template #default="{ row }">
-              <div v-if="row.sources && row.sources.length > 0">
-                {{ row.sources.join(' | ') }}
+              <div v-if="editSubtypeId === row.id">
+                <el-select v-model="editSubtype.id_type_religion" placeholder="Выберите религию" filterable>
+                  <el-option
+                    v-for="religion in religionList"
+                    :key="religion.id"
+                    :label="religion.name"
+                    :value="religion.id"
+                  />
+                </el-select>
               </div>
-              <div v-else style="color: var(--text-secondary); font-style: italic;">
-                Нет источников
+              <div v-else>
+                {{ getReligionName(row.id_type_religion) }}
+              </div>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="Принадлежность" sortable resizable min-width="150">
+            <template #default="{ row }">
+              <div v-if="editSubtypeId === row.id">
+                <el-select v-model="editSubtype.id_type_affiliation" placeholder="Выберите принадлежность" filterable>
+                  <el-option
+                    v-for="affiliation in affiliationList"
+                    :key="affiliation.id"
+                    :label="affiliation.name"
+                    :value="affiliation.id"
+                  />
+                </el-select>
+              </div>
+              <div v-else>
+                {{ getAffiliationName(row.id_type_affiliation) }}
               </div>
             </template>
           </el-table-column>
@@ -117,15 +144,15 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="Действия" width="200">
+          <el-table-column label="Действия" width="200" fixed="right">
             <template #default="{ row }">
               <div v-if="editSubtypeId === row.id">
-                <el-button type="success" size="small" @click="updateSubtype(row.id)">Сохранить</el-button>
-                <el-button type="warning" size="small" @click="cancelSubtypeEdit">Отменить</el-button>
+                <el-button type="success" size="small" @click.stop="updateSubtype(row.id)">Сохранить</el-button>
+                <el-button type="warning" size="small" @click.stop="cancelSubtypeEdit">Отменить</el-button>
               </div>
               <div v-else>
-                <el-button type="primary" size="small" @click="startSubtypeEdit(row)">Редактировать</el-button>
-                <el-button type="danger" size="small" @click="deleteSubtype(row.id)">Удалить</el-button>
+                <el-button type="primary" size="small" @click.stop="startSubtypeEdit(row)">Редактировать</el-button>
+                <el-button type="danger" size="small" @click.stop="deleteSubtype(row.id)">Удалить</el-button>
               </div>
             </template>
           </el-table-column>
@@ -145,10 +172,10 @@
           <el-button type="success" size="small" @click="addSource">Добавить источник</el-button>
         </div>
 
-        <el-table :data="sourceTableData" style="width: 100%">
-          <el-table-column prop="id" label="ID" width="60" />
+        <el-table :data="sourceTableData" style="width: 100%" default-sort="{prop: 'name', order: 'ascending'}">
+          <el-table-column prop="id" label="ID" width="60" sortable />
           
-          <el-table-column label="Название из ревизии" min-width="250">
+          <el-table-column prop="name" label="Название из ревизии" sortable resizable min-width="200">
             <template #default="{ row }">
               <div v-if="editSourceId === row.id">
                 <el-input v-model="editSource.name" />
@@ -159,7 +186,7 @@
             </template>
           </el-table-column>
 
-          <el-table-column label="Соответствует подтипу" min-width="250">
+          <el-table-column label="Соответствует подтипу" sortable resizable min-width="200">
             <template #default="{ row }">
               <div v-if="editSourceId === row.id">
                 <el-select v-model="editSource.id_subtype_estate" placeholder="Выберите подтип" filterable>
@@ -196,6 +223,23 @@
         <ExcelEstateTypesUpload @dataProcessed="onDataProcessed" />
       </el-tab-pane>
     </el-tabs>
+
+    <!-- Диалог для отображения источников подтипа -->
+    <el-dialog
+      v-model="sourcesDialogVisible"
+      :title="`Источники для подтипа: ${selectedSubtypeName}`"
+      width="600px"
+    >
+      <div v-if="selectedSubtypeSources.length > 0">
+        <el-table :data="selectedSubtypeSources" style="width: 100%">
+          <el-table-column prop="id" label="ID" width="60" />
+          <el-table-column prop="name" label="Название из ревизии" />
+        </el-table>
+      </div>
+      <div v-else style="text-align: center; padding: 20px; color: var(--text-secondary);">
+        Нет связанных источников
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -219,7 +263,12 @@ export default {
       editSubtype: {},
       sourceTableData: [],
       editSourceId: null,
-      editSource: {}
+      editSource: {},
+      sourcesDialogVisible: false,
+      selectedSubtypeName: '',
+      selectedSubtypeSources: [],
+      religionList: [],
+      affiliationList: []
     }
   },
   computed: {
@@ -510,7 +559,9 @@ export default {
         .from('Subtype_estate')
         .update({
           name: this.editSubtype.name,
-          color: hslColorForDB
+          color: hslColorForDB,
+          id_type_religion: this.editSubtype.id_type_religion,
+          id_type_affiliation: this.editSubtype.id_type_affiliation
         })
         .eq('id', id)
 
@@ -539,14 +590,15 @@ export default {
     async addSubtype() {
       const hslColorForDB = this.ensureHslFormatForDatabase('hsl(0, 0%, 50%)')
 
+      // Используем первые доступные значения из справочников или null
       const { data, error } = await supabase
         .from('Subtype_estate')
         .insert([{
           name: 'Новый подтип',
           color: hslColorForDB,
-          id_type_estate: 1,
-          id_type_religion: 1,
-          id_type_affiliation: 1
+          id_type_estate: this.tableData.length > 0 ? this.tableData[0].id : null,
+          id_type_religion: this.religionList.length > 0 ? this.religionList[0].id : null,
+          id_type_affiliation: this.affiliationList.length > 0 ? this.affiliationList[0].id : null
         }])
         .select()
 
@@ -658,12 +710,98 @@ export default {
       this.fetchData()
       this.fetchSubtypes()
       this.fetchSources()
+    },
+
+    // === Методы для кнопок "Детали" ===
+    
+    showTypeDetails(typeRow) {
+      // Переключаемся на вкладку подтипов и показываем связанные
+      this.activeTab = 'subtypes'
+      this.$nextTick(() => {
+        // Фильтруем и выделяем подтипы, относящиеся к этому типу
+        console.log('Showing subtypes for type:', typeRow.name, 'id:', typeRow.id)
+      })
+    },
+
+    showSubtypeDetails(subtypeRow) {
+      // Переключаемся на вкладку источников и показываем связанные
+      this.activeTab = 'sources'
+      this.$nextTick(() => {
+        // Фильтруем и выделяем источники, относящиеся к этому подтипу
+        console.log('Showing sources for subtype:', subtypeRow.name, 'sources:', subtypeRow.sources)
+      })
+    },
+
+    // Показать диалог с источниками при клике на строку подтипа
+    async showSubtypeSourcesDialog(row) {
+      // Не открываем диалог если в режиме редактирования
+      if (this.editSubtypeId === row.id) return
+
+      this.selectedSubtypeName = row.name
+
+      // Загружаем источники для этого подтипа
+      const { data, error } = await supabase
+        .from('Subtype_estate_source')
+        .select('id, name')
+        .eq('id_subtype_estate', row.id)
+        .order('name', { ascending: true })
+
+      if (error) {
+        console.error('Error fetching sources for dialog:', error)
+        this.selectedSubtypeSources = []
+      } else {
+        this.selectedSubtypeSources = data || []
+      }
+
+      this.sourcesDialogVisible = true
+    },
+
+    // Получить название религии по ID
+    getReligionName(religionId) {
+      if (!religionId) return 'Не указано'
+      const religion = this.religionList.find(r => r.id === religionId)
+      return religion ? religion.name : `ID: ${religionId}`
+    },
+
+    // Получить название принадлежности по ID
+    getAffiliationName(affiliationId) {
+      if (!affiliationId) return 'Не указано'
+      const affiliation = this.affiliationList.find(a => a.id === affiliationId)
+      return affiliation ? affiliation.name : `ID: ${affiliationId}`
+    },
+
+    // Загрузить справочники
+    async fetchReferenceTables() {
+      // Загружаем религии
+      const { data: religions, error: religionError } = await supabase
+        .from('Type_religion')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (religionError) {
+        console.error('Error fetching religions:', religionError)
+      } else {
+        this.religionList = religions || []
+      }
+
+      // Загружаем принадлежности
+      const { data: affiliations, error: affiliationError } = await supabase
+        .from('Type_affiliation')
+        .select('*')
+        .order('name', { ascending: true })
+
+      if (affiliationError) {
+        console.error('Error fetching affiliations:', affiliationError)
+      } else {
+        this.affiliationList = affiliations || []
+      }
     }
   },
   mounted() {
     this.fetchData()
     this.fetchSubtypes()
     this.fetchSources()
+    this.fetchReferenceTables()
   }
 }
 </script>
