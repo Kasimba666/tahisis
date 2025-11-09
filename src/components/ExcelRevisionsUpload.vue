@@ -153,10 +153,33 @@ export default {
       currentStatus: 'Готов к работе',
       validatedData: null,
       validationLogExpanded: false,
-      isValidated: false
+      isValidated: false,
+      estateSourceNames: [] // Список названий из Subtype_estate_source
     }
   },
+  async mounted() {
+    // Загружаем список допустимых названий сословий
+    await this.loadEstateSourceNames()
+  },
   methods: {
+    async loadEstateSourceNames() {
+      try {
+        const { data, error } = await supabase
+          .from('Subtype_estate_source')
+          .select('name')
+        
+        if (error) throw error
+        
+        // Сохраняем список названий (делаем lowercase для регистронезависимого сравнения)
+        this.estateSourceNames = (data || []).map(item => item.name.toLowerCase().trim())
+        
+        console.log('Loaded estate source names:', this.estateSourceNames.length)
+      } catch (error) {
+        console.error('Error loading estate source names:', error)
+        this.estateSourceNames = []
+      }
+    },
+
     async clearSupabaseTables() {
       if (!confirm('Очистить все записи из Estate, Report_record, Revision_report, Settlement и District?')) return
 
@@ -771,6 +794,21 @@ export default {
         const estatePresent = !!(String(row.estate1 || '').trim() || String(row.estate2 || '').trim() || String(row.estate3 || '').trim() || String(row.estate4 || '').trim() || String(row.estate5 || '').trim())
         if (!estatePresent) {
           criticalFields.push('estate (хотя бы одно поле estate должно быть заполнено)')
+        }
+        
+        // Валидация соответствия estate полей со справочником Subtype_estate_source (КРИТИЧНО)
+        for (let i = 1; i <= 5; i++) {
+          const estateKey = `estate${i}`
+          const estateValue = row[estateKey]
+          
+          if (estateValue && String(estateValue).trim() !== '') {
+            const estateName = String(estateValue).trim().toLowerCase()
+            
+            // Проверяем есть ли это название в справочнике
+            if (!this.estateSourceNames.includes(estateName)) {
+              criticalFields.push(`${estateKey}="${String(estateValue).trim()}" (сословие не найдено в справочнике Subtype_estate_source)`)
+            }
+          }
         }
         
         // Добавляем в лог только если есть проблемы
