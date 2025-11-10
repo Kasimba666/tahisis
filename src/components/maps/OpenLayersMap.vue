@@ -18,6 +18,8 @@ import MultiLineString from 'ol/geom/MultiLineString'
 import { Style, Circle, Fill, Stroke } from 'ol/style'
 import { fromLonLat, transform } from 'ol/proj'
 import Overlay from 'ol/Overlay'
+import Control from 'ol/control/Control'
+import FullScreen from 'ol/control/FullScreen'
 import { useMapMarkers } from '@/composables/useMapMarkers.js'
 import { HomeFilled } from '@element-plus/icons-vue'
 import { h, render } from 'vue'
@@ -105,6 +107,13 @@ export default {
         console.log('Map instance created')
 
         this.createHomeButton()
+        
+        // Добавляем FullScreen контрол в левый верхний угол
+        const fullScreenControl = new FullScreen({
+          tipLabel: 'Полноэкранный режим'
+        })
+        this.mapInstance.addControl(fullScreenControl)
+        
         this.createPopupOverlays()
         this.setupEventHandlers()
         
@@ -119,36 +128,35 @@ export default {
     },
 
     createHomeButton() {
-      const btn = document.createElement('button')
-      btn.title = 'Вернуться к исходному виду'
-      btn.className = 'home-button'
-      btn.style.cssText = `
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 1000;
-        background: white;
-        width: 30px;
-        height: 30px;
-        cursor: pointer;
-        border: none;
-        border-radius: 4px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-      `
+      const self = this
       
-      // Рендерим иконку HomeFilled в кнопку
+      // Создаём кнопку
+      const button = document.createElement('button')
+      button.title = 'Вернуться к исходному виду'
+      button.type = 'button'
+      
+      // Рендерим иконку HomeFilled
       const iconContainer = document.createElement('div')
       iconContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;'
-      const vnode = h(HomeFilled, { style: { width: '16px', height: '16px', color: '#409eff' } })
+      const vnode = h(HomeFilled, { style: { width: '14px', height: '14px', color: '#409eff' } })
       render(vnode, iconContainer)
-      btn.appendChild(iconContainer)
+      button.appendChild(iconContainer)
       
-      btn.onclick = () => this.resetView()
-      this.$refs.olMap.appendChild(btn)
+      button.addEventListener('click', () => self.resetView(), false)
+      
+      // Создаём элемент контрола
+      const element = document.createElement('div')
+      element.className = 'ol-home ol-unselectable ol-control'
+      element.appendChild(button)
+      
+      // Создаём контрол используя встроенный класс Control
+      const homeControl = new Control({
+
+        element: element
+      })
+      
+      // Добавляем контрол на карту
+      this.mapInstance.addControl(homeControl)
     },
 
     createPopupOverlays() {
@@ -724,6 +732,50 @@ export default {
 // Применение анимации к canvas OpenLayers
 :deep(canvas) {
   animation: none;
+}
+
+// Стили для кнопки Home (встроенный контрол)
+:deep(.ol-home) {
+  top: 52px;
+  left: 0.5em;
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.375em;
+    height: 1.375em;
+    padding: 0;
+    background-color: hsl(0, 0%, 100%);
+    border: none;
+    border-radius: 2px;
+    color: white;
+    font-size: 1.14em;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.6);
+    }
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+// Стили для кнопки FullScreen - размещаем слева под Home
+:deep(.ol-full-screen) {
+  top: 82px;  // Под кнопкой Home (52px + ~30px высота кнопки)
+  left: 0.5em;  // По левому краю как Home
+  right: auto;  // Отменяем стандартное right
+
+  button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
 }
 
 :deep(.ol-popup) {

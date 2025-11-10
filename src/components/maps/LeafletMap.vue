@@ -83,7 +83,7 @@ export default {
           // Рендерим иконку HomeFilled в кнопку
           const iconContainer = document.createElement('div')
           iconContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;'
-          const vnode = h(HomeFilled, { style: { width: '16px', height: '16px', color: '#409eff' } })
+          const vnode = h(HomeFilled, { style: { width: '16px', height: '16px', color: 'hsl(0, 0%, 27%)'} })
           render(vnode, iconContainer)
           btn.appendChild(iconContainer)
           
@@ -429,6 +429,18 @@ export default {
 
 :deep(.pulse-circle) {
   animation: pulse 1s ease-in-out infinite;
+}
+
+// Стили для кнопки Home
+:deep(.leaflet-control.home-button) {
+  margin-top: 1px !important;
+  border: 1px solid hsl(0, 0%, 27%) !important;
+  transition: none !important;
+  
+  svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
 }
 
 :deep(.custom-marker) {
