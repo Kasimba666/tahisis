@@ -8,13 +8,29 @@
         </p>
       </div>
       
+      <div class="navigation-buttons">
+        <el-button type="primary" @click="navigateTo('Settlements')">
+          Населённые пункты
+        </el-button>
+        <el-button type="primary" @click="navigateTo('Estates')">
+          Сословия
+        </el-button>
+        <el-button type="primary" @click="navigateTo('Revisions')">
+          Ревизии
+        </el-button>
+      </div>
     </div>
   </main>
 </template>
 
 <script>
 export default {
-  name: 'PgAbout'
+  name: 'PgAbout',
+  methods: {
+    navigateTo(routeName) {
+      this.$router.push({ name: routeName });
+    }
+  }
 }
 </script>
 
@@ -60,7 +76,6 @@ export default {
   background-color: hsla(214, 32%, 91%, 0.7) !important;
   
   h3 {
-    color: var(--accent-primary);
     margin-left: 10px;
   }
 
@@ -75,9 +90,32 @@ export default {
   }
 }
 
+.navigation-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  
+  .el-button {
+    flex: 1;
+    min-width: 180px;
+    max-width: 300px;
+  }
+}
+
 @media (max-width: 768px) {
   .pg-about {
     padding: 1rem;
+  }
+  
+  .navigation-buttons {
+    flex-direction: column;
+    
+    .el-button {
+      width: 100%;
+      max-width: 100%;
+    }
   }
 }
 </style>

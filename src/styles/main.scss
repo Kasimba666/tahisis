@@ -244,11 +244,12 @@ button {
   &.el-button--primary {
     background-color: var(--accent-primary) !important;
     border-color: var(--accent-primary) !important;
-    color: var(--bg-primary) !important;
+    color: hsl(0, 0%, 100%) !important;
     
     &:hover {
       background-color: var(--accent-hover) !important;
       border-color: var(--accent-hover) !important;
+      color: hsl(0, 0%, 100%) !important;
     }
   }
   
