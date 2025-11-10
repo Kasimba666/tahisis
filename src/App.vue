@@ -3,9 +3,9 @@
     {{ screen.type }}<br/>
     {{ screen.width }}px
   </div>
-  <AppHeader site-title="Историческое расселение" />
+  <AppHeader site-title="Историко-Географическая информационная система Восточного Закамья XVIII–XIX вв." />
   <router-view />
-  <AppFooter site-title="Историческое расселение" />
+  <AppFooter site-title="Историко-Географическая информационная система Восточного Закамья XVIII–XIX вв." />
 </template>
 
 <script>

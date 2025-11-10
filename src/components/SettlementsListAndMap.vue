@@ -1079,6 +1079,12 @@ export default {
 
     applyFilters(filters) {
       this.currentFilters = filters
+      // Сбрасываем данные при изменении фильтров
+      this.settlementsData = []
+    },
+
+    // Новый метод для применения фильтров и загрузки данных
+    applyFiltersAndLoad() {
       this.loadData()
     },
 

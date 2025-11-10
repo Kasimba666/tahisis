@@ -5,6 +5,7 @@
       ref="estatesFilters"
       :data-mode="'settlement'"
       @filter-change="applyFilters"
+      @apply-filters-and-load="applyFiltersAndLoad"
       @options-loaded="setFilterOptions"
     />
 
@@ -117,6 +118,16 @@ export default {
       setFiltersInURL(filters)
 
       this.$refs.settlementsListAndMap?.applyFilters(filters)
+    },
+
+    // Новый метод для применения фильтров и загрузки данных
+    applyFiltersAndLoad(filters) {
+      this.currentFilters = filters
+
+      // Сохраняем фильтры в URL
+      setFiltersInURL(filters)
+
+      this.$refs.settlementsListAndMap?.applyFiltersAndLoad()
     },
 
     // Метод для передачи справочников в дочерний компонент

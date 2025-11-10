@@ -4,7 +4,8 @@
     <EstatesFilters
       ref="estatesFilters"
       :data-mode="'estate'"
-      @filter-change="applyFilters"
+      @filter-change="handleFilterChange"
+      @apply-filters-and-load="handleApplyFiltersAndLoad"
       @options-loaded="setFilterOptions"
     />
 
@@ -25,8 +26,14 @@
         :summary-method="getSummaries"
         @row-click="handleRowClick"
         highlight-current-row
-        :default-sort="{ prop: 'subtypeName', order: 'ascending' }"
+        :default-sort="{ prop: 'subtypeId', order: 'ascending' }"
       >
+        <el-table-column label="ID" width="80" sortable prop="subtypeId">
+          <template #default="{ row }">
+            {{ row.subtypeId }}
+          </template>
+        </el-table-column>
+
         <el-table-column label="Тип сословия" min-width="200" sortable prop="typeName">
           <template #default="{ row }">
             <div class="type-cell">
@@ -108,6 +115,7 @@ export default {
     return {
       loading: true,
       currentFilters: null,
+      filtersApplied: false, // Флаг, показывающий применены ли фильтры
       estateTypes: [],
       subtypeEstates: [],
       estates: [],
@@ -123,7 +131,8 @@ export default {
   },
   computed: {
     filteredEstates() {
-      if (!this.currentFilters) return this.estates
+      // Если фильтры не применены, возвращаем все данные
+      if (!this.filtersApplied || !this.currentFilters) return this.estates
 
       return this.estates.filter(estate => {
         const subtype = this.subtypeEstates.find(s => s.id === estate.id_subtype_estate)
@@ -263,12 +272,8 @@ export default {
         })
       })
 
-      // Сортируем по типу, затем по подтипу
-      return rows.sort((a, b) => {
-        const typeCompare = a.typeName.localeCompare(b.typeName)
-        if (typeCompare !== 0) return typeCompare
-        return a.subtypeName.localeCompare(b.subtypeName)
-      })
+      // Возвращаем данные без дополнительной сортировки - используем default-sort таблицы
+      return rows
     },
 
     grandTotal() {
@@ -283,9 +288,38 @@ export default {
       )
     }
   },
-  mounted() {
+  async mounted() {
     this.loadFiltersFromURL()
-    this.loadData()
+    await this.loadData()
+    
+    // После загрузки данных проверяем есть ли сохраненные фильтры из localStorage
+    this.$nextTick(() => {
+      if (this.$refs.estatesFilters && this.$refs.estatesFilters.filters) {
+        const filters = this.$refs.estatesFilters.filters
+        const hasActiveFilters =
+          filters.revision?.length > 0 ||
+          filters.districts?.length > 0 ||
+          filters.settlementNamesOld?.length > 0 ||
+          filters.settlementNamesModern?.length > 0 ||
+          filters.typeEstates?.length > 0 ||
+          filters.subtypeEstates?.length > 0 ||
+          filters.religions?.length > 0 ||
+          filters.affiliations?.length > 0 ||
+          filters.volosts?.length > 0 ||
+          filters.landowners?.length > 0 ||
+          filters.militaryUnits?.length > 0 ||
+          filters.maleEnabled ||
+          filters.femaleEnabled ||
+          filters.populationEnabled
+
+        if (hasActiveFilters) {
+          console.log('Applying filters from localStorage:', filters)
+          this.currentFilters = filters
+          this.filtersApplied = true
+          console.log('Filtered estates count:', this.filteredEstates.length)
+        }
+      }
+    })
   },
   methods: {
     setFilterOptions(options) {
@@ -305,6 +339,19 @@ export default {
         .catch(error => {
           console.error('Error loading revisions:', error)
         })
+    },
+
+    handleFilterChange(filters) {
+      // При изменении фильтров только сохраняем их, но не применяем
+      this.currentFilters = filters
+      this.filtersApplied = false
+    },
+
+    handleApplyFiltersAndLoad(filters) {
+      // При нажатии "Применить" сохраняем фильтры и применяем их
+      this.currentFilters = filters
+      this.filtersApplied = true
+      setFiltersInURL(filters)
     },
 
     applyFilters(filters) {
@@ -334,6 +381,14 @@ export default {
             })
 
             this.currentFilters = cleanedFilters
+
+            // Если есть активные фильтры, применяем их
+            const hasActiveFilters = Object.values(cleanedFilters).some(value =>
+              Array.isArray(value) ? value.length > 0 : value === true || (typeof value === 'number' && value !== null)
+            )
+            if (hasActiveFilters) {
+              this.filtersApplied = true
+            }
           }
         }
       } catch (error) {
@@ -343,7 +398,7 @@ export default {
     getSummaries(param) {
       const { columns, data } = param
       const sums = []
-      
+
       columns.forEach((column, index) => {
         if (index === 0) {
           sums[index] = 'Итого:'
@@ -361,20 +416,24 @@ export default {
           sums[index] = ''
           return
         }
-        
+        if (index === 4) {
+          sums[index] = ''
+          return
+        }
+
         const values = data.map(item => {
           switch(index) {
-            case 4: return Number(item.estateCount)
-            case 5: return Number(item.maleCount)
-            case 6: return Number(item.femaleCount)
-            case 7: return Number(item.totalCount)
+            case 5: return Number(item.estateCount)
+            case 6: return Number(item.maleCount)
+            case 7: return Number(item.femaleCount)
+            case 8: return Number(item.totalCount)
             default: return 0
           }
         })
-        
+
         sums[index] = values.reduce((prev, curr) => prev + curr, 0)
       })
-      
+
       return sums
     },
 

@@ -61,6 +61,7 @@ export function useStorage(key, defaultValue = null, immediate = true) {
  */
 export function useEstatesFilters(defaultFilters = {}) {
   const defaultValues = {
+    revision: [],
     districts: [],
     settlementNamesOld: [],
     settlementNamesModern: [],

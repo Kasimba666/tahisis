@@ -2,9 +2,10 @@
   <div class="pg-estates-list">
     <div class="content-layout">
       <div class="filters-panel">
-        <EstatesFilters 
+        <EstatesFilters
           :data-mode="dataMode"
           @filter-change="handleFilterChange"
+          @apply-filters-and-load="handleApplyFiltersAndLoad"
           @options-loaded="handleOptionsLoaded"
         />
       </div>
@@ -53,6 +54,13 @@ export default {
   },
   methods: {
     handleFilterChange(filters) {
+      this.currentFilters = filters
+      if (this.$refs.listAndMap) {
+        this.$refs.listAndMap.applyFilters(filters)
+      }
+    },
+
+    handleApplyFiltersAndLoad(filters) {
       this.currentFilters = filters
       if (this.$refs.listAndMap) {
         this.$refs.listAndMap.applyFilters(filters)

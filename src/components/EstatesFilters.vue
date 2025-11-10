@@ -515,6 +515,7 @@ export default {
     // Инициализируем все необходимые свойства фильтров с пустыми массивами по умолчанию
     const initFilters = () => {
       const defaultFilters = {
+        revision: [],
         districts: [],
         settlementNamesOld: [],
         settlementNamesModern: [],
@@ -921,6 +922,8 @@ export default {
     filters: {
       handler() {
         this.hasChanges = true
+        // Отправляем событие сброса данных при каждом изменении фильтров
+        this.$emit('filter-change', this.filters)
       },
       deep: true
     }
@@ -1101,8 +1104,8 @@ export default {
             confirmButtonClass: 'el-button--primary'
           }
         ).then(() => {
-          // Применяем фильтры
-          this.$emit('filter-change', this.filters)
+          // Применяем фильтры и загружаем данные
+          this.$emit('apply-filters-and-load', this.filters)
           // Обновляем URL
           this.updateURLWithFilters()
           // Сохраняем в localStorage
@@ -1113,8 +1116,8 @@ export default {
           // Пользователь отменил действие
         })
       } else {
-        // Применяем фильтры
-        this.$emit('filter-change', this.filters)
+        // Применяем фильтры и загружаем данные
+        this.$emit('apply-filters-and-load', this.filters)
         // Обновляем URL
         this.updateURLWithFilters()
         // Сохраняем в localStorage
