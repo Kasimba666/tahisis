@@ -50,22 +50,6 @@ export default {
   }
 }
 
-.page-header {
-  text-align: center;
-  margin-bottom: 3rem;
-  
-  h1 {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-  
-  p {
-    font-size: 1.2rem;
-    color: var(--text-secondary);
-  }
-}
-
 .content-section {
   display: grid;
   gap: 2rem;
@@ -73,6 +57,8 @@ export default {
 
 .about-card {
   @include card-style;
+  background-color: hsla(214, 32%, 91%, 0.7) !important;
+  
   h3 {
     color: var(--accent-primary);
     margin-left: 10px;
@@ -82,15 +68,16 @@ export default {
     line-height: 1.6;
     margin: 10px;
   }
+  
+  // Для тёмной темы
+  [data-theme="dark"] & {
+    background-color: hsla(217, 33%, 17%, 0.7) !important;
+  }
 }
 
 @media (max-width: 768px) {
   .pg-about {
     padding: 1rem;
-  }
-
-  .page-header h1 {
-    font-size: 2rem;
   }
 }
 </style>
