@@ -246,6 +246,7 @@
 <script>
 import { supabase } from "@/services/supabase"
 import ExcelEstateTypesUpload from "@/components/ExcelEstateTypesUpload.vue"
+import { usePageState } from '@/store/pageState.js'
 
 export default {
   name: "PgEstateTypes",
@@ -253,8 +254,10 @@ export default {
     ExcelEstateTypesUpload
   },
   data() {
+    const pageState = usePageState('pg-estate-types')
+    
     return {
-      activeTab: 'types',
+      activeTab: pageState.activeTab.get() || 'types',
       tableData: [],
       editRowId: null,
       editRow: {},
@@ -802,6 +805,13 @@ export default {
     this.fetchSubtypes()
     this.fetchSources()
     this.fetchReferenceTables()
+  },
+  watch: {
+    activeTab(newTab) {
+      // Сохраняем состояние активной вкладки
+      const pageState = usePageState('pg-estate-types')
+      pageState.activeTab.set(newTab)
+    }
   }
 }
 </script>

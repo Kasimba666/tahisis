@@ -223,6 +223,7 @@ import MapView from './MapView.vue'
 import ViewModeSelector from './ViewModeSelector.vue'
 import GeoJsonViewer from './GeoJsonViewer.vue'
 import { useTableSorting } from '@/composables/useStorage.js'
+import { usePageState } from '@/store/pageState.js'
 import {
   getModeFromURL,
   setModeInURL,
@@ -290,9 +291,12 @@ export default {
     }
   },
   data() {
+    // Восстанавливаем viewMode из store
+    const pageState = usePageState('pg-settlements')
+    
     return {
       dataMode: 'settlement',
-      viewMode: 'list',
+      viewMode: pageState.viewMode.get() || 'list',
       settlementsData: [],
       allSettlements: [],
       allRevisions: [],
@@ -1591,7 +1595,11 @@ export default {
   },
 
   watch: {
-    viewMode() {
+    viewMode(newMode) {
+      // Сохраняем состояние viewMode
+      const pageState = usePageState('pg-settlements')
+      pageState.viewMode.set(newMode)
+      
       this.$nextTick(() => {
         // Триггерим обновление размера карт через изменение ключа
         this.$forceUpdate()
