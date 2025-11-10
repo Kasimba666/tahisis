@@ -24,7 +24,7 @@
       <div v-if="viewMode === 'list' || viewMode === 'split'" class="list-section" :class="{ 'split-mode': viewMode === 'split' }">
         <!-- Таблица населённых пунктов -->
         <el-table
-          :data="settlementsData"
+          :data="sortedSettlementsData"
           v-loading="loading"
           style="width: 100%"
           border
@@ -385,6 +385,25 @@ export default {
 
     syncedSettlementsGeoJson() {
       return this.settlementsData && this.settlementsData.length > 0 ? this.settlementsGeoJson : null
+    },
+
+    // Отсортированные данные для таблицы с сортировкой по умолчанию
+    sortedSettlementsData() {
+      if (!this.settlementsData || this.settlementsData.length === 0) {
+        return []
+      }
+
+      // Создаем копию массива для сортировки
+      const sorted = [...this.settlementsData]
+
+      // Сортируем по settlement_name_old в алфавитном порядке (А-Я)
+      sorted.sort((a, b) => {
+        const nameA = a.settlement_name_old || ''
+        const nameB = b.settlement_name_old || ''
+        return nameA.localeCompare(nameB, 'ru-RU', { sensitivity: 'base' })
+      })
+
+      return sorted
     }
   },
   async mounted() {
@@ -1116,6 +1135,11 @@ export default {
 
     formatNumber(num) {
       return new Intl.NumberFormat('ru-RU').format(num || 0)
+    },
+
+    // Метод для сортировки кириллических строк
+    sortCyrillic(a, b) {
+      return a.localeCompare(b, 'ru-RU', { sensitivity: 'base' })
     },
 
     // Метод для расчёта итоговой строки
