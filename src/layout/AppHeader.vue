@@ -1,68 +1,69 @@
 <template>
   <header class="app-header">
     <div class="header-container">
-      <div class="header-top">
-        <div class="header-brand">
-          <div class="logo">
-            <el-icon :size="24" color="var(--accent-primary)">
-              <component :is="logoIcon" />
-            </el-icon>
-          </div>
-          <h1 class="site-title">{{ siteTitle }}</h1>
-        </div>
-        <div class="header-actions">
-          <ThemeToggle />
-        </div>
+      <div class="header-logo">
+        <img src="/assets/signs/institut_istorii.svg" alt="Институт истории" class="logo-image">
       </div>
       
-      <div class="header-bottom">
-        <nav class="main-nav" :class="{ 'multi-line': isSmallScreen }">
-          <router-link to="/about" class="nav-item" :class="{ active: isActive('/about') }">
-            О проекте
-          </router-link>
-          <router-link to="/estates" class="nav-item" :class="{ active: isActive('/estates') }">
-            Сословия
-          </router-link>
-          <router-link to="/revisions" class="nav-item" :class="{ active: isActive('/revisions') }">
-            Ревизии
-          </router-link>
-          <router-link to="/settlements" class="nav-item" :class="{ active: isActive('/settlements') }">
-            Населённые пункты
-          </router-link>
-          <router-link to="/settings" class="nav-item" :class="{ active: isActive('/settings') }">
-            Настройки
-          </router-link>
-          <div v-if="authState.user" class="nav-item has-submenu">
-            <span class="submenu-trigger">Управление данными</span>
-            <div class="submenu">
-              <router-link to="/estate-types" class="submenu-item">
-                Типы сословий
-              </router-link>
-              <router-link to="/revisions-upload" class="submenu-item">
-                Ревизии
-              </router-link>
-              <div class="submenu-divider"></div>
-              <router-link to="/vector-layer-types" class="submenu-item">
-                Типы векторных слоев
-              </router-link>
-              <router-link to="/vector-layers" class="submenu-item">
-                Векторные слои
-              </router-link>
-            </div>
+      <div class="header-content">
+        <div class="header-top">
+          <div class="header-brand">
+            <h1 class="site-title">{{ siteTitle }}</h1>
           </div>
+          <div class="header-actions">
+            <ThemeToggle />
+          </div>
+        </div>
+        
+        <div class="header-bottom">
+          <nav class="main-nav" :class="{ 'multi-line': isSmallScreen }">
+            <router-link to="/about" class="nav-item" :class="{ active: isActive('/about') }">
+              О проекте
+            </router-link>
+            <router-link to="/estates" class="nav-item" :class="{ active: isActive('/estates') }">
+              Сословия
+            </router-link>
+            <router-link to="/revisions" class="nav-item" :class="{ active: isActive('/revisions') }">
+              Ревизии
+            </router-link>
+            <router-link to="/settlements" class="nav-item" :class="{ active: isActive('/settlements') }">
+              Населённые пункты
+            </router-link>
+            <router-link to="/settings" class="nav-item" :class="{ active: isActive('/settings') }">
+              Настройки
+            </router-link>
+            <div v-if="authState.user" class="nav-item has-submenu">
+              <span class="submenu-trigger">Управление данными</span>
+              <div class="submenu">
+                <router-link to="/estate-types" class="submenu-item">
+                  Типы сословий
+                </router-link>
+                <router-link to="/revisions-upload" class="submenu-item">
+                  Ревизии
+                </router-link>
+                <div class="submenu-divider"></div>
+                <router-link to="/vector-layer-types" class="submenu-item">
+                  Типы векторных слоев
+                </router-link>
+                <router-link to="/vector-layers" class="submenu-item">
+                  Векторные слои
+                </router-link>
+              </div>
+            </div>
 
-          <div class="nav-spacer"></div>
-          
-          <a v-if="!authState.user" @click="openAuthModal" class="nav-item nav-action">
-            Login
-          </a>
-          <div v-else class="nav-item has-submenu">
-            <span class="submenu-trigger">{{ authState.user.email }}</span>
-            <div class="submenu">
-              <a @click="handleLogout" class="submenu-item">Logout</a>
+            <div class="nav-spacer"></div>
+            
+            <a v-if="!authState.user" @click="openAuthModal" class="nav-item nav-action">
+              Login
+            </a>
+            <div v-else class="nav-item has-submenu">
+              <span class="submenu-trigger">{{ authState.user.email }}</span>
+              <div class="submenu">
+                <a @click="handleLogout" class="submenu-item">Logout</a>
+              </div>
             </div>
-          </div>
-        </nav>
+          </nav>
+        </div>
       </div>
     </div>
   </header>
@@ -75,14 +76,12 @@ import {useScreen} from '@/composables/useScreen.js'
 import AuthModal from '@/components/AuthModal.vue'
 import { ElMessage } from 'element-plus'
 import { state as authState, signOut } from '@/store/auth.js'
-import { Star } from '@element-plus/icons-vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 export default {
   name: 'AppHeader',
   components: { 
     AuthModal,
-    Star,
     ThemeToggle
   },
   props: {
@@ -101,9 +100,6 @@ export default {
     }
   },
   computed: {
-    logoIcon() {
-      return Star
-    },
     isSmallScreen() {
       return this.screen && (this.screen.type === 'xs' || this.screen.type === 'sm')
     }
@@ -159,6 +155,27 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 3px;
+  display: flex;
+  gap: 1rem;
+}
+
+.header-logo {
+  display: flex;
+  align-items: center;
+  padding: 3px 0;
+  
+  .logo-image {
+    height: 100%;
+    width: auto;
+    max-height: 80px;
+    object-fit: contain;
+  }
+}
+
+.header-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .header-top {
@@ -172,16 +189,10 @@ export default {
 .header-brand {
   display: flex;
   align-items: center;
-  gap: 3px;
-
-  .logo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
 
   .site-title {
-    font-size: 1.2rem;
+    font-family: 'Century Schoolbook', serif;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
@@ -293,9 +304,30 @@ export default {
   min-width: 3px;
 }
 
+@media (max-width: 768px) {
+  .header-logo {
+    .logo-image {
+      max-height: 60px;
+    }
+  }
+}
+
 @media (max-width: 576px) {
+  .header-container {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .header-logo {
+    justify-content: center;
+    
+    .logo-image {
+      max-height: 50px;
+    }
+  }
+  
   .header-brand .site-title {
-    font-size: 1rem;
+    font-size: 1.2rem;
   }
   
   .nav-item {
