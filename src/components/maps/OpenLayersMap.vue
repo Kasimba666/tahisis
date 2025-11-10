@@ -19,6 +19,8 @@ import { Style, Circle, Fill, Stroke } from 'ol/style'
 import { fromLonLat, transform } from 'ol/proj'
 import Overlay from 'ol/Overlay'
 import { useMapMarkers } from '@/composables/useMapMarkers.js'
+import { HomeFilled } from '@element-plus/icons-vue'
+import { h, render } from 'vue'
 
 export default {
   name: 'OpenLayersMap',
@@ -118,8 +120,8 @@ export default {
 
     createHomeButton() {
       const btn = document.createElement('button')
-      btn.innerHTML = '🏠'
       btn.title = 'Вернуться к исходному виду'
+      btn.className = 'home-button'
       btn.style.cssText = `
         position: absolute;
         top: 10px;
@@ -132,7 +134,19 @@ export default {
         border: none;
         border-radius: 4px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
       `
+      
+      // Рендерим иконку HomeFilled в кнопку
+      const iconContainer = document.createElement('div')
+      iconContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;'
+      const vnode = h(HomeFilled, { style: { width: '16px', height: '16px', color: '#409eff' } })
+      render(vnode, iconContainer)
+      btn.appendChild(iconContainer)
+      
       btn.onclick = () => this.resetView()
       this.$refs.olMap.appendChild(btn)
     },

@@ -6,6 +6,8 @@
 import L from 'leaflet'
 import { useMapMarkers } from '@/composables/useMapMarkers.js'
 import { vectorLayerService } from '@/services/vectorLayers.js'
+import { HomeFilled } from '@element-plus/icons-vue'
+import { h, render } from 'vue'
 
 export default {
   name: 'LeafletMap',
@@ -70,14 +72,21 @@ export default {
         maxZoom: 19
       }).addTo(this.mapInstance)
 
-      // Кнопка Home
+      // Кнопка Home с иконкой HomeFilled
       const self = this
       L.Control.HomeButton = L.Control.extend({
         onAdd: function(map) {
-          const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control')
-          btn.innerHTML = '🏠'
+          const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control home-button')
           btn.title = 'Вернуться к исходному виду'
-          btn.style.cssText = 'background: white; width: 30px; height: 30px; cursor: pointer; border: none;'
+          btn.style.cssText = 'background: white; width: 30px; height: 30px; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; padding: 0;'
+          
+          // Рендерим иконку HomeFilled в кнопку
+          const iconContainer = document.createElement('div')
+          iconContainer.style.cssText = 'display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;'
+          const vnode = h(HomeFilled, { style: { width: '16px', height: '16px', color: '#409eff' } })
+          render(vnode, iconContainer)
+          btn.appendChild(iconContainer)
+          
           btn.onclick = () => self.resetView()
           return btn
         }
