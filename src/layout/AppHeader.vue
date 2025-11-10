@@ -32,9 +32,9 @@
             <router-link to="/settings" class="nav-item" :class="{ active: isActive('/settings') }">
               Настройки
             </router-link>
-            <div v-if="authState.user" class="nav-item has-submenu">
+            <div v-if="authState.user" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
               <span class="submenu-trigger">Управление данными</span>
-              <div class="submenu">
+              <div class="submenu" :class="{ 'is-open': openSubmenu === 'dataMenu' }">
                 <router-link to="/estate-types" class="submenu-item">
                   Типы сословий
                 </router-link>
@@ -56,9 +56,9 @@
             <a v-if="!authState.user" @click="openAuthModal" class="nav-item nav-action">
               Login
             </a>
-            <div v-else class="nav-item has-submenu">
+            <div v-else class="nav-item has-submenu" @click="toggleSubmenu('userMenu')">
               <span class="submenu-trigger">{{ authState.user.email }}</span>
-              <div class="submenu">
+              <div class="submenu" :class="{ 'is-open': openSubmenu === 'userMenu' }">
                 <a @click="handleLogout" class="submenu-item">Logout</a>
               </div>
             </div>
@@ -96,7 +96,8 @@ export default {
       authState: authState,
       screen: null,
       setScreenListener: null,
-      removeScreenListener: null
+      removeScreenListener: null,
+      openSubmenu: null
     }
   },
   computed: {
@@ -112,11 +113,25 @@ export default {
   },
   mounted() {
     this.setScreenListener()
+    document.addEventListener('click', this.handleClickOutside)
   },
   unmounted() {
     this.removeScreenListener()
+    document.removeEventListener('click', this.handleClickOutside)
   },
   methods: {
+    toggleSubmenu(menuName) {
+      if (this.openSubmenu === menuName) {
+        this.openSubmenu = null
+      } else {
+        this.openSubmenu = menuName
+      }
+    },
+    handleClickOutside(event) {
+      if (!event.target.closest('.has-submenu')) {
+        this.openSubmenu = null
+      }
+    },
     isActive(path) {
       return this.$route.path === path
     },
@@ -254,10 +269,7 @@ export default {
       display: block;
       padding: 0;
       cursor: pointer;
-    }
-    
-    &:hover .submenu {
-      display: block;
+      user-select: none;
     }
   }
 }
@@ -275,6 +287,10 @@ export default {
   padding: 3px 0;
   margin-top: 2px;
   z-index: 100;
+  
+  &.is-open {
+    display: block;
+  }
 }
 
 .submenu-item {
