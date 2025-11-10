@@ -134,12 +134,28 @@ export function useMapMarkers() {
     `
   }
 
-  // Конвертация HSL в HSLA
-  const hslToHsla = (hsl, alpha) => {
-    if (hsl.startsWith('hsl(')) {
-      return hsl.replace('hsl(', 'hsla(').replace(')', `, ${alpha})`)
+  // Конвертация HSL/HEX в HSLA/RGBA с прозрачностью
+  const hslToHsla = (color, alpha) => {
+    // Если уже HSLA или RGBA, возвращаем как есть
+    if (color.startsWith('hsla(') || color.startsWith('rgba(')) {
+      return color
     }
-    return hsl
+    
+    // Если HSL, конвертируем в HSLA
+    if (color.startsWith('hsl(')) {
+      return color.replace('hsl(', 'hsla(').replace(')', `, ${alpha})`)
+    }
+    
+    // Если HEX, конвертируем в RGBA
+    if (color.startsWith('#')) {
+      const hex = color.replace('#', '')
+      const r = parseInt(hex.substring(0, 2), 16)
+      const g = parseInt(hex.substring(2, 4), 16)
+      const b = parseInt(hex.substring(4, 6), 16)
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`
+    }
+    
+    return color
   }
 
   // Получение цвета слоя

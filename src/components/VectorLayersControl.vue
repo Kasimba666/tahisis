@@ -13,38 +13,21 @@
     </el-button>
     <template #dropdown>
       <el-dropdown-menu>
-        <div class="layers-tree">
-          <div v-if="layersByType.length === 0" class="empty-message">
+        <div class="layers-list">
+          <div v-if="layersList.length === 0" class="empty-message">
             Нет доступных слоёв
           </div>
           <div
-            v-for="typeGroup in layersByType"
-            :key="typeGroup.typeId"
-            class="type-group"
+            v-for="layer in layersList"
+            :key="layer.id"
+            class="layer-item"
           >
-            <div class="type-header">
-              <el-checkbox
-                v-model="typeGroup.allChecked"
-                :indeterminate="typeGroup.indeterminate"
-                @change="toggleTypeGroup(typeGroup)"
-              >
-                {{ typeGroup.typeName }}
-              </el-checkbox>
-            </div>
-            <div class="layers-list">
-              <div
-                v-for="layer in typeGroup.layers"
-                :key="layer.id"
-                class="layer-item"
-              >
-                <el-checkbox
-                  v-model="layer.visible"
-                  @change="toggleLayer(layer)"
-                >
-                  {{ layer.name }}
-                </el-checkbox>
-              </div>
-            </div>
+            <el-checkbox
+              v-model="layer.visible"
+              @change="toggleLayer(layer)"
+            >
+              {{ layer.name }}
+            </el-checkbox>
           </div>
         </div>
       </el-dropdown-menu>
@@ -67,56 +50,28 @@ export default {
     }
   },
   computed: {
-    layersByType() {
+    layersList() {
       if (!this.vectorLayers || this.vectorLayers.length === 0) {
         return []
       }
 
-      const grouped = new Map()
+      return this.vectorLayers.map(layer => {
+        const visible = this.layersState.has(layer.id) 
+          ? this.layersState.get(layer.id) 
+          : (layer.visible !== false)
 
-      this.vectorLayers.forEach(layer => {
-        // Пропускаем слои без типа
-        if (!layer.id_type_vector_layer || !layer.type_vector_layer_name) {
-          return
-        }
-
-        const typeId = layer.id_type_vector_layer
-        const typeName = layer.type_vector_layer_name
-
-        if (!grouped.has(typeId)) {
-          grouped.set(typeId, {
-            typeId,
-            typeName,
-            layers: []
-          })
-        }
-
-        const visible = this.layersState.has(layer.id) ? this.layersState.get(layer.id) : true
-
-        grouped.get(typeId).layers.push({
+        return {
           id: layer.id,
           name: layer.name,
           visible
-        })
-      })
-
-      const result = Array.from(grouped.values()).map(typeGroup => {
-        const visibleCount = typeGroup.layers.filter(l => l.visible).length
-        const totalCount = typeGroup.layers.length
-
-        return {
-          ...typeGroup,
-          allChecked: visibleCount === totalCount,
-          indeterminate: visibleCount > 0 && visibleCount < totalCount
         }
-      })
-
-      return result.sort((a, b) => a.typeName.localeCompare(b.typeName))
+      }).sort((a, b) => a.name.localeCompare(b.name))
     }
   },
   mounted() {
+    // Инициализируем состояние слоёв на основе значения visible из БД
     this.vectorLayers.forEach(layer => {
-      this.layersState.set(layer.id, true)
+      this.layersState.set(layer.id, layer.visible !== false) // По умолчанию true, если не указано
     })
   },
   methods: {
@@ -126,19 +81,6 @@ export default {
         layerId: layer.id,
         visible: layer.visible
       })
-    },
-
-    toggleTypeGroup(typeGroup) {
-      const newState = typeGroup.allChecked
-      
-      typeGroup.layers.forEach(layer => {
-        layer.visible = newState
-        this.layersState.set(layer.id, newState)
-        this.$emit('layer-visibility-changed', {
-          layerId: layer.id,
-          visible: newState
-        })
-      })
     }
   },
   watch: {
@@ -146,7 +88,8 @@ export default {
       handler(newLayers) {
         newLayers.forEach(layer => {
           if (!this.layersState.has(layer.id)) {
-            this.layersState.set(layer.id, true)
+            // Для новых слоёв используем значение visible из БД
+            this.layersState.set(layer.id, layer.visible !== false)
           }
         })
       },
@@ -180,7 +123,7 @@ export default {
 }
 
 :deep(.vector-layers-dropdown) {
-  .layers-tree {
+  .layers-list {
     max-height: 400px;
     overflow-y: auto;
     padding: 4px 0;
@@ -193,39 +136,16 @@ export default {
       text-align: center;
     }
 
-    .type-group {
-      margin-bottom: 8px;
+    .layer-item {
+      padding: 6px 12px;
 
-      &:last-child {
-        margin-bottom: 0;
+      .el-checkbox {
+        font-weight: 400;
+        font-size: 12px;
       }
 
-      .type-header {
-        padding: 6px 12px;
-        background-color: hsl(220, 15%, 18%);
-        border-bottom: 1px solid hsl(220, 15%, 25%);
-        
-        .el-checkbox {
-          font-weight: 600;
-          font-size: 12px;
-        }
-      }
-
-      .layers-list {
-        padding: 2px 0;
-
-        .layer-item {
-          padding: 4px 12px 4px 28px;
-
-          .el-checkbox {
-            font-weight: 400;
-            font-size: 11px;
-          }
-
-          &:hover {
-            background-color: hsl(220, 15%, 22%);
-          }
-        }
+      &:hover {
+        background-color: hsl(220, 15%, 22%);
       }
     }
   }

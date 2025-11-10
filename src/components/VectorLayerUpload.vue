@@ -181,6 +181,7 @@ export default {
             size: file.size,
             feature_count: 0,
             crs: 'EPSG:4326',
+            visible: true, // По умолчанию видимый
             id_type_vector_layer: layerTypeId
           })
         }

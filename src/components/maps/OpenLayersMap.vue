@@ -82,9 +82,10 @@ export default {
       }
 
       try {
-        // Векторный слой для маркеров
+        // Векторный слой для маркеров населённых пунктов
         this.vectorLayer = new VectorLayer({
-          source: new VectorSource()
+          source: new VectorSource(),
+          zIndex: 1000  // Маркеры населённых пунктов всегда поверх векторных слоёв
         })
         console.log('Vector layer created')
 
@@ -417,7 +418,11 @@ export default {
             }
 
             this.vectorLayersMap.set(layer.id, vectorLayer)
-            this.mapInstance.addLayer(vectorLayer)
+            
+            // Добавляем слой на карту только если visible=true
+            if (layer.visible !== false) {
+              this.mapInstance.addLayer(vectorLayer)
+            }
           })
           .catch(error => console.error(`Error loading layer ${layer.name}:`, error))
       })
@@ -447,19 +452,26 @@ export default {
           
           // Стиль для LineString
           if (style.line) {
+            const strokeColor = style.line.strokeColor || '#3388ff'
+            const strokeOpacity = style.line.opacity !== undefined ? style.line.opacity : 0.7
+            
             return new Style({
               stroke: new Stroke({
-                color: style.line.strokeColor || '#3388ff',
+                color: hslToHsla(strokeColor, strokeOpacity),
                 width: style.line.strokeWidth || 2
               })
             })
           }
           
-          // Стиль для Polygon
+          // Стиль для Polygon  
           if (style.polygon) {
+            // Применяем opacity к strokeColor
+            const strokeColor = style.polygon.strokeColor || '#3388ff'
+            const strokeOpacity = style.polygon.opacity !== undefined ? style.polygon.opacity : 0.7
+            
             return new Style({
               stroke: new Stroke({
-                color: style.polygon.strokeColor || '#3388ff',
+                color: hslToHsla(strokeColor, strokeOpacity),
                 width: style.polygon.strokeWidth || 2
               }),
               fill: new Fill({

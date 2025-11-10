@@ -115,6 +115,7 @@ bbox jsonb,
 tags jsonb,
 id_type_vector_layer bigint,
 style json,
+visible boolean NOT NULL DEFAULT true,
 CONSTRAINT Vector_layer_pkey PRIMARY KEY (id),
 CONSTRAINT Vector_layer_id_type_vector_layer_fkey FOREIGN KEY (id_type_vector_layer) REFERENCES public.Type_vector_layer(id)
 );

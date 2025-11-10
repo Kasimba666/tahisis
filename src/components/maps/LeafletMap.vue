@@ -140,7 +140,10 @@ export default {
             ? generateSimpleSettlementPopup(settlement)
             : generateSettlementPopup(settlement)
 
-          const marker = L.marker([lat, lon], { icon: customIcon })
+          const marker = L.marker([lat, lon], { 
+            icon: customIcon,
+            zIndexOffset: 1000  // Маркеры населённых пунктов всегда поверх векторных слоёв
+          })
             .bindTooltip(`
               <div class="settlement-tooltip">
                 <div class="tooltip-name">${settlement.name}</div>
@@ -197,7 +200,11 @@ export default {
             })
 
             this.vectorLayersMap.set(layer.id, vectorLayer)
-            vectorLayer.addTo(this.mapInstance)
+            
+            // Добавляем слой на карту только если visible=true
+            if (layer.visible !== false) {
+              vectorLayer.addTo(this.mapInstance)
+            }
           })
           .catch(error => console.error(`Error loading layer ${layer.name}:`, error))
       })

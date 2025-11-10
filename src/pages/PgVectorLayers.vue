@@ -133,6 +133,19 @@
         </template>
       </el-table-column>
 
+      <el-table-column label="Видимость по умолчанию" width="160">
+        <template #default="{ row }">
+          <div v-if="editRowId === row.id">
+            <el-switch v-model="editRow.visible" />
+          </div>
+          <div v-else>
+            <el-tag :type="row.visible ? 'success' : 'info'" size="small">
+              {{ row.visible ? 'Видимый' : 'Скрытый' }}
+            </el-tag>
+          </div>
+        </template>
+      </el-table-column>
+
       <el-table-column label="Действия" width="320">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">
@@ -233,9 +246,11 @@ export default {
           name: this.editRow.name,
           file_path: this.editRow.file_path,
           id_type_vector_layer: this.editRow.id_type_vector_layer,
-          crs: this.editRow.crs
+          crs: this.editRow.crs,
+          visible: this.editRow.visible
         })
         this.cancelEdit()
+        this.refreshMapLayers()
       } catch (error) {
         // console.error("Error updating vector layer:", error)
         this.$message.error("Ошибка обновления слоя")
@@ -275,6 +290,7 @@ export default {
           size: 0,
           feature_count: 0,
           crs: "EPSG:4326",
+          visible: true, // По умолчанию видимый
           id_type_vector_layer: this.layerTypeOptions[0].id // Используем первый доступный тип
         })
 
@@ -349,6 +365,7 @@ export default {
               size: file.size,
               feature_count: 0,
               crs: 'EPSG:4326',
+              visible: true, // По умолчанию видимый
               id_type_vector_layer: layerTypeId
             }
 
