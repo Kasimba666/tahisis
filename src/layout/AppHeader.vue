@@ -20,14 +20,14 @@
             <router-link to="/about" class="nav-item" :class="{ active: isActive('/about') }">
               О проекте
             </router-link>
+            <router-link to="/settlements" class="nav-item" :class="{ active: isActive('/settlements') }">
+              Населённые пункты
+            </router-link>
             <router-link to="/estates" class="nav-item" :class="{ active: isActive('/estates') }">
               Сословия
             </router-link>
             <router-link to="/revisions" class="nav-item" :class="{ active: isActive('/revisions') }">
               Ревизии
-            </router-link>
-            <router-link to="/settlements" class="nav-item" :class="{ active: isActive('/settlements') }">
-              Населённые пункты
             </router-link>
             <router-link to="/settings" class="nav-item" :class="{ active: isActive('/settings') }">
               Настройки
@@ -54,12 +54,12 @@
             <div class="nav-spacer"></div>
             
             <a v-if="!authState.user" @click="openAuthModal" class="nav-item nav-action">
-              Login
+              Войти
             </a>
             <div v-else class="nav-item has-submenu" @click="toggleSubmenu('userMenu')">
               <span class="submenu-trigger">{{ authState.user.email }}</span>
               <div class="submenu" :class="{ 'is-open': openSubmenu === 'userMenu' }">
-                <a @click="handleLogout" class="submenu-item">Logout</a>
+                <a @click="handleLogout" class="submenu-item">Выйти</a>
               </div>
             </div>
           </nav>
