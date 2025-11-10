@@ -315,7 +315,31 @@ export default {
       }
     },
 
+    toggleOsmLayer(visible) {
+      if (!this.mapInstance) return
+      
+      // Находим OSM слой
+      this.mapInstance.eachLayer((layer) => {
+        if (layer instanceof L.TileLayer && layer.options.attribution && 
+            layer.options.attribution.includes('OpenStreetMap')) {
+          if (visible) {
+            if (!this.mapInstance.hasLayer(layer)) {
+              this.mapInstance.addLayer(layer)
+            }
+          } else {
+            this.mapInstance.removeLayer(layer)
+          }
+        }
+      })
+    },
+
     toggleLayerVisibility(layerId, visible) {
+      // Специальная обработка для OSM
+      if (layerId === 'osm') {
+        this.toggleOsmLayer(visible)
+        return
+      }
+
       const layer = this.vectorLayersMap.get(layerId)
       if (layer) {
         if (visible) {

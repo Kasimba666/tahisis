@@ -612,7 +612,25 @@ export default {
       }
     },
 
+    toggleOsmLayer(visible) {
+      if (!this.mapInstance) return
+      
+      // Находим OSM слой (TileLayer с OSM source)
+      const layers = this.mapInstance.getLayers().getArray()
+      const osmLayer = layers.find(layer => layer instanceof TileLayer && layer.getSource() instanceof OSM)
+      
+      if (osmLayer) {
+        osmLayer.setVisible(visible)
+      }
+    },
+
     toggleLayerVisibility(layerId, visible) {
+      // Специальная обработка для OSM
+      if (layerId === 'osm') {
+        this.toggleOsmLayer(visible)
+        return
+      }
+
       const layer = this.vectorLayersMap.get(layerId)
       if (layer) {
         if (visible) {

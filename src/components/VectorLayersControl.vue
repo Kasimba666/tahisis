@@ -51,21 +51,37 @@ export default {
   },
   computed: {
     layersList() {
-      if (!this.vectorLayers || this.vectorLayers.length === 0) {
-        return []
+      const layers = []
+      
+      // Добавляем виртуальный слой "OpenStreetMap"
+      const osmVisible = this.layersState.has('osm') 
+        ? this.layersState.get('osm') 
+        : true // По умолчанию включена
+        
+      layers.push({
+        id: 'osm',
+        name: '🗺️ OpenStreetMap',
+        visible: osmVisible
+      })
+
+      // Добавляем обычные векторные слои
+      if (this.vectorLayers && this.vectorLayers.length > 0) {
+        const vectorLayersList = this.vectorLayers.map(layer => {
+          const visible = this.layersState.has(layer.id) 
+            ? this.layersState.get(layer.id) 
+            : (layer.visible !== false)
+
+          return {
+            id: layer.id,
+            name: layer.name,
+            visible
+          }
+        }).sort((a, b) => a.name.localeCompare(b.name))
+        
+        layers.push(...vectorLayersList)
       }
 
-      return this.vectorLayers.map(layer => {
-        const visible = this.layersState.has(layer.id) 
-          ? this.layersState.get(layer.id) 
-          : (layer.visible !== false)
-
-        return {
-          id: layer.id,
-          name: layer.name,
-          visible
-        }
-      }).sort((a, b) => a.name.localeCompare(b.name))
+      return layers
     }
   },
   mounted() {
