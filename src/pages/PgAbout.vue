@@ -1,16 +1,10 @@
 <template>
   <main class="pg-about">
-    <div class="page-header">
-      <p>Узнайте больше о нашей компании и команде</p>
-    </div>
-    
     <div class="content-section">
       <div class="about-card">
-        <h2>Наша миссия</h2>
+        <h3>Заголовок</h3>
         <p>
-          Мы создаём современные веб-решения, которые помогают бизнесу расти и развиваться 
-          в цифровом мире. Наша команда профессионалов использует передовые технологии 
-          для создания качественных продуктов.
+          Что-то о проекте
         </p>
       </div>
       
@@ -33,6 +27,27 @@ export default {
   max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
+  position: relative;
+  
+  // Фоновое изображение карты
+  &::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    background-image: url('/assets/background/land_map.webp');
+    background-size: contain;
+    background-position: center;
+    background-repeat: repeat;
+    background-attachment: fixed;
+    
+    // Осветление и блюр
+    filter: brightness(1.3) blur(1px);
+    opacity: 0.4;
+  }
 }
 
 .page-header {
@@ -58,25 +73,14 @@ export default {
 
 .about-card {
   @include card-style;
-  
-  h2 {
+  h3 {
     color: var(--accent-primary);
-    margin-bottom: 1rem;
+    margin-left: 10px;
   }
-  
+
   p {
     line-height: 1.6;
-    margin-bottom: 0;
-  }
-  
-  ul {
-    margin: 0;
-    padding-left: 1.5rem;
-    
-    li {
-      margin-bottom: 0.5rem;
-      color: var(--text-secondary);
-    }
+    margin: 10px;
   }
 }
 
@@ -84,7 +88,7 @@ export default {
   .pg-about {
     padding: 1rem;
   }
-  
+
   .page-header h1 {
     font-size: 2rem;
   }
