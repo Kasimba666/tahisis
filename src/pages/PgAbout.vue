@@ -19,6 +19,15 @@
           Ревизии
         </el-button>
       </div>
+      
+      <div class="partners-card">
+        <a href="http://татаровед.рф/" target="_blank" rel="noopener noreferrer" class="partner-link">
+          <img src="/assets/signs/institut_istorii.svg" alt="Институт истории" class="partner-logo">
+        </a>
+        <a href="https://www.antat.ru/ru/" target="_blank" rel="noopener noreferrer" class="partner-link">
+          <img src="/assets/signs/an_rt.png" alt="Академия наук РТ" class="partner-logo">
+        </a>
+      </div>
     </div>
   </main>
 </template>
@@ -35,6 +44,7 @@ export default {
 </script>
 
 <style scoped lang="scss">
+@use '@/styles/variables.scss' as *;
 @use '@/styles/themes.scss' as *;
 
 .pg-about {
@@ -104,6 +114,44 @@ export default {
   }
 }
 
+.partners-card {
+  @include card-style;
+  background-color: hsla(214, 32%, 91%, 0.7) !important;
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 1.5rem !important;
+  width: fit-content;
+  margin: 0 auto;
+  
+  .partner-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform $transition-base, opacity $transition-base;
+    
+    &:hover {
+      transform: translateY(-4px);
+      opacity: 0.8;
+    }
+  }
+  
+  .partner-logo {
+    max-height: 80px;
+    max-width: 200px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+  
+  // Для тёмной темы
+  [data-theme="dark"] & {
+    background-color: hsla(217, 33%, 17%, 0.7) !important;
+  }
+}
+
 @media (max-width: 768px) {
   .pg-about {
     padding: 1rem;
@@ -115,6 +163,16 @@ export default {
     .el-button {
       width: 100%;
       max-width: 100%;
+    }
+  }
+  
+  .partners-card {
+    flex-direction: column;
+    gap: 1.5rem;
+    
+    .partner-logo {
+      max-height: 60px;
+      max-width: 150px;
     }
   }
 }
