@@ -97,21 +97,39 @@
         </template>
       </el-descriptions>
 
+      <!-- Карта -->
+      <div v-if="hasCoordinates" class="map-section">
+        <el-divider content-position="left">
+          <h4 style="margin: 0;">Расположение на карте</h4>
+        </el-divider>
+
+        <div class="map-container">
+          <MapView
+            :center="mapCenter"
+            :zoom="13"
+            :markers="mapMarkers"
+            :height="'300px'"
+            :show-controls="false"
+            :show-layers="false"
+          />
+        </div>
+      </div>
+
       <!-- Связанные сословия для режима Report_record -->
       <div v-if="dataMode === 'report'" class="related-estates-section">
         <el-divider content-position="left">
           <h4 style="margin: 0;">Связанные сословия</h4>
         </el-divider>
-        
+
         <div v-if="record.loadingEstates" class="loading-estates">
           <el-icon class="is-loading"><Loading /></el-icon>
           <span>Загрузка сословий...</span>
         </div>
-        
+
         <div v-else-if="record.relatedEstates && record.relatedEstates.length > 0">
           <el-collapse accordion>
-            <el-collapse-item 
-              v-for="(estate, index) in record.relatedEstates" 
+            <el-collapse-item
+              v-for="(estate, index) in record.relatedEstates"
               :key="estate.id"
               :title="`${index + 1}. ${estate.subtype_estate_name} (${estate.total} чел.)`"
               :name="estate.id"
@@ -154,10 +172,10 @@
             </el-collapse-item>
           </el-collapse>
         </div>
-        
-        <el-empty 
-          v-else 
-          description="Нет связанных сословий" 
+
+        <el-empty
+          v-else
+          description="Нет связанных сословий"
           :image-size="80"
         />
       </div>
@@ -177,12 +195,14 @@
 
 <script>
 import { Location, Loading } from '@element-plus/icons-vue'
+import MapView from '@/components/MapView.vue'
 
 export default {
   name: 'EstateRecordDetails',
   components: {
     Location,
-    Loading
+    Loading,
+    MapView
   },
   props: {
     modelValue: {
@@ -215,7 +235,7 @@ export default {
     },
     hasCoordinates() {
       if (!this.record) return false
-      
+
       if (this.dataMode === 'report') {
         return this.record.lat && this.record.lon
       } else {
@@ -225,6 +245,72 @@ export default {
         )
         return settlement && settlement.lat && settlement.lon
       }
+    },
+    mapCenter() {
+      if (!this.hasCoordinates) return [55.7558, 37.6176] // Москва по умолчанию
+
+      if (this.dataMode === 'report') {
+        return [parseFloat(this.record.lat), parseFloat(this.record.lon)]
+      } else {
+        const settlement = this.allSettlements?.find(s =>
+          s.name_modern === this.record.settlement_name_modern ||
+          s.name_old === this.record.settlement_name_old
+        )
+        return [parseFloat(settlement.lat), parseFloat(settlement.lon)]
+      }
+    },
+    mapMarkers() {
+      if (!this.hasCoordinates) return []
+
+      let lat, lon, name, popupContent
+
+      if (this.dataMode === 'report') {
+        lat = this.record.lat
+        lon = this.record.lon
+        name = this.record.settlement_name_modern || this.record.settlement_name_old
+        popupContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 200px;">
+            <h4 style="margin: 0 0 8px 0; color: #409eff;">${name}</h4>
+            <p style="margin: 4px 0;"><strong>Население:</strong> ${this.record.population_all || 0}</p>
+            <p style="margin: 4px 0;"><strong>Сословий:</strong> ${this.record.estates_count || 0}</p>
+            <p style="margin: 4px 0;"><strong>Район:</strong> ${this.record.district_name || '—'}</p>
+          </div>
+        `
+      } else {
+        const settlement = this.allSettlements?.find(s =>
+          s.name_modern === this.record.settlement_name_modern ||
+          s.name_old === this.record.settlement_name_old
+        )
+        lat = settlement.lat
+        lon = settlement.lon
+        name = this.record.settlement_name_modern || this.record.settlement_name_old
+        popupContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 200px;">
+            <h4 style="margin: 0 0 8px 0; color: #409eff;">${name}</h4>
+            <p style="margin: 4px 0;"><strong>Подтип сословия:</strong> ${this.record.subtype_estate_name || '—'}</p>
+            <p style="margin: 4px 0;"><strong>Мужчин:</strong> ${this.record.male || 0}</p>
+            <p style="margin: 4px 0;"><strong>Женщин:</strong> ${this.record.female || 0}</p>
+            <p style="margin: 4px 0;"><strong>Всего:</strong> ${this.record.total || 0}</p>
+            <p style="margin: 4px 0;"><strong>Район:</strong> ${this.record.district_name || '—'}</p>
+          </div>
+        `
+      }
+
+      return [{
+        lat: parseFloat(lat),
+        lng: parseFloat(lon),
+        popup: popupContent,
+        icon: {
+          iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#409eff"/>
+            </svg>
+          `),
+          iconSize: [24, 24],
+          iconAnchor: [12, 24],
+          popupAnchor: [0, -24]
+        }
+      }]
     }
   },
   methods: {
@@ -276,9 +362,20 @@ export default {
     }
   }
   
+  .map-section {
+    margin-top: 1.5rem;
+
+    .map-container {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-primary);
+    }
+  }
+
   .related-estates-section {
     margin-top: 1.5rem;
-    
+
     .loading-estates {
       display: flex;
       align-items: center;
@@ -287,21 +384,21 @@ export default {
       padding: 2rem;
       color: var(--text-muted);
     }
-    
+
     :deep(.el-collapse) {
       border-top: none;
-      
+
       .el-collapse-item__header {
         background-color: var(--bg-secondary);
         color: var(--text-primary);
         font-weight: 500;
         padding: 0 1rem;
-        
+
         &:hover {
           background-color: var(--bg-tertiary);
         }
       }
-      
+
       .el-collapse-item__content {
         padding: 1rem;
         background-color: var(--bg-primary);

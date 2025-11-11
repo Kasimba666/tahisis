@@ -445,10 +445,8 @@ export default {
       if (hasFilters) {
         console.log('=== APPLYING FILTERS ===')
         this.applyFilters(this.filters)
-      } else {
-        console.log('=== CALLING LOAD DATA (no filters) ===')
-        this.loadData()
       }
+      // Не загружаем данные автоматически, ждем применения фильтров
     } catch (error) {
       console.error('Error in mounted:', error)
     }

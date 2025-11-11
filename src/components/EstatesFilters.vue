@@ -466,11 +466,12 @@
 
       <!-- Кнопки действий -->
       <div class="filter-actions">
-        <el-button 
-          type="primary" 
-          size="large" 
+        <el-button
+          type="primary"
+          size="large"
           @click="applyFilters"
-          :class="{ 'has-changes': hasChanges }"
+          :class="{ 'has-changes': hasChanges, 'has-active-filters': activeFiltersList.length > 0 }"
+          :loading="applyingFilters"
         >
           Применить
         </el-button>
@@ -577,7 +578,8 @@ export default {
       searchMilitaryUnit: '',
       // Отслеживание изменений
       hasChanges: false,
-      appliedFilters: null
+      appliedFilters: null,
+      applyingFilters: false
     }
   },
   computed: {
@@ -1075,6 +1077,9 @@ export default {
     
     
     applyFilters() {
+      // Устанавливаем состояние загрузки
+      this.applyingFilters = true
+
       // Проверяем, есть ли активные фильтры
       const hasActiveFilters =
         this.filters.revision?.length > 0 ||
@@ -1112,8 +1117,13 @@ export default {
           this.applyStoredFilters()
           // Сбрасываем флаг изменений
           this.hasChanges = false
+          // Сбрасываем состояние загрузки через небольшую задержку
+          setTimeout(() => {
+            this.applyingFilters = false
+          }, 100)
         }).catch(() => {
           // Пользователь отменил действие
+          this.applyingFilters = false
         })
       } else {
         // Применяем фильтры и загружаем данные
@@ -1124,6 +1134,10 @@ export default {
         this.applyStoredFilters()
         // Сбрасываем флаг изменений
         this.hasChanges = false
+        // Сбрасываем состояние загрузки через небольшую задержку
+        setTimeout(() => {
+          this.applyingFilters = false
+        }, 100)
       }
     },
     
@@ -1570,6 +1584,23 @@ export default {
   }
 }
 
+// Пульсация кнопки "Применить" при наличии активных фильтров
+@keyframes pulse-subtle {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--accent-secondary);
+  }
+  50% {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 3px rgba(var(--accent-secondary-rgb, 34, 197, 94), 0.3);
+    filter: brightness(1.02);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 var(--accent-secondary);
+  }
+}
+
 .filter-actions {
   :deep(.el-button.has-changes) {
     animation: pulse-moderate 1s infinite;
@@ -1578,6 +1609,14 @@ export default {
     color: white !important;
     font-weight: 600 !important;
     box-shadow: 0 0 7.5px rgba(var(--accent-primary-rgb, 64, 158, 255), 0.8);
+  }
+
+  :deep(.el-button.has-active-filters:not(.has-changes)) {
+    animation: pulse-subtle 2s infinite;
+    background-color: var(--accent-secondary) !important;
+    border-color: var(--accent-secondary) !important;
+    color: white !important;
+    font-weight: 500 !important;
   }
 }
 

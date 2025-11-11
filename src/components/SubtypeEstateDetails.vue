@@ -10,6 +10,17 @@
       <span>Загрузка данных...</span>
     </div>
 
+    <div v-else-if="!subtypeData && subtypeId" class="no-data">
+      <div class="no-data-content">
+        <el-icon size="48" class="no-data-icon"><document /></el-icon>
+        <h3>Данные не загружены</h3>
+        <p>Нажмите кнопку ниже, чтобы загрузить детальную информацию о подтипе сословия</p>
+        <el-button type="primary" @click="loadData" :loading="loading">
+          Загрузить данные
+        </el-button>
+      </div>
+    </div>
+
     <div v-else-if="subtypeData" class="subtype-details">
       <!-- Основная информация -->
       <el-descriptions :column="1" border>
@@ -249,14 +260,20 @@ export default {
     subtypeId: {
       handler(newId) {
         if (newId && this.visible) {
-          this.loadData()
+          // Не загружаем данные автоматически, ждем явного действия пользователя
+          this.subtypeData = null
+          this.estates = []
+          this.settlements = []
         }
       },
       immediate: true
     },
     visible(newVal) {
       if (newVal && this.subtypeId) {
-        this.loadData()
+        // Не загружаем данные автоматически, ждем явного действия пользователя
+        this.subtypeData = null
+        this.estates = []
+        this.settlements = []
       }
     }
   },
@@ -449,6 +466,36 @@ export default {
   justify-content: center;
   padding: 40px;
   gap: 12px;
+}
+
+.no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+
+  .no-data-content {
+    max-width: 400px;
+
+    .no-data-icon {
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      margin: 0 0 12px 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    p {
+      margin: 0 0 24px 0;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+  }
 }
 
 .subtype-details {

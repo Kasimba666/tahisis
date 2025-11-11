@@ -301,13 +301,31 @@
             </el-collapse>
           </div>
           
-          <el-empty 
-            v-else 
-            description="Нет связанных сословий" 
-            :image-size="80"
+        <el-empty
+          v-else
+          description="Нет связанных сословий"
+          :image-size="80"
+        />
+      </div>
+
+      <!-- Карта -->
+      <div v-if="hasCoordinates" class="map-section">
+        <el-divider content-position="left">
+          <h4 style="margin: 0;">Расположение на карте</h4>
+        </el-divider>
+
+        <div class="map-container">
+          <MapView
+            :center="mapCenter"
+            :zoom="13"
+            :markers="mapMarkers"
+            :height="'300px'"
+            :show-controls="false"
+            :show-layers="false"
           />
         </div>
       </div>
+    </div>
       
       <template #footer>
         <div style="display: flex; gap: 8px;">
@@ -459,7 +477,7 @@ export default {
     
     hasCoordinates() {
       if (!this.selectedRecord) return false
-      
+
       if (this.dataMode === 'report') {
         // В режиме report координаты есть прямо в записи
         return this.selectedRecord.lat && this.selectedRecord.lon
@@ -471,6 +489,74 @@ export default {
         )
         return settlement && settlement.lat && settlement.lon
       }
+    },
+
+    mapCenter() {
+      if (!this.hasCoordinates) return [55.7558, 37.6176] // Москва по умолчанию
+
+      if (this.dataMode === 'report') {
+        return [parseFloat(this.selectedRecord.lat), parseFloat(this.selectedRecord.lon)]
+      } else {
+        const settlement = this.allSettlements?.find(s =>
+          s.name_modern === this.selectedRecord.settlement_name_modern ||
+          s.name_old === this.selectedRecord.settlement_name_old
+        )
+        return [parseFloat(settlement.lat), parseFloat(settlement.lon)]
+      }
+    },
+
+    mapMarkers() {
+      if (!this.hasCoordinates) return []
+
+      let lat, lon, name, popupContent
+
+      if (this.dataMode === 'report') {
+        lat = this.selectedRecord.lat
+        lon = this.selectedRecord.lon
+        name = this.selectedRecord.settlement_name_modern || this.selectedRecord.settlement_name_old
+        popupContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 200px;">
+            <h4 style="margin: 0 0 8px 0; color: #409eff;">${name}</h4>
+            <p style="margin: 4px 0;"><strong>Население:</strong> ${this.selectedRecord.population_all || 0}</p>
+            <p style="margin: 4px 0;"><strong>Сословий:</strong> ${this.selectedRecord.estates_count || 0}</p>
+            <p style="margin: 4px 0;"><strong>Район:</strong> ${this.selectedRecord.district_name || '—'}</p>
+          </div>
+        `
+      } else {
+        const settlement = this.allSettlements?.find(s =>
+          s.name_modern === this.selectedRecord.settlement_name_modern ||
+          s.name_old === this.selectedRecord.settlement_name_old
+        )
+        lat = settlement.lat
+        lon = settlement.lon
+        name = this.selectedRecord.settlement_name_modern || this.selectedRecord.settlement_name_old
+        popupContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 200px;">
+            <h4 style="margin: 0 0 8px 0; color: #409eff;">${name}</h4>
+            <p style="margin: 4px 0;"><strong>Подтип сословия:</strong> ${this.selectedRecord.subtype_estate_name || '—'}</p>
+            <p style="margin: 4px 0;"><strong>Мужчин:</strong> ${this.selectedRecord.male || 0}</p>
+            <p style="margin: 4px 0;"><strong>Женщин:</strong> ${this.selectedRecord.female || 0}</p>
+            <p style="margin: 4px 0;"><strong>Всего:</strong> ${this.selectedRecord.total || 0}</p>
+            <p style="margin: 4px 0;"><strong>Район:</strong> ${this.selectedRecord.district_name || '—'}</p>
+          </div>
+        `
+      }
+
+      return [{
+        lat: parseFloat(lat),
+        lng: parseFloat(lon),
+        popup: popupContent,
+        icon: {
+          iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#409eff"/>
+            </svg>
+          `),
+          iconSize: [24, 24],
+          iconAnchor: [12, 24],
+          popupAnchor: [0, -24]
+        }
+      }]
     },
 
     mapSettlements() {
@@ -535,11 +621,6 @@ export default {
 
     // Восстанавливаем параметры из URL
     this.restoreParamsFromURL()
-
-    // Если есть фильтры из URL, загружаем данные
-    if (this.currentFilters && Object.keys(this.currentFilters).length > 0) {
-      this.loadData()
-    }
 
     // Не загружаем данные автоматически, ждем применения фильтров
     this.$nextTick(() => {
@@ -2978,7 +3059,7 @@ export default {
   
   .related-estates-section {
     margin-top: 1.5rem;
-    
+
     .loading-estates {
       display: flex;
       align-items: center;
@@ -2987,25 +3068,36 @@ export default {
       padding: 2rem;
       color: var(--text-muted);
     }
-    
+
     :deep(.el-collapse) {
       border-top: none;
-      
+
       .el-collapse-item__header {
         background-color: var(--bg-secondary);
         color: var(--text-primary);
         font-weight: 500;
         padding: 0 1rem;
-        
+
         &:hover {
           background-color: var(--bg-tertiary);
         }
       }
-      
+
       .el-collapse-item__content {
         padding: 1rem;
         background-color: var(--bg-primary);
       }
+    }
+  }
+
+  .map-section {
+    margin-top: 1.5rem;
+
+    .map-container {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-primary);
     }
   }
 }

@@ -87,7 +87,7 @@
       </el-table>
     </div>
 
-    <!-- Детали подтипа -->
+    <!-- Детали подтипа сословия -->
     <SubtypeEstateDetails
       v-model="detailsVisible"
       :subtype-id="selectedSubtypeId"
@@ -113,7 +113,7 @@ export default {
   },
   data() {
     return {
-      loading: true,
+      loading: false,
       currentFilters: null,
       filtersApplied: false, // Флаг, показывающий применены ли фильтры
       estateTypes: [],
@@ -122,11 +122,13 @@ export default {
       religions: [],
       affiliations: [],
       allRevisions: [],
+      allDistricts: [], // Районы для отображения названий
       reportRecords: [],
       revisions: [], // Полная информация о ревизиях для сопоставления
       settlements: [], // Населённые пункты для фильтрации
       detailsVisible: false,
-      selectedSubtypeId: null
+      selectedSubtypeId: null,
+      selectedReportRecordId: null
     }
   },
   computed: {
@@ -288,10 +290,9 @@ export default {
       )
     }
   },
-  async mounted() {
+  mounted() {
     this.loadFiltersFromURL()
-    await this.loadData()
-    
+
     // После загрузки данных проверяем есть ли сохраненные фильтры из localStorage
     this.$nextTick(() => {
       if (this.$refs.estatesFilters && this.$refs.estatesFilters.filters) {
@@ -316,7 +317,8 @@ export default {
           console.log('Applying filters from localStorage:', filters)
           this.currentFilters = filters
           this.filtersApplied = true
-          console.log('Filtered estates count:', this.filteredEstates.length)
+          // Загружаем данные только если есть активные фильтры
+          this.loadData()
         }
       }
     })
@@ -438,7 +440,7 @@ export default {
     },
 
     handleRowClick(row) {
-      // Открываем drawer с деталями подтипа
+      // Открываем drawer с деталями подтипа сословия
       this.selectedSubtypeId = row.subtypeId
       this.detailsVisible = true
     },
@@ -447,6 +449,15 @@ export default {
       this.loading = true
 
       try {
+        // Загружаем районы для отображения названий
+        const { data: districts, error: districtsError } = await supabase
+          .from('District')
+          .select('id, name')
+          .order('name')
+
+        if (districtsError) throw districtsError
+        this.allDistricts = districts || []
+
         // Загружаем ревизии для сопоставления id и number
         const { data: revisions, error: revisionsError } = await supabase
           .from('Revision_report')
