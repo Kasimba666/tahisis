@@ -28,6 +28,10 @@ export default {
       type: Number,
       default: 8
     },
+    marker: {
+      type: Object,
+      default: null
+    },
     isActive: {
       type: Boolean,
       default: true
@@ -38,10 +42,21 @@ export default {
       mapInstance: null,
       markers: [],
       vectorLayersMap: new Map(),
-      currentHighlightCircle: null
+      currentHighlightCircle: null,
+      singleMarker: null
     }
   },
   mounted() {
+    console.log('=== LeafletMap mounted ===')
+    console.log('Props received:', {
+      settlements: this.settlements,
+      vectorLayers: this.vectorLayers,
+      initialCenter: this.initialCenter,
+      initialZoom: this.initialZoom,
+      marker: this.marker,
+      isActive: this.isActive
+    })
+
     this.$nextTick(() => {
       setTimeout(() => {
         this.initMap()
@@ -102,6 +117,7 @@ export default {
       })
 
       this.updateMarkers()
+      this.updateSingleMarker()
       this.loadVectorLayers()
     },
 
@@ -145,11 +161,11 @@ export default {
           })
 
           // Используем простой popup если нет district (данные из SubtypeEstateDetails)
-          const popupContent = !settlement.district 
+          const popupContent = !settlement.district
             ? generateSimpleSettlementPopup(settlement)
             : generateSettlementPopup(settlement)
 
-          const marker = L.marker([lat, lon], { 
+          const marker = L.marker([lat, lon], {
             icon: customIcon,
             zIndexOffset: 1000  // Маркеры населённых пунктов всегда поверх векторных слоёв
           })
@@ -176,8 +192,8 @@ export default {
                 const detailsBtn = popup.getElement().querySelector('.popup-details-btn')
                 if (detailsBtn) {
                   detailsBtn.onclick = () => {
-                    window.dispatchEvent(new CustomEvent('show-settlement-details', { 
-                      detail: { settlement } 
+                    window.dispatchEvent(new CustomEvent('show-settlement-details', {
+                      detail: { settlement }
                     }))
                   }
                 }
@@ -188,6 +204,60 @@ export default {
           this.markers.push(marker)
         }
       })
+    },
+
+    updateSingleMarker() {
+      if (!this.mapInstance) return
+
+      // Удаляем предыдущий одиночный маркер если есть
+      if (this.singleMarker) {
+        this.mapInstance.removeLayer(this.singleMarker)
+        this.singleMarker = null
+      }
+
+      // Если marker prop задан, создаём одиночный маркер
+      if (this.marker && this.marker.lat && this.marker.lon) {
+        const lat = parseFloat(this.marker.lat)
+        const lon = parseFloat(this.marker.lon)
+
+        if (isNaN(lat) || isNaN(lon)) return
+
+        // Создаём простой круглый маркер для деталей
+        const markerElement = `
+          <div style="
+            width: 20px;
+            height: 20px;
+            background: hsl(197, 100%, 50%);
+            border: 3px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+          "></div>
+        `
+
+        const customIcon = L.divIcon({
+          className: 'single-marker',
+          html: markerElement,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13]
+        })
+
+        this.singleMarker = L.marker([lat, lon], {
+          icon: customIcon,
+          zIndexOffset: 2000  // Одиночный маркер всегда поверх всех
+        })
+          .bindTooltip(`
+            <div class="settlement-tooltip">
+              <div class="tooltip-name">${this.marker.name || 'Населённый пункт'}</div>
+            </div>
+          `, {
+            direction: 'top',
+            offset: [0, -18],
+            opacity: 0.95,
+            className: 'custom-tooltip',
+            permanent: false
+          })
+          .addTo(this.mapInstance)
+      }
     },
 
     loadVectorLayers() {
@@ -378,6 +448,12 @@ export default {
       },
       deep: true
     },
+    marker: {
+      handler() {
+        this.updateSingleMarker()
+      },
+      deep: true
+    },
     vectorLayers: {
       handler(newLayers, oldLayers) {
         // Перезагружаем слои при изменении данных
@@ -389,7 +465,7 @@ export default {
             }
           })
           this.vectorLayersMap.clear()
-          
+
           // Загружаем новые векторные слои
           this.loadVectorLayers()
         }

@@ -1,7 +1,13 @@
 <template>
   <div v-if="estateTypesLegend.length > 0" class="map-legend-panel">
+    <div class="legend-header" v-if="showToggleButton">
+      <span class="legend-title">Легенда ({{ estateTypesLegend.length }})</span>
+      <button class="toggle-button" @click="toggleExpanded">
+        {{ isExpanded ? 'Скрыть' : 'Показать все' }}
+      </button>
+    </div>
     <div class="legend-items">
-      <div v-for="item in estateTypesLegend" :key="item.id" class="legend-item">
+      <div v-for="item in visibleItems" :key="item.id" class="legend-item">
         <div class="legend-color" :style="{ backgroundColor: item.color }"></div>
         <div class="legend-label">{{ item.name }}</div>
       </div>
@@ -16,6 +22,27 @@ export default {
     estateTypesLegend: {
       type: Array,
       default: () => []
+    }
+  },
+  data() {
+    return {
+      isExpanded: false
+    }
+  },
+  computed: {
+    showToggleButton() {
+      return this.estateTypesLegend.length > 5
+    },
+    visibleItems() {
+      if (!this.showToggleButton || this.isExpanded) {
+        return this.estateTypesLegend
+      }
+      return this.estateTypesLegend.slice(0, 5)
+    }
+  },
+  methods: {
+    toggleExpanded() {
+      this.isExpanded = !this.isExpanded
     }
   }
 }
@@ -39,6 +66,41 @@ export default {
 
   &:hover {
     opacity: 1;
+  }
+
+  .legend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border-color);
+
+    .legend-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .toggle-button {
+      background: transparent;
+      border: none;
+      color: var(--accent-primary);
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: var(--bg-tertiary);
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+    }
   }
 
   .legend-items {

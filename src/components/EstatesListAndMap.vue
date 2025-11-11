@@ -243,6 +243,36 @@
           </template>
         </el-descriptions>
 
+        <!-- Кнопка показа карты -->
+        <div style="margin-top: 12px;">
+          <el-button 
+            type="primary" 
+            size="small" 
+            @click="toggleMap"
+            :disabled="!hasCoordinates"
+          >
+            <el-icon><Location /></el-icon>
+            {{ showMap ? 'Скрыть карту' : 'Показать на карте' }}
+          </el-button>
+          <span v-if="!hasCoordinates" style="margin-left: 8px; color: var(--text-muted); font-size: 12px;">
+            (координаты отсутствуют)
+          </span>
+        </div>
+
+        <!-- Карта -->
+        <div v-if="showMap && hasCoordinates" class="map-section-details">
+          <div class="map-container">
+            <MapView
+              :center="getMapCenter()"
+              :zoom="14"
+              :marker="getMapMarker()"
+              :height="'300px'"
+              :show-controls="false"
+              :show-layers="false"
+            />
+          </div>
+        </div>
+
         <!-- Связанные сословия для режима Report_record -->
         <div v-if="dataMode === 'report'" class="related-estates-section">
           <el-divider content-position="left">
@@ -307,32 +337,10 @@
           :image-size="80"
         />
       </div>
-
-      <!-- Карта -->
-      <div v-if="hasCoordinates" class="map-section">
-        <el-divider content-position="left">
-          <h4 style="margin: 0;">Расположение на карте</h4>
-        </el-divider>
-
-        <div class="map-container">
-          <MapView
-            :center="mapCenter"
-            :zoom="13"
-            :markers="mapMarkers"
-            :height="'300px'"
-            :show-controls="false"
-            :show-layers="false"
-          />
-        </div>
-      </div>
     </div>
       
       <template #footer>
         <div style="display: flex; gap: 8px;">
-          <el-button type="primary" @click="showOnMap" v-if="selectedRecord && hasCoordinates">
-            <el-icon><Location /></el-icon>
-            Карта
-          </el-button>
           <el-button @click="closeDetailsDrawer">Закрыть</el-button>
         </div>
       </template>
@@ -399,6 +407,7 @@ export default {
       sortableInstance: null,
       detailsDrawerVisible: false,
       selectedRecord: null,
+      showMap: false,
       columnsPopoverVisible: false,
       currentFilters: null,
       allDistricts: [],
@@ -1540,10 +1549,15 @@ export default {
           })
     },
 
+    toggleMap() {
+      this.showMap = !this.showMap
+    },
+    
     closeDetailsDrawer() {
       try {
         this.detailsDrawerVisible = false
         this.selectedRecord = null
+        this.showMap = false
       } catch (error) {
         console.warn('Error closing details drawer:', error)
       }
@@ -2650,6 +2664,105 @@ export default {
         colNum = Math.floor(colNum / 26)
       }
       return result
+    },
+
+    // Получение центра карты для деталей
+    getMapCenter() {
+      if (!this.selectedRecord) return [55.7558, 37.6176] // Москва по умолчанию
+
+      if (this.dataMode === 'report') {
+        // В режиме report координаты есть прямо в записи
+        if (this.selectedRecord.lat && this.selectedRecord.lon) {
+          return [parseFloat(this.selectedRecord.lat), parseFloat(this.selectedRecord.lon)]
+        }
+      } else {
+        // В режиме estate нужно найти Settlement по названию
+        const settlement = this.allSettlements?.find(s =>
+          s.name_modern === this.selectedRecord.settlement_name_modern ||
+          s.name_old === this.selectedRecord.settlement_name_old
+        )
+        if (settlement && settlement.lat && settlement.lon) {
+          return [parseFloat(settlement.lat), parseFloat(settlement.lon)]
+        }
+      }
+
+      return [55.7558, 37.6176] // Москва по умолчанию
+    },
+
+    // Получение маркера для карты деталей
+    getMapMarker() {
+      if (!this.selectedRecord) return null
+
+      let lat, lon, name
+
+      if (this.dataMode === 'report') {
+        // В режиме report координаты есть прямо в записи
+        if (this.selectedRecord.lat && this.selectedRecord.lon) {
+          lat = this.selectedRecord.lat
+          lon = this.selectedRecord.lon
+          name = this.selectedRecord.settlement_name_modern || this.selectedRecord.settlement_name_old
+        } else {
+          return null
+        }
+      } else {
+        // В режиме estate нужно найти Settlement по названию
+        const settlement = this.allSettlements?.find(s =>
+          s.name_modern === this.selectedRecord.settlement_name_modern ||
+          s.name_old === this.selectedRecord.settlement_name_old
+        )
+        if (settlement && settlement.lat && settlement.lon) {
+          lat = settlement.lat
+          lon = settlement.lon
+          name = this.selectedRecord.settlement_name_modern || this.selectedRecord.settlement_name_old
+        } else {
+          return null
+        }
+      }
+
+      return {
+        lat: parseFloat(lat),
+        lon: parseFloat(lon),
+        name: name,
+        estateTypes: this.getMarkerEstateTypes(this.selectedRecord)
+      }
+    },
+
+    // Получение типов сословий для маркера в деталях
+    getMarkerEstateTypes(record) {
+      if (!record || !record.relatedEstates || record.relatedEstates.length === 0) {
+        return []
+      }
+
+      // Группируем сословия по подтипам и подсчитываем население
+      const subtypePopulation = {}
+
+      record.relatedEstates.forEach(estate => {
+        const subtypeId = this.allSubtypeEstates?.find(st => st.name === estate.subtype_estate_name)?.id
+        if (subtypeId) {
+          if (!subtypePopulation[subtypeId]) {
+            subtypePopulation[subtypeId] = {
+              id: subtypeId,
+              population: 0
+            }
+          }
+          subtypePopulation[subtypeId].population += (estate.total || 0)
+        }
+      })
+
+      // Преобразуем в массив и сортируем по населению (от большего к меньшему)
+      const subtypes = Object.values(subtypePopulation)
+        .map(subtype => {
+          const subtypeInfo = this.allSubtypeEstates?.find(st => st.id === subtype.id)
+          return {
+            id: subtype.id,
+            name: subtypeInfo?.name || 'Неизвестно',
+            population: subtype.population,
+            color: this.estateTypeColors[subtype.id] || 'hsl(0, 0%, 60%)'
+          }
+        })
+        .sort((a, b) => b.population - a.population)
+
+      return subtypes
     }
   },
   watch: {
@@ -3087,6 +3200,18 @@ export default {
         padding: 1rem;
         background-color: var(--bg-primary);
       }
+    }
+  }
+
+  .map-section-details {
+    margin-top: 1.5rem;
+
+    .map-container {
+      height: 300px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-primary);
     }
   }
 

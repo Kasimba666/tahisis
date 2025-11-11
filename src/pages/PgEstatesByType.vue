@@ -36,16 +36,16 @@
 
         <el-table-column label="Тип сословия" min-width="200" sortable prop="typeName">
           <template #default="{ row }">
-            <div class="type-cell">
-              <div class="type-badge" :style="{ backgroundColor: row.typeColor }"></div>
-              <span>{{ row.typeName }}</span>
-            </div>
+            {{ row.typeName }}
           </template>
         </el-table-column>
 
         <el-table-column label="Подтип сословия" min-width="250" sortable prop="subtypeName">
           <template #default="{ row }">
-            <strong>{{ row.subtypeName }}</strong>
+            <div class="type-cell">
+              <div class="type-badge" :style="{ backgroundColor: row.subtypeColor }"></div>
+              <strong>{{ row.subtypeName }}</strong>
+            </div>
           </template>
         </el-table-column>
 
@@ -265,6 +265,7 @@ export default {
           typeName: type?.name || '—',
           typeColor: type?.color || 'hsl(0, 0%, 50%)',
           subtypeName: subtype.name,
+          subtypeColor: subtype.color || 'hsl(0, 0%, 50%)',
           religion: religion?.name || '—',
           affiliation: affiliation?.name || '—',
           estateCount: estatesForSubtype.length,

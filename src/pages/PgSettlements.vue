@@ -14,7 +14,7 @@
       <SettlementsListAndMap
         ref="settlementsListAndMap"
         :filters="currentFilters"
-        :loading="loading"
+        v-model:loading="loading"
         :districts="allDistricts"
         :type-estates="allTypeEstates"
         :subtype-estates="allSubtypeEstates"
@@ -127,7 +127,11 @@ export default {
       // Сохраняем фильтры в URL
       setFiltersInURL(filters)
 
-      this.$refs.settlementsListAndMap?.applyFiltersAndLoad()
+      // Применяем фильтры и загружаем данные
+      // loading состояние управляется через v-model:loading
+      if (this.$refs.settlementsListAndMap) {
+        this.$refs.settlementsListAndMap.applyFiltersAndLoad()
+      }
     },
 
     // Метод для передачи справочников в дочерний компонент
@@ -168,6 +172,13 @@ export default {
             })
 
             this.currentFilters = cleanedFilters
+            
+            // Передаём восстановленные фильтры в компонент EstatesFilters для отображения в UI
+            this.$nextTick(() => {
+              if (this.$refs.estatesFilters && this.$refs.estatesFilters.restoreFilters) {
+                this.$refs.estatesFilters.restoreFilters(cleanedFilters)
+              }
+            })
           }
         }
       } catch (error) {

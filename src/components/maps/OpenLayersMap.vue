@@ -43,6 +43,10 @@ export default {
       type: Number,
       default: 8
     },
+    marker: {
+      type: Object,
+      default: null
+    },
     isActive: {
       type: Boolean,
       default: true
@@ -55,7 +59,8 @@ export default {
       vectorLayersMap: new Map(),
       popupOverlay: null,
       tooltipOverlay: null,
-      currentHighlightLayer: null
+      currentHighlightLayer: null,
+      singleMarkerLayer: null
     }
   },
   mounted() {
@@ -63,7 +68,15 @@ export default {
     console.log('refs.olMap:', this.$refs.olMap)
     console.log('settlements prop:', this.settlements?.length || 0)
     console.log('isActive prop:', this.isActive)
-    
+    console.log('Props received:', {
+      settlements: this.settlements,
+      vectorLayers: this.vectorLayers,
+      initialCenter: this.initialCenter,
+      initialZoom: this.initialZoom,
+      marker: this.marker,
+      isActive: this.isActive
+    })
+
     this.$nextTick(() => {
       setTimeout(() => {
         this.initMap()
@@ -119,8 +132,9 @@ export default {
         
         console.log('Calling updateMarkers with', this.settlements?.length || 0, 'settlements')
         this.updateMarkers()
+        this.updateSingleMarker()
         this.loadVectorLayers()
-        
+
         console.log('=== OpenLayersMap initialization complete ===')
       } catch (error) {
         console.error('Error in initMap:', error)
@@ -290,7 +304,7 @@ export default {
     updateMarkers() {
       console.log('=== OpenLayers updateMarkers ===')
       console.log('vectorLayer exists:', !!this.vectorLayer)
-      
+
       if (!this.vectorLayer) {
         console.warn('No vectorLayer in updateMarkers')
         return
@@ -353,9 +367,59 @@ export default {
           addedCount++
         }
       })
-      
+
       console.log('Added markers count:', addedCount)
       console.log('Total features in source:', source.getFeatures().length)
+    },
+
+    updateSingleMarker() {
+      if (!this.mapInstance) return
+
+      // Удаляем предыдущий одиночный маркер если есть
+      if (this.singleMarkerLayer) {
+        this.mapInstance.removeLayer(this.singleMarkerLayer)
+        this.singleMarkerLayer = null
+      }
+
+      // Если marker prop задан, создаём одиночный маркер
+      if (this.marker && this.marker.lat && this.marker.lon) {
+        const lat = parseFloat(this.marker.lat)
+        const lon = parseFloat(this.marker.lon)
+
+        if (isNaN(lat) || isNaN(lon)) return
+
+        const [x, y] = fromLonLat([lon, lat])
+
+        const markerFeature = new Feature({
+          geometry: new Point([x, y]),
+          name: this.marker.name || 'Населённый пункт'
+        })
+
+        // Стиль для одиночного маркера - синий круг
+        const markerStyle = new Style({
+          image: new Circle({
+            radius: 10,
+            fill: new Fill({ color: 'hsl(197, 100%, 50%)' }),
+            stroke: new Stroke({
+              color: 'white',
+              width: 3
+            })
+          })
+        })
+
+        markerFeature.setStyle(markerStyle)
+
+        const markerSource = new VectorSource({
+          features: [markerFeature]
+        })
+
+        this.singleMarkerLayer = new VectorLayer({
+          source: markerSource,
+          zIndex: 2000  // Одиночный маркер всегда поверх всех
+        })
+
+        this.mapInstance.addLayer(this.singleMarkerLayer)
+      }
     },
 
     createMarkerStyle(estateTypes) {
@@ -682,6 +746,12 @@ export default {
       },
       deep: true
     },
+    marker: {
+      handler() {
+        this.updateSingleMarker()
+      },
+      deep: true
+    },
     vectorLayers: {
       handler(newLayers, oldLayers) {
         // Перезагружаем слои при изменении данных
@@ -691,7 +761,7 @@ export default {
             this.mapInstance.removeLayer(layer)
           })
           this.vectorLayersMap.clear()
-          
+
           // Загружаем новые
           this.loadVectorLayers()
         }

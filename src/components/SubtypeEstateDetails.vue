@@ -25,13 +25,13 @@
       <!-- Основная информация -->
       <el-descriptions :column="1" border>
         <el-descriptions-item label="Тип сословия">
-          <div class="type-cell">
-            <div class="type-badge" :style="{ backgroundColor: subtypeData.typeColor }"></div>
-            <span>{{ subtypeData.typeName }}</span>
-          </div>
+          {{ subtypeData.typeName }}
         </el-descriptions-item>
         <el-descriptions-item label="Подтип">
-          <strong>{{ subtypeData.subtypeName }}</strong>
+          <div class="type-cell">
+            <div class="type-badge" :style="{ backgroundColor: subtypeData.subtypeColor }"></div>
+            <strong>{{ subtypeData.subtypeName }}</strong>
+          </div>
         </el-descriptions-item>
         <el-descriptions-item label="Религия">
           {{ subtypeData.religion }}
@@ -397,6 +397,7 @@ export default {
         this.subtypeData = {
           subtypeId: subtype.id,
           subtypeName: subtype.name,
+          subtypeColor: subtype.color || 'hsl(0, 0%, 50%)',
           typeId: type.id,
           typeName: type.name,
           typeColor: type.color || 'hsl(0, 0%, 50%)',

@@ -97,12 +97,24 @@
         </template>
       </el-descriptions>
 
-      <!-- Карта -->
-      <div v-if="hasCoordinates" class="map-section">
-        <el-divider content-position="left">
-          <h4 style="margin: 0;">Расположение на карте</h4>
-        </el-divider>
+      <!-- Кнопка показа карты -->
+      <div style="margin-top: 12px;">
+        <el-button 
+          type="primary" 
+          size="small" 
+          @click="toggleMap"
+          :disabled="!hasCoordinates"
+        >
+          <el-icon><Location /></el-icon>
+          {{ showMap ? 'Скрыть карту' : 'Показать на карте' }}
+        </el-button>
+        <span v-if="!hasCoordinates" style="margin-left: 8px; color: var(--text-muted); font-size: 12px;">
+          (координаты отсутствуют)
+        </span>
+      </div>
 
+      <!-- Карта -->
+      <div v-if="showMap && hasCoordinates" class="map-section">
         <div class="map-container">
           <MapView
             :center="mapCenter"
@@ -183,10 +195,6 @@
     
     <template #footer>
       <div style="display: flex; gap: 8px;">
-        <el-button type="primary" @click="handleShowOnMap" v-if="hasCoordinates">
-          <el-icon><Location /></el-icon>
-          Карта
-        </el-button>
         <el-button @click="handleClose">Закрыть</el-button>
       </div>
     </template>
@@ -224,6 +232,11 @@ export default {
     }
   },
   emits: ['update:modelValue', 'show-on-map'],
+  data() {
+    return {
+      showMap: false
+    }
+  },
   computed: {
     visible: {
       get() {
@@ -314,34 +327,12 @@ export default {
     }
   },
   methods: {
+    toggleMap() {
+      this.showMap = !this.showMap
+    },
     handleClose() {
       this.visible = false
-    },
-    handleShowOnMap() {
-      if (!this.hasCoordinates) return
-      
-      let lat, lon, name
-      
-      if (this.dataMode === 'report') {
-        lat = this.record.lat
-        lon = this.record.lon
-        name = this.record.settlement_name_modern || this.record.settlement_name_old
-      } else {
-        const settlement = this.allSettlements?.find(s =>
-          s.name_modern === this.record.settlement_name_modern ||
-          s.name_old === this.record.settlement_name_old
-        )
-        
-        if (settlement) {
-          lat = settlement.lat
-          lon = settlement.lon
-          name = this.record.settlement_name_modern || this.record.settlement_name_old
-        }
-      }
-      
-      if (lat && lon) {
-        this.$emit('show-on-map', { lat, lon, name })
-      }
+      this.showMap = false
     }
   }
 }

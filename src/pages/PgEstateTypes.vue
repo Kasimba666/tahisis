@@ -34,25 +34,6 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="Цвет" width="120">
-        <template #default="{ row }">
-          <div v-if="editRowId === row.id">
-            <el-color-picker
-              v-model="editRow.color"
-              size="small"
-              show-alpha
-              @change="onColorChange"
-            />
-          </div>
-          <div v-else>
-            <div
-              class="color-preview"
-              :style="{ backgroundColor: row.color || 'hsl(180, 0%, 100%)' }"
-            ></div>
-          </div>
-        </template>
-      </el-table-column>
-
       <el-table-column label="Действия" width="280" fixed="right">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">

@@ -68,6 +68,27 @@
               </template>
             </el-table-column>
           </el-table>
+
+          <!-- Кнопка для показа/скрытия карты -->
+          <div v-if="hasCoordinates" style="margin-top: 12px;">
+            <el-button type="primary" size="small" @click="toggleMap">
+              <el-icon><Location /></el-icon>
+              {{ showMap ? 'Скрыть карту' : 'Показать на карте' }}
+            </el-button>
+          </div>
+
+          <!-- Карта -->
+          <div v-if="showMap && hasCoordinates" class="map-container">
+            <MapView
+              :center="[settlement.lat, settlement.lon]"
+              :zoom="14"
+              :marker="{
+                lat: settlement.lat,
+                lon: settlement.lon,
+                name: settlement.settlement_name_modern || settlement.settlement_name_old
+              }"
+            />
+          </div>
         </div>
 
         <el-empty v-else description="Нет данных о ревизиях" :image-size="60" />
@@ -105,10 +126,6 @@
 
     <template #footer>
       <div style="display: flex; gap: 8px;">
-        <el-button type="primary" size="small" @click="handleShowOnMap" v-if="hasCoordinates">
-          <el-icon><Location /></el-icon>
-          Карта
-        </el-button>
         <el-button size="small" @click="handleClose">Закрыть</el-button>
       </div>
     </template>
@@ -117,11 +134,13 @@
 
 <script>
 import { Location } from '@element-plus/icons-vue'
+import MapView from './MapView.vue'
 
 export default {
   name: 'SettlementDetails',
   components: {
-    Location
+    Location,
+    MapView
   },
   props: {
     modelValue: {
@@ -133,7 +152,25 @@ export default {
       default: null
     }
   },
-  emits: ['update:modelValue', 'show-on-map'],
+  emits: ['update:modelValue'],
+  data() {
+    return {
+      showMap: false
+    }
+  },
+  watch: {
+    settlement: {
+      handler(newSettlement) {
+        console.log('=== SettlementDetails settlement changed ===')
+        console.log('New settlement:', newSettlement)
+        if (newSettlement) {
+          console.log('settlement.lat:', newSettlement.lat, 'type:', typeof newSettlement.lat)
+          console.log('settlement.lon:', newSettlement.lon, 'type:', typeof newSettlement.lon)
+        }
+      },
+      immediate: true
+    }
+  },
   computed: {
     visible: {
       get() {
@@ -144,7 +181,13 @@ export default {
       }
     },
     hasCoordinates() {
-      return this.settlement && this.settlement.lat && this.settlement.lon
+      const hasCoords = this.settlement && this.settlement.lat && this.settlement.lon
+      console.log('=== SettlementDetails hasCoordinates ===')
+      console.log('settlement:', this.settlement)
+      console.log('settlement.lat:', this.settlement?.lat, 'type:', typeof this.settlement?.lat)
+      console.log('settlement.lon:', this.settlement?.lon, 'type:', typeof this.settlement?.lon)
+      console.log('hasCoordinates result:', hasCoords)
+      return hasCoords
     }
   },
   methods: {
@@ -153,10 +196,19 @@ export default {
     },
     handleClose() {
       this.visible = false
+      this.showMap = false
     },
-    handleShowOnMap() {
-      if (this.hasCoordinates) {
-        this.$emit('show-on-map', {
+    toggleMap() {
+      this.showMap = !this.showMap
+
+      if (this.showMap && this.hasCoordinates) {
+        console.log('=== SettlementDetails: Показать на карте ===')
+        console.log('Settlement data:', this.settlement)
+        console.log('Coordinates:', {
+          lat: this.settlement.lat,
+          lon: this.settlement.lon
+        })
+        console.log('Marker object to pass to MapView:', {
           lat: this.settlement.lat,
           lon: this.settlement.lon,
           name: this.settlement.settlement_name_modern || this.settlement.settlement_name_old
@@ -190,6 +242,14 @@ export default {
       color: var(--text-primary);
       font-weight: 600;
     }
+  }
+
+  .map-container {
+    margin-top: 12px;
+    height: 400px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
   }
 }
 </style>

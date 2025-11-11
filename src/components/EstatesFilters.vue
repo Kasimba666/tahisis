@@ -1291,6 +1291,23 @@ export default {
       }
     },
 
+    // Восстановление фильтров (вызывается из родительского компонента)
+    restoreFilters(savedFilters) {
+      if (!savedFilters || typeof savedFilters !== 'object') return
+      
+      // Применяем сохраненные фильтры
+      Object.keys(savedFilters).forEach(key => {
+        if (this.filters.hasOwnProperty(key)) {
+          this.filters[key] = savedFilters[key]
+        }
+      })
+      
+      // Отключаем флаг изменений, так как это восстановление
+      this.hasChanges = false
+      
+      console.log('Filters restored:', this.filters)
+    },
+
     // Удаление конкретного фильтра
     closeDropdown() {
       document.body.click()

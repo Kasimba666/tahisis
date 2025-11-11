@@ -165,6 +165,35 @@
                 </template>
               </el-table-column>
             </el-table>
+
+            <!-- Кнопка для показа/скрытия карты -->
+            <div style="margin-top: 12px;">
+              <el-button 
+                type="primary" 
+                size="small" 
+                @click="toggleDetailsMap"
+                :disabled="!hasCoordinates"
+              >
+                <el-icon><Location /></el-icon>
+                {{ showDetailsMap ? 'Скрыть карту' : 'Показать на карте' }}
+              </el-button>
+              <span v-if="!hasCoordinates" style="margin-left: 8px; color: var(--text-muted); font-size: 12px;">
+                (координаты отсутствуют)
+              </span>
+            </div>
+
+            <!-- Карта -->
+            <div v-if="showDetailsMap && hasCoordinates" class="details-map-container">
+              <MapView
+                :center="[selectedSettlement.lat, selectedSettlement.lon]"
+                :zoom="14"
+                :marker="{
+                  lat: selectedSettlement.lat,
+                  lon: selectedSettlement.lon,
+                  name: selectedSettlement.settlement_name_modern || selectedSettlement.settlement_name_old
+                }"
+              />
+            </div>
           </div>
 
           <el-empty v-else description="Нет данных о ревизиях" :image-size="60" />
@@ -202,10 +231,6 @@
 
       <template #footer>
         <div style="display: flex; gap: 8px;">
-          <el-button type="primary" size="small" @click="showOnMap" v-if="selectedSettlement && hasCoordinates">
-            <el-icon><Location /></el-icon>
-            Карта
-          </el-button>
           <el-button size="small" @click="closeDetailsDrawer">Закрыть</el-button>
         </div>
       </template>
@@ -310,6 +335,7 @@ export default {
       allMilitaryUnits: [],
       detailsDrawerVisible: false,
       selectedSettlement: null,
+      showDetailsMap: false,
       internalLoading: false,
       currentFilters: null,
       estateTypeColors: {}
@@ -665,19 +691,23 @@ export default {
 
     loadData() {
       this.internalLoading = true
+      this.$emit('update:loading', true)
 
       try {
         this.loadSettlementsDataNew()
           .then(() => {
             this.internalLoading = false
+            this.$emit('update:loading', false)
           })
           .catch(err => {
             console.error('Error loading settlements data:', err)
             this.internalLoading = false
+            this.$emit('update:loading', false)
           })
       } catch (error) {
         console.error('Error loading settlements data:', error)
         this.internalLoading = false
+        this.$emit('update:loading', false)
       }
     },
 
@@ -1076,13 +1106,21 @@ export default {
     },
 
     applyFilters(filters) {
+      console.log('=== applyFilters called ===')
+      console.log('filters:', filters)
       this.currentFilters = filters
       // Сбрасываем данные при изменении фильтров
       this.settlementsData = []
+      // ВАЖНО: загружаем данные сразу после установки фильтров
+      this.$nextTick(() => {
+        this.loadData()
+      })
     },
 
     // Новый метод для применения фильтров и загрузки данных
     applyFiltersAndLoad() {
+      console.log('=== applyFiltersAndLoad called ===')
+      console.log('currentFilters:', this.currentFilters)
       this.loadData()
     },
 
@@ -1107,9 +1145,14 @@ export default {
     closeDetailsDrawer() {
       this.detailsDrawerVisible = false
       this.selectedSettlement = null
+      this.showDetailsMap = false
       
       // Убираем обводку на карте
       window.dispatchEvent(new CustomEvent('clear-settlement-highlight'))
+    },
+
+    toggleDetailsMap() {
+      this.showDetailsMap = !this.showDetailsMap
     },
 
     showOnMap() {
@@ -1902,6 +1945,14 @@ export default {
         color: var(--text-primary);
         font-weight: 600;
       }
+    }
+
+    .details-map-container {
+      margin-top: 12px;
+      height: 400px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
     }
   }
 }

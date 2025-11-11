@@ -20,8 +20,9 @@
         ref="leafletMap"
         :settlements="settlements"
         :vector-layers="vectorLayers"
-        :initial-center="[55.42, 52.68]"
-        :initial-zoom="8"
+        :initial-center="effectiveCenter"
+        :initial-zoom="effectiveZoom"
+        :marker="marker"
         :is-active="mapProvider === 'leaflet'"
         @view-change="onLeafletViewChange"
       />
@@ -32,8 +33,9 @@
         ref="olMap"
         :settlements="settlements"
         :vector-layers="vectorLayers"
-        :initial-center="[52.68, 55.42]"
-        :initial-zoom="8"
+        :initial-center="effectiveCenterOL"
+        :initial-zoom="effectiveZoom"
+        :marker="marker"
         :is-active="mapProvider === 'openlayers'"
         @view-change="onOLViewChange"
       />
@@ -64,6 +66,18 @@ export default {
     geoJsonData: {
       type: Object,
       default: null
+    },
+    center: {
+      type: Array,
+      default: null
+    },
+    zoom: {
+      type: Number,
+      default: null
+    },
+    marker: {
+      type: Object,
+      default: null
     }
   },
   data() {
@@ -74,6 +88,19 @@ export default {
     }
   },
   computed: {
+    effectiveCenter() {
+      return this.center || [55.42, 52.68]
+    },
+    effectiveZoom() {
+      return this.zoom || 8
+    },
+    effectiveCenterOL() {
+      // OpenLayers использует [lon, lat] вместо [lat, lon]
+      if (this.center) {
+        return [this.center[1], this.center[0]]
+      }
+      return [52.68, 55.42]
+    },
     estateTypesLegend() {
       // Поддержка как массива settlements, так и GeoJSON
       let settlementsArray = []
@@ -118,6 +145,16 @@ export default {
     // Обработчик события "Показать на карте"
     window.addEventListener('show-settlement-on-map', this.handleShowOnMap)
     window.addEventListener('clear-settlement-highlight', this.handleClearHighlight)
+
+    // Логирование props для отладки
+    console.log('=== MapView mounted ===')
+    console.log('Props received:', {
+      settlements: this.settlements,
+      geoJsonData: this.geoJsonData,
+      center: this.center,
+      zoom: this.zoom,
+      marker: this.marker
+    })
   },
   beforeUnmount() {
     window.removeEventListener('show-settlement-on-map', this.handleShowOnMap)
