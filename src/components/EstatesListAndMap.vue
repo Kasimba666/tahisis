@@ -74,11 +74,33 @@
       <ColorSchemeSelector @settings-change="onColorSettingsChange" />
     </el-drawer>
 
+    <!-- Large loading spinner overlay -->
+    <div v-if="loading" class="large-loading-overlay">
+      <div class="large-spinner-container">
+        <el-icon class="large-spinner" size="80">
+          <Loading />
+        </el-icon>
+        <div class="loading-text">Загрузка данных...</div>
+      </div>
+    </div>
+
     <div class="content-area" :class="viewMode">
       <div v-if="viewMode === 'list' || viewMode === 'split'" class="list-section" :class="{ 'split-mode': viewMode === 'split' }">
+        <!-- Placeholder когда данные сброшены из-за изменения фильтров -->
+        <div v-if="dataResetDueToFilters" class="data-placeholder">
+          <el-empty
+            description="Фильтры изменены. Нажмите 'Применить' для загрузки данных"
+            :image-size="80"
+          >
+            <template #image>
+              <el-icon size="80" class="placeholder-icon"><Filter /></el-icon>
+            </template>
+          </el-empty>
+        </div>
+
         <!-- Режим Estate -->
         <el-table
-          v-if="dataMode === 'estate'"
+          v-else-if="dataMode === 'estate'"
           :data="estateData"
           v-loading="loading"
           style="width: 100%; height: 100%"
@@ -349,7 +371,7 @@
 </template>
 
 <script>
-import { Location, Loading, Setting, Brush, Download } from '@element-plus/icons-vue'
+import { Location, Loading, Setting, Brush, Download, Filter } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import Sortable from 'sortablejs'
@@ -410,6 +432,7 @@ export default {
       showMap: false,
       columnsPopoverVisible: false,
       currentFilters: null,
+      dataResetDueToFilters: false,
       allDistricts: [],
       allTypeEstates: [],
       allSubtypeEstates: [],
@@ -624,14 +647,16 @@ export default {
       return result
     }
   },
-  mounted() {
+  async mounted() {
     // Загружаем справочник населённых пунктов для showOnMap
     this.loadSettlementsReference()
 
     // Восстанавливаем параметры из URL
     this.restoreParamsFromURL()
 
-    // Не загружаем данные автоматически, ждем применения фильтров
+    // НЕ применяем фильтры сразу - ждем загрузки справочников из EstatesFilters
+    // Фильтры будут применены в методе setFilterOptions после получения справочников
+
     this.$nextTick(() => {
       this.initColumnDragDrop()
     })
@@ -747,8 +772,10 @@ export default {
         }))
 
         // Сохраняем все данные и применяем фильтры на клиентской стороне
-        this.allEstateData = mappedData
-        this.estateData = this.applyClientSideEstateFiltersImproved(mappedData)
+            this.allEstateData = mappedData
+            this.estateData = this.applyClientSideEstateFiltersImproved(mappedData)
+            // Сбрасываем флаг, так как данные загружены
+            this.dataResetDueToFilters = false
 
       } catch (error) {
         ElMessage.error('Ошибка загрузки данных о сословиях: ' + error.message)
@@ -760,10 +787,9 @@ export default {
     applyEstateFiltersToQuery(query) {
       if (!this.currentFilters) return query
 
-      // Фильтр по ревизиям
-      if (this.currentFilters.revision && this.currentFilters.revision.length > 0) {
-        query = query.in('Report_record.Revision_report.number', this.currentFilters.revision)
-      }
+      // Фильтр по ревизиям - НЕ ПРИМЕНЯЕМ НА СЕРВЕРЕ
+      // Фильтрация по ревизиям будет выполнена на клиенте в applyClientSideEstateFiltersImproved
+      // т.к. Supabase не поддерживает фильтрацию через вложенные связи таким образом
 
       // Фильтр по районам через населенные пункты
       if (this.currentFilters.districts?.length > 0) {
@@ -1346,9 +1372,32 @@ export default {
           `)
           .not('Settlement', 'is', null) // Исключаем записи без населенных пунктов
 
-        // Применяем фильтр по ревизиям
+        // Применяем фильтр по ревизиям - конвертируем номера в ID
         if (this.currentFilters?.revision && this.currentFilters.revision.length > 0) {
-          query = query.in('Revision_report.number', this.currentFilters.revision)
+          if (!this.allRevisions || this.allRevisions.length === 0) {
+            // Загружаем ревизии если еще не загружены
+            const { data: revisions, error: revisionsError } = await supabase
+              .from('Revision_report')
+              .select('id, year, number')
+              .order('year', { ascending: true })
+            
+            if (revisionsError) throw revisionsError
+            this.allRevisions = revisions || []
+          }
+          
+          const revisionIds = this.allRevisions
+            .filter(r => this.currentFilters.revision.includes(r.number))
+            .map(r => r.id)
+          
+          if (revisionIds.length > 0) {
+            query = query.in('id_revision_report', revisionIds)
+          } else {
+            // Если не найдено ни одной ревизии с такими номерами, возвращаем пустой результат
+            this.allReportData = []
+            this.reportData = []
+            this.loading = false
+            return
+          }
         }
         
         // Применяем фильтр по Report_record из Estate
@@ -1439,6 +1488,8 @@ export default {
         // Сохраняем все данные и применяем клиентские фильтры
         this.allReportData = reportDataWithCounts
         this.reportData = this.applyClientSideReportFilters(reportDataWithCounts)
+        // Сбрасываем флаг, так как данные загружены
+        this.dataResetDueToFilters = false
 
         // Обновляем маркеры на карте после загрузки данных
         if (this.viewMode === 'map' || this.viewMode === 'split') {
@@ -1500,9 +1551,10 @@ export default {
       this.selectedRecord.relatedEstates = []
       this.selectedRecord.loadingEstates = true
 
-      supabase
-          .from('Estate')
-          .select(`
+      // Создаем запрос с учетом текущих фильтров
+      let query = supabase
+        .from('Estate')
+        .select(`
           id,
           male,
           female,
@@ -1522,31 +1574,124 @@ export default {
             person
           )
         `)
-          .eq('id_report_record', reportRecordId)
-          .then(({data, error}) => {
-            if (error) throw error
+        .eq('id_report_record', reportRecordId)
 
-            this.selectedRecord.relatedEstates = data.map(item => ({
-              id: item.id,
-              subtype_estate_name: item.Subtype_estate?.name || '—',
-              type_estate_name: item.Subtype_estate?.Type_estate?.name || '—',
-              type_religion_name: item.Subtype_estate?.Type_religion?.name || '—',
-              type_affiliation_name: item.Subtype_estate?.Type_affiliation?.name || '—',
-              male: item.male || 0,
-              female: item.female || 0,
-              total: (item.male || 0) + (item.female || 0),
-              volost_name: item.Volost?.name || '—',
-              landowner_description: item.Landowner?.description || item.Landowner?.person || '—',
-              military_unit_description: item.Military_unit?.description || item.Military_unit?.person || '—'
-            }))
+      // Применяем те же фильтры, что и в основной загрузке
+      if (this.currentFilters) {
+        // Фильтр по типам сословий через подтипы
+        if (this.currentFilters.typeEstates?.length > 0) {
+          const subtypeIds = this.allSubtypeEstates
+            ?.filter(s => this.currentFilters.typeEstates.includes(s.id_type_estate))
+            ?.map(s => s.id) || []
 
+          if (subtypeIds.length > 0) {
+            query = query.in('id_subtype_estate', subtypeIds)
+          } else {
+            // Если нет подтипов для выбранных типов сословий, возвращаем пустой результат
+            this.selectedRecord.relatedEstates = []
             this.selectedRecord.loadingEstates = false
-          })
-          .catch(error => {
-            console.error('Error loading related estates:', error)
-            ElMessage.error('Ошибка загрузки связанных сословий: ' + error.message)
+            return
+          }
+        }
+
+        // Фильтр по подтипам сословия (массив)
+        if (this.currentFilters.subtypeEstates?.length > 0) {
+          query = query.in('id_subtype_estate', this.currentFilters.subtypeEstates)
+        }
+
+        // Фильтр по религиям через подтипы
+        if (this.currentFilters.religions?.length > 0) {
+          const subtypeIds = this.allSubtypeEstates
+            ?.filter(s => this.currentFilters.religions.includes(s.id_type_religion))
+            ?.map(s => s.id) || []
+
+          if (subtypeIds.length > 0) {
+            query = query.in('id_subtype_estate', subtypeIds)
+          } else {
+            // Если нет подтипов для выбранных религий, возвращаем пустой результат
+            this.selectedRecord.relatedEstates = []
             this.selectedRecord.loadingEstates = false
-          })
+            return
+          }
+        }
+
+        // Фильтр по принадлежностям через подтипы
+        if (this.currentFilters.affiliations?.length > 0) {
+          const subtypeIds = this.allSubtypeEstates
+            ?.filter(s => this.currentFilters.affiliations.includes(s.id_type_affiliation))
+            ?.map(s => s.id) || []
+
+          if (subtypeIds.length > 0) {
+            query = query.in('id_subtype_estate', subtypeIds)
+          } else {
+            // Если нет подтипов для выбранных принадлежностей, возвращаем пустой результат
+            this.selectedRecord.relatedEstates = []
+            this.selectedRecord.loadingEstates = false
+            return
+          }
+        }
+
+        // Фильтр по волостям (массив)
+        if (this.currentFilters.volosts?.length > 0) {
+          query = query.in('id_volost', this.currentFilters.volosts)
+        }
+
+        // Фильтр по помещикам (массив)
+        if (this.currentFilters.landowners?.length > 0) {
+          query = query.in('id_landowner', this.currentFilters.landowners)
+        }
+
+        // Фильтр по войсковым организациям (массив)
+        if (this.currentFilters.militaryUnits?.length > 0) {
+          query = query.in('id_military_unit', this.currentFilters.militaryUnits)
+        }
+
+        // Фильтр по количеству мужчин (только если включен)
+        if (this.currentFilters.maleEnabled) {
+          if (this.currentFilters.maleMin !== null && this.currentFilters.maleMin !== undefined) {
+            query = query.gte('male', this.currentFilters.maleMin)
+          }
+          if (this.currentFilters.maleMax !== null && this.currentFilters.maleMax !== undefined) {
+            query = query.lte('male', this.currentFilters.maleMax)
+          }
+        }
+
+        // Фильтр по количеству женщин (только если включен)
+        if (this.currentFilters.femaleEnabled) {
+          if (this.currentFilters.femaleMin !== null && this.currentFilters.femaleMin !== undefined) {
+            query = query.gte('female', this.currentFilters.femaleMin)
+          }
+          if (this.currentFilters.femaleMax !== null && this.currentFilters.femaleMax !== undefined) {
+            query = query.lte('female', this.currentFilters.femaleMax)
+          }
+        }
+      }
+
+      query
+        .then(({data, error}) => {
+          if (error) throw error
+
+          this.selectedRecord.relatedEstates = data.map(item => ({
+            id: item.id,
+            subtype_estate_name: item.Subtype_estate?.name || '—',
+            type_estate_name: item.Subtype_estate?.Type_estate?.name || '—',
+            type_religion_name: item.Subtype_estate?.Type_religion?.name || '—',
+            type_affiliation_name: item.Subtype_estate?.Type_affiliation?.name || '—',
+            male: item.male || 0,
+            female: item.female || 0,
+            total: (item.male || 0) + (item.female || 0),
+            volost_name: item.Volost?.name || '—',
+            landowner_description: item.Landowner?.description || item.Landowner?.person || '—',
+            military_unit_description: item.Military_unit?.description || item.Military_unit?.person || '—'
+          }))
+
+          this.selectedRecord.loadingEstates = false
+        })
+        .catch(error => {
+          console.error('Error loading related estates:', error)
+          ElMessage.error('Ошибка загрузки связанных сословий: ' + error.message)
+          this.selectedRecord.loadingEstates = false
+        })
     },
 
     toggleMap() {
@@ -1645,7 +1790,9 @@ export default {
     },
 
     setFilterOptions(options) {
-      // console.log('Setting filter options:', options)
+      console.log('=== setFilterOptions called ===')
+      console.log('Options received:', options)
+      
       this.allDistricts = options.districts || []
       this.allSettlements = options.settlements || []
       this.allTypeEstates = options.typeEstates || []
@@ -1653,6 +1800,27 @@ export default {
       this.allReligions = options.religions || []
       this.allAffiliations = options.affiliations || []
       this.allVolosts = options.volosts || []
+      this.allRevisions = options.revisions || []
+      
+      console.log('Reference data loaded:', {
+        districts: this.allDistricts.length,
+        settlements: this.allSettlements.length,
+        typeEstates: this.allTypeEstates.length,
+        subtypeEstates: this.allSubtypeEstates.length,
+        religions: this.allReligions.length,
+        affiliations: this.allAffiliations.length,
+        volosts: this.allVolosts.length,
+        revisions: this.allRevisions.length
+      })
+      
+      // ТЕПЕРЬ применяем фильтры из URL, т.к. справочники загружены
+      const hasFilters = this.currentFilters && Object.keys(this.currentFilters).length > 0
+      console.log('hasFilters check after reference data loaded:', hasFilters)
+      
+      if (hasFilters) {
+        console.log('=== APPLYING FILTERS FROM URL (after reference data loaded) ===')
+        this.applyFiltersAndLoad(this.currentFilters)
+      }
     },
 
     applyFilters(filters) {
@@ -1661,8 +1829,37 @@ export default {
       // Сохраняем фильтры в URL
       setFiltersInURL(filters)
 
-      // Всегда загружаем данные, даже если фильтров нет
-      // Пустые фильтры означают "показать все данные"
+      // Сбрасываем текущие данные при изменении фильтров
+      this.resetData()
+
+      // Убираем placeholder и показываем пустую таблицу
+      this.dataResetDueToFilters = false
+    },
+
+    // Метод для сброса данных (очистка массивов)
+    resetData() {
+      if (this.dataMode === 'estate') {
+        this.estateData = []
+        this.allEstateData = []
+      } else {
+        this.reportData = []
+        this.allReportData = []
+      }
+      // Устанавливаем флаг, что данные сброшены из-за изменения фильтров
+      this.dataResetDueToFilters = true
+    },
+
+    // Метод для применения фильтров и загрузки данных (вызывается при нажатии "Применить")
+    applyFiltersAndLoad(filters) {
+      this.currentFilters = filters
+
+      // Сохраняем фильтры в URL
+      setFiltersInURL(filters)
+
+      // Показываем спиннер сразу
+      this.loading = true
+
+      // Загружаем данные с новыми фильтрами
       this.loadData()
     },
 
@@ -2841,6 +3038,43 @@ export default {
   flex-direction: column;
   height: 100%;
 
+  .large-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+
+    .large-spinner-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 2rem;
+      background-color: var(--bg-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px var(--shadow);
+
+      .large-spinner {
+        animation: spin 1s linear infinite;
+      }
+
+      .loading-text {
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        text-align: center;
+      }
+    }
+  }
+
   .view-controls {
     display: flex;
     justify-content: space-between;
@@ -3266,5 +3500,11 @@ export default {
     border-top: 2px solid var(--accent-primary) !important;
     font-weight: 600 !important;
   }
+}
+
+// Spin animation for large spinner
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

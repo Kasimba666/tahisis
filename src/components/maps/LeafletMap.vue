@@ -116,6 +116,12 @@ export default {
         })
       })
 
+      // События полноэкранного режима
+      this.mapInstance.on('fullscreenchange', () => {
+        const isFullscreen = this.mapInstance.isFullscreen()
+        this.$emit('fullscreen-change', isFullscreen)
+      })
+
       this.updateMarkers()
       this.updateSingleMarker()
       this.loadVectorLayers()
@@ -278,8 +284,42 @@ export default {
               style: layerStyle
             })
 
+            // Добавляем обработчики событий для отображения названия слоя при наведении
+            let currentTooltip = null
+
+            vectorLayer.on('mouseover', (e) => {
+              // Закрываем предыдущий tooltip если есть
+              if (currentTooltip) {
+                this.mapInstance.closeTooltip(currentTooltip)
+                currentTooltip = null
+              }
+
+              const tooltipContent = `
+                <div class="vector-layer-tooltip">
+                  <div class="tooltip-name">${layer.name}</div>
+                </div>
+              `
+
+              currentTooltip = L.tooltip({
+                direction: 'top',
+                offset: [0, -10],
+                opacity: 0.95,
+                className: 'custom-tooltip',
+                permanent: false
+              }).setContent(tooltipContent)
+
+              e.layer.bindTooltip(currentTooltip).openTooltip(e.latlng)
+            })
+
+            vectorLayer.on('mouseout', (e) => {
+              if (currentTooltip) {
+                this.mapInstance.closeTooltip(currentTooltip)
+                currentTooltip = null
+              }
+            })
+
             this.vectorLayersMap.set(layer.id, vectorLayer)
-            
+
             // Добавляем слой на карту только если visible=true
             if (layer.visible !== false) {
               vectorLayer.addTo(this.mapInstance)
@@ -560,7 +600,7 @@ export default {
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 1px;
-    text-shadow: 
+    text-shadow:
       -1px -1px 0 var(--bg-primary),
       1px -1px 0 var(--bg-primary),
       -1px 1px 0 var(--bg-primary),
@@ -571,7 +611,25 @@ export default {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary);
-    text-shadow: 
+    text-shadow:
+      -1px -1px 0 var(--bg-primary),
+      1px -1px 0 var(--bg-primary),
+      -1px 1px 0 var(--bg-primary),
+      1px 1px 0 var(--bg-primary);
+  }
+}
+
+:deep(.vector-layer-tooltip) {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  pointer-events: none;
+
+  .tooltip-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    text-shadow:
       -1px -1px 0 var(--bg-primary),
       1px -1px 0 var(--bg-primary),
       -1px 1px 0 var(--bg-primary),

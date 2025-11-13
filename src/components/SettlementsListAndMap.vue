@@ -20,8 +20,30 @@
       </div>
     </div>
 
+    <!-- Large loading spinner overlay -->
+    <div v-if="internalLoading" class="large-loading-overlay">
+      <div class="large-spinner-container">
+        <el-icon class="large-spinner" size="80">
+          <Loading />
+        </el-icon>
+        <div class="loading-text">Загрузка данных...</div>
+      </div>
+    </div>
+
     <div class="content-area" :class="viewMode">
       <div v-if="viewMode === 'list' || viewMode === 'split'" class="list-section" :class="{ 'split-mode': viewMode === 'split' }">
+        <!-- Placeholder когда данные сброшены из-за изменения фильтров -->
+        <div v-if="dataResetDueToFilters" class="data-placeholder">
+          <el-empty
+            description="Фильтры изменены. Нажмите 'Применить' для загрузки данных"
+            :image-size="80"
+          >
+            <template #image>
+              <el-icon size="80" class="placeholder-icon"><Filter /></el-icon>
+            </template>
+          </el-empty>
+        </div>
+
         <!-- Таблица населённых пунктов -->
         <el-table
           :data="sortedSettlementsData"
@@ -240,7 +262,7 @@
 </template>
 
 <script>
-import { Download, DataBoard, Location } from '@element-plus/icons-vue'
+import { Download, DataBoard, Location, Filter } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import * as XLSX from 'xlsx'
@@ -318,7 +340,7 @@ export default {
   data() {
     // Восстанавливаем viewMode из store
     const pageState = usePageState('pg-settlements')
-    
+
     return {
       dataMode: 'settlement',
       viewMode: pageState.viewMode.get() || 'list',
@@ -338,6 +360,7 @@ export default {
       showDetailsMap: false,
       internalLoading: false,
       currentFilters: null,
+      dataResetDueToFilters: false,
       estateTypeColors: {}
     }
   },
@@ -694,7 +717,7 @@ export default {
       this.$emit('update:loading', true)
 
       try {
-        this.loadSettlementsDataNew()
+        return this.loadSettlementsDataNew()
           .then(() => {
             this.internalLoading = false
             this.$emit('update:loading', false)
@@ -703,11 +726,13 @@ export default {
             console.error('Error loading settlements data:', err)
             this.internalLoading = false
             this.$emit('update:loading', false)
+            throw err // Re-throw to allow caller to handle
           })
       } catch (error) {
         console.error('Error loading settlements data:', error)
         this.internalLoading = false
         this.$emit('update:loading', false)
+        return Promise.reject(error)
       }
     },
 
@@ -782,23 +807,34 @@ export default {
       const oldNames = (filters.settlementNamesOld && filters.settlementNamesOld.length > 0) ? filters.settlementNamesOld : []
       const modernNames = (filters.settlementNamesModern && filters.settlementNamesModern.length > 0) ? filters.settlementNamesModern : []
 
-      return getEstateIdsPromise()
-        .then(({ ids: rrIdsFromEstate }) => {
-          let reportQuery = supabase
-            .from('Report_record')
-            .select(`
-              id,
-              code,
-              population_all,
-              id_settlment,
-              Revision_report!Report_record_id_revision_report_fkey(id, year, number),
-              Settlement!Report_record_id_settlment_fkey(name_old, name_modern, lat, lon, id_district, District(name))
-            `)
-            .not('id_settlment', 'is', null)
+        return getEstateIdsPromise()
+          .then(({ ids: rrIdsFromEstate }) => {
+            let reportQuery = supabase
+              .from('Report_record')
+              .select(`
+                id,
+                code,
+                population_all,
+                id_settlment,
+                id_revision_report,
+                Revision_report!Report_record_id_revision_report_fkey(id, year, number),
+                Settlement!Report_record_id_settlment_fkey(name_old, name_modern, lat, lon, id_district, District(name))
+              `)
+              .not('id_settlment', 'is', null)
 
-          if (filters.revision && filters.revision.length > 0) {
-            reportQuery = reportQuery.in('Revision_report.number', filters.revision)
-          }
+            // Фильтр по ревизиям - конвертируем номера в ID
+            if (filters.revision && filters.revision.length > 0) {
+              const revisionIds = this.allRevisions
+                .filter(r => filters.revision.includes(r.number))
+                .map(r => r.id)
+              if (revisionIds.length > 0) {
+                reportQuery = reportQuery.in('id_revision_report', revisionIds)
+              } else {
+                // Если не найдено ни одной ревизии с такими номерами, возвращаем пустой результат
+                this.settlementsData = []
+                return { reportRecords: [], estates: [] }
+              }
+            }
           if (rrIdsFromEstate !== null) {
             if (rrIdsFromEstate.length === 0) {
               this.settlementsData = []
@@ -1111,17 +1147,32 @@ export default {
       this.currentFilters = filters
       // Сбрасываем данные при изменении фильтров
       this.settlementsData = []
-      // ВАЖНО: загружаем данные сразу после установки фильтров
-      this.$nextTick(() => {
-        this.loadData()
-      })
+      // Убираем placeholder и показываем пустую таблицу
+      this.dataResetDueToFilters = false
     },
 
-    // Новый метод для применения фильтров и загрузки данных
+    // Метод для применения фильтров и загрузки данных (вызывается при нажатии "Применить")
     applyFiltersAndLoad() {
       console.log('=== applyFiltersAndLoad called ===')
       console.log('currentFilters:', this.currentFilters)
-      this.loadData()
+
+      // Показываем спиннер сразу
+      this.internalLoading = true
+      this.$emit('update:loading', true)
+
+      // Загружаем данные
+      this.loadData().then(() => {
+        // Проверяем результаты после загрузки
+        if (!this.settlementsData || this.settlementsData.length === 0) {
+          ElMessage.warning('По вашему запросу результатов не найдено')
+        }
+      }).catch((error) => {
+        console.error('Error loading data:', error)
+        ElMessage.error('Ошибка загрузки данных')
+      }).finally(() => {
+        this.internalLoading = false
+        this.$emit('update:loading', false)
+      })
     },
 
     viewSettlementDetails(row) {
@@ -1671,18 +1722,16 @@ export default {
       const pageState = usePageState('pg-settlements')
       pageState.viewMode.set(newMode)
       
+      // Обновляем маркеры при переключении на режимы с картой
+      // Используем только один $nextTick для избежания двойной перерисовки
       this.$nextTick(() => {
-        // Триггерим обновление размера карт через изменение ключа
-        this.$forceUpdate()
-      })
-      // Даем время на отрисовку, затем обновляем карты
-      setTimeout(() => {
-        this.$forceUpdate()
-        // Обновляем маркеры при переключении режимов карты
         if (this.viewMode === 'map' || this.viewMode === 'split') {
-          this.updateMapMarkers()
+          // Даем время на полную отрисовку карты
+          setTimeout(() => {
+            this.updateMapMarkers()
+          }, 150)
         }
-      }, 100)
+      })
     },
 
     settlementsData: {
@@ -1702,6 +1751,43 @@ export default {
   display: flex;
   flex-direction: column;
   height: 100%;
+
+  .large-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+
+    .large-spinner-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 2rem;
+      background-color: var(--bg-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px var(--shadow);
+
+      .large-spinner {
+        animation: spin 1s linear infinite;
+      }
+
+      .loading-text {
+        font-size: 1.2rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        text-align: center;
+      }
+    }
+  }
 
   .view-controls {
     display: flex;
@@ -2073,5 +2159,11 @@ export default {
   &:hover > td {
     background-color: var(--accent-primary) !important;
   }
+}
+
+// Spin animation for large spinner
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 </style>

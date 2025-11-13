@@ -129,7 +129,10 @@ export default {
         
         this.createPopupOverlays()
         this.setupEventHandlers()
-        
+
+        // Добавляем обработчик событий полноэкранного режима
+        this.setupFullscreenEvents()
+
         console.log('Calling updateMarkers with', this.settlements?.length || 0, 'settlements')
         this.updateMarkers()
         this.updateSingleMarker()
@@ -219,51 +222,74 @@ export default {
       this.mapInstance.addOverlay(this.tooltipOverlay)
     },
 
+    setupFullscreenEvents() {
+      // Находим FullScreen контрол и добавляем обработчики событий
+      const controls = this.mapInstance.getControls().getArray()
+      const fullScreenControl = controls.find(control => control instanceof FullScreen)
+
+      if (fullScreenControl) {
+        // Слушаем события изменения полноэкранного режима
+        fullScreenControl.on('enterfullscreen', () => {
+          this.$emit('fullscreen-change', true)
+        })
+
+        fullScreenControl.on('leavefullscreen', () => {
+          this.$emit('fullscreen-change', false)
+        })
+      }
+    },
+
     setupEventHandlers() {
       const { generateSettlementPopup, generateSimpleSettlementPopup } = useMapMarkers()
 
       this.mapInstance.on('singleclick', (evt) => {
         let shown = false
-        this.mapInstance.forEachFeatureAtPixel(evt.pixel, (feature) => {
-          const settlement = {
-            name: feature.get('name') || '—',
-            nameModern: feature.get('nameModern'),
-            district: feature.get('district'),
-            volost: feature.get('volost'),
-            landowner: feature.get('landowner'),
-            militaryUnit: feature.get('militaryUnit'),
-            male: feature.get('male') || 0,
-            female: feature.get('female') || 0,
-            maleCount: feature.get('maleCount') || 0,
-            femaleCount: feature.get('femaleCount') || 0,
-            totalCount: feature.get('totalCount') || 0,
-            estates: feature.get('estates') || []
-          }
-          
-          const contentDiv = this.popupOverlay.getElement().querySelector('.ol-popup-content')
-          // Используем простой popup если нет district (данные из SubtypeEstateDetails)
-          if (!settlement.district) {
-            contentDiv.innerHTML = generateSimpleSettlementPopup(settlement)
-          } else {
-            contentDiv.innerHTML = generateSettlementPopup(settlement)
-          }
-          
-          // Добавляем обработчик для кнопки "Детали" программно
-          const detailsBtn = contentDiv.querySelector('.popup-details-btn')
-          if (detailsBtn) {
-            detailsBtn.onclick = () => {
-              console.log('OpenLayers popup: Details button clicked', settlement)
-              window.dispatchEvent(new CustomEvent('show-settlement-details', { 
-                detail: { settlement } 
-              }))
+        this.mapInstance.forEachFeatureAtPixel(evt.pixel, (feature, layer) => {
+          // Проверяем, является ли слой слоем маркеров населённых пунктов (не векторным слоем)
+          const isSettlementLayer = layer === this.vectorLayer
+
+          if (isSettlementLayer) {
+            const settlement = {
+              name: feature.get('name') || '—',
+              nameModern: feature.get('nameModern'),
+              district: feature.get('district'),
+              volost: feature.get('volost'),
+              landowner: feature.get('landowner'),
+              militaryUnit: feature.get('militaryUnit'),
+              male: feature.get('male') || 0,
+              female: feature.get('female') || 0,
+              maleCount: feature.get('maleCount') || 0,
+              femaleCount: feature.get('femaleCount') || 0,
+              totalCount: feature.get('totalCount') || 0,
+              estates: feature.get('estates') || []
             }
+
+            const contentDiv = this.popupOverlay.getElement().querySelector('.ol-popup-content')
+            // Используем простой popup если нет district (данные из SubtypeEstateDetails)
+            if (!settlement.district) {
+              contentDiv.innerHTML = generateSimpleSettlementPopup(settlement)
+            } else {
+              contentDiv.innerHTML = generateSettlementPopup(settlement)
+            }
+
+            // Добавляем обработчик для кнопки "Детали" программно
+            const detailsBtn = contentDiv.querySelector('.popup-details-btn')
+            if (detailsBtn) {
+              detailsBtn.onclick = () => {
+                console.log('OpenLayers popup: Details button clicked', settlement)
+                window.dispatchEvent(new CustomEvent('show-settlement-details', {
+                  detail: { settlement }
+                }))
+              }
+            }
+
+            this.popupOverlay.setPosition(evt.coordinate)
+            shown = true
+            return true
           }
-          
-          this.popupOverlay.setPosition(evt.coordinate)
-          shown = true
-          return true
+          // Для векторных слоёв не показываем popup, только tooltip при наведении
         })
-        
+
         if (!shown) {
           this.popupOverlay.setPosition(undefined)
         }
@@ -272,20 +298,50 @@ export default {
       this.mapInstance.on('pointermove', (evt) => {
         const hit = this.mapInstance.hasFeatureAtPixel(evt.pixel)
         this.$refs.olMap.style.cursor = hit ? 'pointer' : 'default'
-        
+
         if (hit) {
-          this.mapInstance.forEachFeatureAtPixel(evt.pixel, (feature) => {
-            const name = feature.get('name') || ''
-            const district = feature.get('district') || ''
-            this.tooltipOverlay.getElement().innerHTML = `
-              <div class="settlement-tooltip">
-                <div class="tooltip-name">${name}</div>
-                <div class="tooltip-district">${district}</div>
-              </div>
-            `
-            this.tooltipOverlay.setPosition(evt.coordinate)
-            return true
+          let tooltipShown = false
+
+          this.mapInstance.forEachFeatureAtPixel(evt.pixel, (feature, layer) => {
+            // Проверяем, является ли слой векторным слоем (не маркерами населённых пунктов)
+            const isVectorLayer = Array.from(this.vectorLayersMap.values()).includes(layer)
+
+            if (isVectorLayer) {
+              // Находим название слоя по layer объекту
+              const layerEntry = Array.from(this.vectorLayersMap.entries()).find(([id, vectorLayer]) => vectorLayer === layer)
+              if (layerEntry) {
+                const [layerId, vectorLayer] = layerEntry
+                const layerData = this.vectorLayers.find(l => l.id === layerId)
+                if (layerData) {
+                  this.tooltipOverlay.getElement().innerHTML = `
+                    <div class="vector-layer-tooltip">
+                      <div class="tooltip-name">${layerData.name}</div>
+                    </div>
+                  `
+                  this.tooltipOverlay.setPosition(evt.coordinate)
+                  tooltipShown = true
+                  return true
+                }
+              }
+            } else {
+              // Обработка маркеров населённых пунктов
+              const name = feature.get('name') || ''
+              const district = feature.get('district') || ''
+              this.tooltipOverlay.getElement().innerHTML = `
+                <div class="settlement-tooltip">
+                  <div class="tooltip-name">${name}</div>
+                  <div class="tooltip-district">${district}</div>
+                </div>
+              `
+              this.tooltipOverlay.setPosition(evt.coordinate)
+              tooltipShown = true
+              return true
+            }
           })
+
+          if (!tooltipShown) {
+            this.tooltipOverlay.setPosition(undefined)
+          }
         } else {
           this.tooltipOverlay.setPosition(undefined)
         }
@@ -899,6 +955,14 @@ export default {
     font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary);
+    text-shadow: -1px -1px 0 var(--bg-primary), 1px -1px 0 var(--bg-primary), -1px 1px 0 var(--bg-primary), 1px 1px 0 var(--bg-primary);
+  }
+}
+
+:deep(.vector-layer-tooltip) {
+  .tooltip-name {
+    font-weight: 700;
+    color: var(--text-primary);
     text-shadow: -1px -1px 0 var(--bg-primary), 1px -1px 0 var(--bg-primary), -1px 1px 0 var(--bg-primary), 1px 1px 0 var(--bg-primary);
   }
 }

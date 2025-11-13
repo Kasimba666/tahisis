@@ -4,6 +4,7 @@
       <div class="filters-panel">
         <EstatesFilters
           :data-mode="dataMode"
+          :loading="loading"
           @filter-change="handleFilterChange"
           @apply-filters-and-load="handleApplyFiltersAndLoad"
           @options-loaded="handleOptionsLoaded"
@@ -38,6 +39,11 @@ export default {
       filterOptions: null
     }
   },
+  computed: {
+    loading() {
+      return this.$refs.listAndMap?.isLoading || false
+    }
+  },
   watch: {
     '$route.meta.dataMode': {
       handler(newMode) {
@@ -45,7 +51,8 @@ export default {
           this.dataMode = newMode
           if (this.$refs.listAndMap) {
             this.$refs.listAndMap.dataMode = newMode
-            this.$refs.listAndMap.loadData()
+            // НЕ загружаем данные автоматически при смене режима
+            // Данные будут загружены только при нажатии кнопки "Применить"
           }
         }
       },
@@ -56,6 +63,7 @@ export default {
     handleFilterChange(filters) {
       this.currentFilters = filters
       if (this.$refs.listAndMap) {
+        // При изменении фильтров сбрасываем данные (не загружаем новые)
         this.$refs.listAndMap.applyFilters(filters)
       }
     },
@@ -63,7 +71,8 @@ export default {
     handleApplyFiltersAndLoad(filters) {
       this.currentFilters = filters
       if (this.$refs.listAndMap) {
-        this.$refs.listAndMap.applyFilters(filters)
+        // При нажатии "Применить" загружаем данные с новыми фильтрами
+        this.$refs.listAndMap.applyFiltersAndLoad(filters)
       }
     },
 

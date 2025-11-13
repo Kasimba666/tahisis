@@ -22,6 +22,10 @@ export default {
     estateTypesLegend: {
       type: Array,
       default: () => []
+    },
+    forceExpanded: {
+      type: Boolean,
+      default: false
     }
   },
   data() {
@@ -34,7 +38,7 @@ export default {
       return this.estateTypesLegend.length > 5
     },
     visibleItems() {
-      if (!this.showToggleButton || this.isExpanded) {
+      if (!this.showToggleButton || this.isExpanded || this.forceExpanded) {
         return this.estateTypesLegend
       }
       return this.estateTypesLegend.slice(0, 5)

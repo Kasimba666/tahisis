@@ -471,7 +471,7 @@
           size="large"
           @click="applyFilters"
           :class="{ 'has-changes': hasChanges, 'has-active-filters': activeFiltersList.length > 0 }"
-          :loading="applyingFilters"
+          :loading="loading"
         >
           Применить
         </el-button>
@@ -502,6 +502,10 @@ export default {
     dataMode: {
       type: String,
       required: true
+    },
+    loading: {
+      type: Boolean,
+      default: false
     }
   },
   setup() {
@@ -578,8 +582,7 @@ export default {
       searchMilitaryUnit: '',
       // Отслеживание изменений
       hasChanges: false,
-      appliedFilters: null,
-      applyingFilters: false
+      appliedFilters: null
     }
   },
   computed: {
@@ -912,6 +915,7 @@ export default {
   watch: {
     allDistricts() {
       this.$emit('options-loaded', {
+        revisions: this.allRevisions,
         districts: this.allDistricts,
         settlements: this.allSettlements,
         typeEstates: this.allTypeEstates,
@@ -924,8 +928,8 @@ export default {
     filters: {
       handler() {
         this.hasChanges = true
-        // Отправляем событие сброса данных при каждом изменении фильтров
-        this.$emit('filter-change', this.filters)
+        // НЕ отправляем событие сброса данных при каждом изменении фильтров
+        // Данные будут сброшены только при нажатии кнопки "Применить"
       },
       deep: true
     }
@@ -1077,9 +1081,6 @@ export default {
     
     
     applyFilters() {
-      // Устанавливаем состояние загрузки
-      this.applyingFilters = true
-
       // Проверяем, есть ли активные фильтры
       const hasActiveFilters =
         this.filters.revision?.length > 0 ||
@@ -1117,13 +1118,8 @@ export default {
           this.applyStoredFilters()
           // Сбрасываем флаг изменений
           this.hasChanges = false
-          // Сбрасываем состояние загрузки через небольшую задержку
-          setTimeout(() => {
-            this.applyingFilters = false
-          }, 100)
         }).catch(() => {
-          // Пользователь отменил действие
-          this.applyingFilters = false
+          // Пользователь отменил действие - ничего не делаем
         })
       } else {
         // Применяем фильтры и загружаем данные
@@ -1134,10 +1130,6 @@ export default {
         this.applyStoredFilters()
         // Сбрасываем флаг изменений
         this.hasChanges = false
-        // Сбрасываем состояние загрузки через небольшую задержку
-        setTimeout(() => {
-          this.applyingFilters = false
-        }, 100)
       }
     },
     

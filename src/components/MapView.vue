@@ -13,7 +13,7 @@
       />
     </div>
 
-    <map-legend :estate-types-legend="estateTypesLegend" />
+    <map-legend :estate-types-legend="estateTypesLegend" :force-expanded="isFullscreen" />
 
     <div class="map-container" :class="{ hidden: mapProvider !== 'leaflet' }">
       <LeafletMap
@@ -25,6 +25,7 @@
         :marker="marker"
         :is-active="mapProvider === 'leaflet'"
         @view-change="onLeafletViewChange"
+        @fullscreen-change="onFullscreenChange"
       />
     </div>
 
@@ -38,6 +39,7 @@
         :marker="marker"
         :is-active="mapProvider === 'openlayers'"
         @view-change="onOLViewChange"
+        @fullscreen-change="onFullscreenChange"
       />
     </div>
   </div>
@@ -84,7 +86,8 @@ export default {
     return {
       mapProvider: 'leaflet',
       vectorLayers: [],
-      isSyncing: false
+      isSyncing: false,
+      isFullscreen: false
     }
   },
   computed: {
@@ -228,14 +231,18 @@ export default {
 
     handleLayerVisibilityChange(event) {
       const { layerId, visible } = event
-      
+
       if (this.$refs.leafletMap && typeof this.$refs.leafletMap.toggleLayerVisibility === 'function') {
         this.$refs.leafletMap.toggleLayerVisibility(layerId, visible)
       }
-      
+
       if (this.$refs.olMap && typeof this.$refs.olMap.toggleLayerVisibility === 'function') {
         this.$refs.olMap.toggleLayerVisibility(layerId, visible)
       }
+    },
+
+    onFullscreenChange(isFullscreen) {
+      this.isFullscreen = isFullscreen
     }
   },
   watch: {
