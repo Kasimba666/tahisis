@@ -539,6 +539,37 @@ export default {
       }
       return ''
     },
+    setFilterOptions(options) {
+      console.log('=== SettlementsListAndMap setFilterOptions ===', options)
+      
+      if (options.districts) this.allDistricts = options.districts
+      if (options.settlements) this.allSettlements = options.settlements
+      if (options.typeEstates) this.allTypeEstates = options.typeEstates
+      if (options.subtypeEstates) {
+        this.allSubtypeEstates = options.subtypeEstates
+        // Обновляем цвета подтипов
+        this.estateTypeColors = {}
+        this.allSubtypeEstates.forEach(subtype => {
+          if (subtype.color) {
+            this.estateTypeColors[subtype.id] = subtype.color
+          }
+        })
+      }
+      if (options.religions) this.allReligions = options.religions
+      if (options.affiliations) this.allAffiliations = options.affiliations
+      if (options.volosts) this.allVolosts = options.volosts
+      if (options.landowners) this.allLandowners = options.landowners
+      if (options.militaryUnits) this.allMilitaryUnits = options.militaryUnits
+      if (options.revisions) this.allRevisions = options.revisions
+      
+      console.log('Filter options set. Counts:', {
+        districts: this.allDistricts.length,
+        typeEstates: this.allTypeEstates.length,
+        subtypeEstates: this.allSubtypeEstates.length,
+        religions: this.allReligions.length
+      })
+    },
+
     syncWithProps() {
       // Если props не пустые, используем их вместо локальных данных
       if (this.districts && this.districts.length > 0) {
@@ -549,6 +580,14 @@ export default {
       }
       if (this.subtypeEstates && this.subtypeEstates.length > 0) {
         this.allSubtypeEstates = this.subtypeEstates
+        
+        // Обновляем цвета подтипов
+        this.estateTypeColors = {}
+        this.allSubtypeEstates.forEach(subtype => {
+          if (subtype.color) {
+            this.estateTypeColors[subtype.id] = subtype.color
+          }
+        })
       }
       if (this.religions && this.religions.length > 0) {
         this.allReligions = this.religions
@@ -1152,9 +1191,12 @@ export default {
     },
 
     // Метод для применения фильтров и загрузки данных (вызывается при нажатии "Применить")
-    applyFiltersAndLoad() {
+    applyFiltersAndLoad(filters) {
       console.log('=== applyFiltersAndLoad called ===')
-      console.log('currentFilters:', this.currentFilters)
+      console.log('filters:', filters)
+      
+      // Сначала применяем фильтры
+      this.currentFilters = filters
 
       // Показываем спиннер сразу
       this.internalLoading = true
@@ -1717,6 +1759,100 @@ export default {
   },
 
   watch: {
+    // Отслеживаем изменения props и синхронизируем локальные данные
+    subtypeEstates: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          console.log('=== subtypeEstates prop changed ===', newVal.length)
+          this.allSubtypeEstates = newVal
+          
+          // Обновляем цвета подтипов
+          this.estateTypeColors = {}
+          this.allSubtypeEstates.forEach(subtype => {
+            if (subtype.color) {
+              this.estateTypeColors[subtype.id] = subtype.color
+            }
+          })
+          console.log('Updated estateTypeColors:', Object.keys(this.estateTypeColors).length)
+        }
+      },
+      immediate: true,
+      deep: true
+    },
+
+    typeEstates: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          console.log('=== typeEstates prop changed ===', newVal.length)
+          this.allTypeEstates = newVal
+        }
+      },
+      immediate: true
+    },
+
+    districts: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          this.allDistricts = newVal
+        }
+      },
+      immediate: true
+    },
+
+    religions: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          this.allReligions = newVal
+        }
+      },
+      immediate: true
+    },
+
+    affiliations: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          this.allAffiliations = newVal
+        }
+      },
+      immediate: true
+    },
+
+    volosts: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          this.allVolosts = newVal
+        }
+      },
+      immediate: true
+    },
+
+    landowners: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          this.allLandowners = newVal
+        }
+      },
+      immediate: true
+    },
+
+    militaryUnits: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          this.allMilitaryUnits = newVal
+        }
+      },
+      immediate: true
+    },
+
+    revisions: {
+      handler(newVal) {
+        if (newVal && newVal.length > 0) {
+          this.allRevisions = newVal
+        }
+      },
+      immediate: true
+    },
+
     viewMode(newMode) {
       // Сохраняем состояние viewMode
       const pageState = usePageState('pg-settlements')

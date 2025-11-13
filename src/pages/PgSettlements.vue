@@ -84,6 +84,11 @@ export default {
 
       // Загружаем ревизии отдельно
       this.loadRevisions()
+      
+      // Передаём options в дочерний компонент
+      if (this.$refs.settlementsListAndMap) {
+        this.$refs.settlementsListAndMap.setFilterOptions(options)
+      }
     },
 
     loadRevisions() {
@@ -96,14 +101,6 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allRevisions = data || []
-            // console.log('=== SETTLEMENTS PAGE DEBUG ===')
-            // console.log('Loaded revisions:', this.allRevisions.length)
-            // console.log('Sample revisions:', this.allRevisions.slice(0, 3))
-
-            // Обновляем дочерний компонент после загрузки справочников
-            this.$nextTick(() => {
-              this.updateSettlementsListAndMap()
-            })
           })
           .catch(error => {
             console.error('Error loading revisions:', error)
@@ -111,38 +108,30 @@ export default {
       })
     },
 
+    // При изменении фильтров сбрасываем данные (не загружаем новые)
     applyFilters(filters) {
+      console.log('=== PgSettlements applyFilters ===', filters)
       this.currentFilters = filters
-
+      
       // Сохраняем фильтры в URL
       setFiltersInURL(filters)
 
-      this.$refs.settlementsListAndMap?.applyFilters(filters)
+      if (this.$refs.settlementsListAndMap) {
+        this.$refs.settlementsListAndMap.applyFilters(filters)
+      }
     },
 
-    // Новый метод для применения фильтров и загрузки данных
+    // При нажатии "Применить" загружаем данные с новыми фильтрами
     applyFiltersAndLoad(filters) {
+      console.log('=== PgSettlements applyFiltersAndLoad ===', filters)
       this.currentFilters = filters
 
       // Сохраняем фильтры в URL
       setFiltersInURL(filters)
 
       // Применяем фильтры и загружаем данные
-      // loading состояние управляется через v-model:loading
       if (this.$refs.settlementsListAndMap) {
-        this.$refs.settlementsListAndMap.applyFiltersAndLoad()
-      }
-    },
-
-    // Метод для передачи справочников в дочерний компонент
-    updateSettlementsListAndMap() {
-      if (this.$refs.settlementsListAndMap) {
-        // Используем $nextTick чтобы убедиться что компонент полностью инициализирован
-        this.$nextTick(() => {
-          if (this.$refs.settlementsListAndMap && this.$refs.settlementsListAndMap.syncWithProps) {
-            this.$refs.settlementsListAndMap.syncWithProps()
-          }
-        })
+        this.$refs.settlementsListAndMap.applyFiltersAndLoad(filters)
       }
     },
 
