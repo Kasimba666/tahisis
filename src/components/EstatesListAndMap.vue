@@ -476,6 +476,10 @@ export default {
     }
   },
   computed: {
+    isLoading() {
+      return this.loading
+    },
+    
     totalRecords() {
       return this.dataMode === 'estate' ? this.estateData.length : this.reportData.length
     },
