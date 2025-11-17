@@ -49,10 +49,7 @@
           </div>
         </el-popover>
 
-        <el-button size="large" type="primary" @click="showColorSettings = true">
-          <el-icon><Brush /></el-icon>
-          Цвета сословий
-        </el-button>
+
 
         <el-button size="large" type="success" @click="exportToExcel" :disabled="loading || totalRecords === 0">
           <el-icon><Download /></el-icon>
@@ -63,16 +60,7 @@
       </div>
     </div>
 
-    <!-- Drawer для настроек цветов -->
-    <el-drawer
-      v-model="showColorSettings"
-      title="Настройки окраски маркеров"
-      direction="rtl"
-      size="400px"
-      :before-close="closeColorSettings"
-    >
-      <ColorSchemeSelector @settings-change="onColorSettingsChange" />
-    </el-drawer>
+
 
     <!-- Large loading spinner overlay -->
     <div v-if="loading" class="large-loading-overlay">
@@ -371,11 +359,10 @@
 </template>
 
 <script>
-import { Location, Loading, Setting, Brush, Download, Filter } from '@element-plus/icons-vue'
+import { Location, Loading, Setting, Download, Filter } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { supabase } from '@/services/supabase'
 import Sortable from 'sortablejs'
-import ColorSchemeSelector from '@/components/ColorSchemeSelector.vue'
 import MapView from '@/components/MapView.vue'
 
 import { useTableSorting } from '@/composables/useStorage.js'
@@ -397,7 +384,6 @@ export default {
     Location,
     Loading,
     Setting,
-    ColorSchemeSelector,
     MapView
   },
   props: {
@@ -420,7 +406,6 @@ export default {
     return {
       dataMode: this.initialDataMode || 'estate',
       viewMode: 'list',
-      showColorSettings: false,
       estateData: [],
       reportData: [],
       allEstateData: [],
@@ -1160,23 +1145,28 @@ export default {
 
       let filtered = [...data]
 
-      // Фильтр по району
-      if (this.currentFilters.district) {
-        const selectedDistrict = this.allDistricts?.find(d => d.id === this.currentFilters.district)
-        if (selectedDistrict) {
-          filtered = filtered.filter(item => item.district_name === selectedDistrict.name)
-        }
+      // Фильтр по районам
+      if (this.currentFilters.districts?.length > 0) {
+        filtered = filtered.filter(item => {
+          if (!item.district_name) return false
+          // Находим район по имени
+          const district = this.allDistricts?.find(d => d.name === item.district_name)
+          return district && this.currentFilters.districts.includes(district.id)
+        })
       }
 
-      // Фильтр по населенному пункту
-      if (this.currentFilters.settlement) {
-        const selectedSettlement = this.allSettlements?.find(s => s.id === this.currentFilters.settlement)
-        if (selectedSettlement) {
-          filtered = filtered.filter(item =>
-            item.settlement_name_old === selectedSettlement.name ||
-            item.settlement_name_modern === selectedSettlement.name
-          )
-        }
+      // Фильтр по старым названиям населенных пунктов
+      if (this.currentFilters.settlementNamesOld?.length > 0) {
+        filtered = filtered.filter(item =>
+          item.settlement_name_old && this.currentFilters.settlementNamesOld.includes(item.settlement_name_old)
+        )
+      }
+
+      // Фильтр по современным названиям населенных пунктов
+      if (this.currentFilters.settlementNamesModern?.length > 0) {
+        filtered = filtered.filter(item =>
+          item.settlement_name_modern && this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
+        )
       }
 
       // Фильтр по населению (мин)
@@ -1712,31 +1702,7 @@ export default {
       }
     },
 
-    closeColorSettings() {
-      try {
-        this.showColorSettings = false
-      } catch (error) {
-        console.warn('Error closing color settings:', error)
-      }
-    },
 
-    onColorSettingsChange() {
-      // Обновляем маркеры на карте при изменении настроек цветов
-      this.$nextTick(() => {
-        try {
-          if (this.$refs.mapView && this.$refs.mapView.$el && this.$refs.mapView.$el.parentNode) {
-            if (this.$refs.mapView.updateLeafletMarkers && typeof this.$refs.mapView.updateLeafletMarkers === 'function') {
-              this.$refs.mapView.updateLeafletMarkers()
-            }
-            if (this.$refs.mapView.updateOpenLayersMarkers && typeof this.$refs.mapView.updateOpenLayersMarkers === 'function') {
-              this.$refs.mapView.updateOpenLayersMarkers()
-            }
-          }
-        } catch (error) {
-          console.warn('Error updating map markers on color settings change:', error)
-        }
-      })
-    },
 
     handleHeaderDragEnd(newWidth, oldWidth, column, event) {
       // console.log('Column resized:', column.label, 'New width:', newWidth)
