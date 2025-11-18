@@ -3,51 +3,10 @@
     <h3>Векторные слои</h3>
 
     <div class="upload-section">
-      <el-tabs v-model="activeTab" type="card">
-        <el-tab-pane label="Загрузить новые файлы" name="upload">
-          <VectorLayerUpload
-            :layer-types="layerTypeOptions"
-            @upload-complete="handleUploadComplete"
-          />
-        </el-tab-pane>
-        <el-tab-pane label="Привязать файлы к записям" name="link">
-          <div class="link-files-section">
-            <p>Выберите файлы и укажите ID записи, к которой их нужно привязать:</p>
-
-            <el-upload
-              ref="linkUpload"
-              class="upload-demo"
-              drag
-              :action="uploadUrl"
-              :headers="uploadHeaders"
-              :on-success="handleLinkUploadSuccess"
-              :on-error="handleLinkUploadError"
-              :before-upload="beforeLinkUpload"
-              :file-list="linkFileList"
-              :auto-upload="false"
-              multiple
-            >
-              <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-              <div class="el-upload__text">
-                Перетащите файлы сюда или <em>нажмите для выбора</em>
-              </div>
-            </el-upload>
-
-            <div class="link-controls">
-              <el-input-number
-                v-model="targetRecordId"
-                :min="1"
-                placeholder="ID записи"
-                style="width: 150px; margin-right: 1rem;"
-              />
-              <el-button type="primary" @click="linkFilesToRecord" :loading="linking">
-                Привязать к записи
-              </el-button>
-              <el-button @click="clearLinkFiles">Очистить</el-button>
-            </div>
-          </div>
-        </el-tab-pane>
-      </el-tabs>
+      <VectorLayerUpload
+        :layer-types="layerTypeOptions"
+        @upload-complete="handleUploadComplete"
+      />
     </div>
 
     <div class="table-info">
@@ -110,18 +69,6 @@
         </template>
       </el-table-column>
 
-      <el-table-column label="Размер (байт)">
-        <template #default="{ row }">
-          {{ formatFileSize(row.size) }}
-        </template>
-      </el-table-column>
-
-      <el-table-column label="Объектов">
-        <template #default="{ row }">
-          {{ row.feature_count || 0 }}
-        </template>
-      </el-table-column>
-
       <el-table-column label="Система координат">
         <template #default="{ row }">
           <div v-if="editRowId === row.id">
@@ -172,7 +119,6 @@
 
 <script>
 import { vectorLayerService } from "@/services/vectorLayers"
-import { supabaseAdmin } from "@/services/supabase"
 import VectorLayerUpload from '@/components/VectorLayerUpload.vue'
 import VectorLayerStyleEditor from '@/components/VectorLayerStyleEditor.vue'
 
@@ -188,10 +134,6 @@ export default {
       layerTypeOptions: [],
       editRowId: null,
       editRow: {},
-      activeTab: 'upload',
-      linkFileList: [],
-      targetRecordId: null,
-      linking: false,
       styleEditorVisible: false,
       currentEditingLayer: null
     }
@@ -219,14 +161,6 @@ export default {
         // Обновляем векторные слои на картах
         this.refreshMapLayers()
       }
-    },
-
-    formatFileSize(bytes) {
-      if (bytes === 0) return '0 B'
-      const k = 1024
-      const sizes = ['B', 'KB', 'MB', 'GB']
-      const i = Math.floor(Math.log(bytes) / Math.log(k))
-      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
     },
 
     startEdit(row) {
@@ -286,9 +220,6 @@ export default {
         const layerData = await vectorLayerService.createVectorLayer({
           name: "Новый слой",
           file_path: "",
-          mime_type: "",
-          size: 0,
-          feature_count: 0,
           crs: "EPSG:4326",
           visible: true, // По умолчанию видимый
           id_type_vector_layer: this.layerTypeOptions[0].id // Используем первый доступный тип
@@ -300,125 +231,6 @@ export default {
       } catch (error) {
         // console.error("Error adding vector layer:", error)
         this.$message.error(`Ошибка добавления слоя: ${error.message}`)
-      }
-    },
-
-    beforeLinkUpload(file) {
-      try {
-        vectorLayerService.validateFile(file)
-        return true
-      } catch (error) {
-        this.$message.error(error.message)
-        return false
-      }
-    },
-
-    async linkFilesToRecord() {
-      if (!this.targetRecordId) {
-        this.$message.warning('Укажите ID записи')
-        return
-      }
-
-      if (this.linkFileList.length === 0) {
-        this.$message.warning('Выберите файлы для загрузки')
-        return
-      }
-
-      this.linking = true
-
-      try {
-        // Проверяем существование записи
-        const { data: existingRecord, error: fetchError } = await supabaseAdmin
-          .from('Vector_layer')
-          .select('id, name')
-          .eq('id', this.targetRecordId)
-          .single()
-
-        if (fetchError || !existingRecord) {
-          this.$message.error(`Запись с ID ${this.targetRecordId} не найдена`)
-          return
-        }
-
-        const results = []
-
-        for (const file of this.linkFileList) {
-          try {
-            // Валидируем файл
-            vectorLayerService.validateFile(file)
-
-            // Загружаем файл в storage
-            const uploadResult = await vectorLayerService.uploadFile(file)
-
-            // Определяем тип слоя
-            const layerTypeName = vectorLayerService.getLayerTypeByFileName(file.name)
-            const layerType = this.layerTypeOptions.find(t =>
-              t.name.toLowerCase().includes(layerTypeName.toLowerCase())
-            )
-            const layerTypeId = layerType?.id || this.layerTypeOptions[0]?.id
-
-            // Создаем новую запись вместо обновления существующей
-            const newLayerData = {
-              name: file.name.replace(/\.[^/.]+$/, ""),
-              file_path: uploadResult.filePath,
-              file_url: uploadResult.publicUrl,
-              mime_type: file.type,
-              size: file.size,
-              feature_count: 0,
-              crs: 'EPSG:4326',
-              visible: true, // По умолчанию видимый
-              id_type_vector_layer: layerTypeId
-            }
-
-            const createdLayer = await vectorLayerService.createVectorLayer(newLayerData)
-            results.push({ success: true, fileName: file.name, layerId: createdLayer.id })
-
-          } catch (fileError) {
-            // console.error(`Error processing ${file.name}:`, fileError)
-            results.push({ success: false, fileName: file.name, error: fileError.message })
-          }
-        }
-
-        // Показываем результаты
-        const successCount = results.filter(r => r.success).length
-        const errorCount = results.filter(r => !r.success).length
-
-        if (errorCount === 0) {
-          this.$message.success(`Все файлы (${successCount}) успешно привязаны к записи`)
-        } else if (successCount > 0) {
-          this.$message.warning(`${successCount} файлов загружено, ${errorCount} ошибок`)
-        } else {
-          this.$message.error(`Не удалось загрузить файлы (${errorCount} ошибок)`)
-        }
-
-        // Показываем детальную информацию об ошибках
-        results.filter(r => !r.success).forEach(result => {
-          this.$message.error(`Ошибка с файлом ${result.fileName}: ${result.error}`)
-        })
-
-        this.clearLinkFiles()
-        this.fetchData()
-
-      } catch (error) {
-        // console.error('Error linking files:', error)
-        this.$message.error('Ошибка привязки файлов')
-      } finally {
-        this.linking = false
-      }
-    },
-
-    handleLinkUploadSuccess(response, file, fileList) {
-      // console.log('Link upload success:', response)
-    },
-
-    handleLinkUploadError(error, file, fileList) {
-      // console.error('Link upload error:', error)
-      this.$message.error(`Ошибка загрузки файла ${file.name}`)
-    },
-
-    clearLinkFiles() {
-      this.linkFileList = []
-      if (this.$refs.linkUpload) {
-        this.$refs.linkUpload.clearFiles()
       }
     },
 
@@ -489,19 +301,6 @@ export default {
     border: 1px solid var(--border-color);
     border-radius: 8px;
     background-color: var(--bg-secondary);
-  }
-
-  .upload-controls {
-    margin-top: 1rem;
-    display: flex;
-    gap: 1rem;
-  }
-
-  .link-controls {
-    margin-top: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
   }
 
   .table-info {

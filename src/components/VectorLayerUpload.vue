@@ -177,9 +177,6 @@ export default {
             name: file.name.replace(/\.[^/.]+$/, ""), // Удаляем расширение
             file_path: uploadResult.filePath,
             file_url: uploadResult.publicUrl,
-            mime_type: file.type,
-            size: file.size,
-            feature_count: 0,
             crs: 'EPSG:4326',
             visible: true, // По умолчанию видимый
             id_type_vector_layer: layerTypeId
