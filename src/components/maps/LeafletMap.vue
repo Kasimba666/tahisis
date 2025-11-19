@@ -159,6 +159,7 @@ export default {
           if (isNaN(lat) || isNaN(lon)) return
 
           const markerElement = createConcentricCirclesMarker(settlement.estateTypes || [])
+
           const customIcon = L.divIcon({
             className: 'custom-marker',
             html: markerElement,
