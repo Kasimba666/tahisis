@@ -332,52 +332,65 @@ export default {
 
     getLayerStyle(layer) {
       const { getLayerColor } = useMapMarkers()
-      
+
+      console.log('=== LeafletMap getLayerStyle ===')
+      console.log('Layer ID:', layer.id, 'Name:', layer.name)
+      console.log('Layer style from DB:', layer.style)
+
       // Если есть стиль в БД, используем его
       if (layer.style) {
         try {
           const style = typeof layer.style === 'string' ? JSON.parse(layer.style) : layer.style
-          
+          console.log('Parsed style:', style)
+
           // Возвращаем стиль в зависимости от типа геометрии
           if (style.point) {
-            return {
+            const pointStyle = {
               color: style.point.strokeColor || '#ffffff',
               weight: style.point.strokeWidth || 2,
               fillColor: style.point.fillColor || '#3388ff',
               fillOpacity: 0.8,
               radius: style.point.radius || 8
             }
+            console.log('Applying point style:', pointStyle)
+            return pointStyle
           }
-          
+
           if (style.line) {
-            return {
+            const lineStyle = {
               color: style.line.strokeColor || '#3388ff',
               weight: style.line.strokeWidth || 2,
               opacity: style.line.opacity || 0.7
             }
+            console.log('Applying line style:', lineStyle)
+            return lineStyle
           }
-          
+
           if (style.polygon) {
-            return {
+            const polygonStyle = {
               color: style.polygon.strokeColor || '#3388ff',
               weight: style.polygon.strokeWidth || 2,
               opacity: style.polygon.opacity || 0.7,
               fillColor: style.polygon.fillColor || '#3388ff',
               fillOpacity: style.polygon.fillOpacity || 0.3
             }
+            console.log('Applying polygon style:', polygonStyle)
+            return polygonStyle
           }
         } catch (error) {
           console.error('Error parsing layer style:', error)
         }
       }
-      
+
       // Стиль по умолчанию
-      return {
+      const defaultStyle = {
         color: getLayerColor(layer.id),
         weight: 2,
         opacity: 0.7,
         fillOpacity: 0.3
       }
+      console.log('Applying default style:', defaultStyle)
+      return defaultStyle
     },
 
     resetView() {

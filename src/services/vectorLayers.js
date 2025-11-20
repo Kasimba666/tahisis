@@ -223,7 +223,7 @@ export class VectorLayerService {
   }
 
   createVectorLayer(layerData) {
-    return supabaseAdmin
+    return supabase
       .from('Vector_layer')
       .insert([layerData])
       .select(`
@@ -244,7 +244,11 @@ export class VectorLayerService {
   }
 
   updateVectorLayer(id, layerData) {
-    return supabaseAdmin
+    console.log('=== VectorLayerService updateVectorLayer ===')
+    console.log('Updating layer ID:', id)
+    console.log('Update data:', JSON.stringify(layerData, null, 2))
+
+    return supabase
       .from('Vector_layer')
       .update(layerData)
       .eq('id', id)
@@ -253,21 +257,26 @@ export class VectorLayerService {
         Type_vector_layer ( name )
       `)
       .then(({ data, error }) => {
-        if (error) throw error
+        if (error) {
+          console.error('Supabase update error:', error)
+          throw error
+        }
 
+        console.log('Update successful, returned data:', data)
         return {
           ...data[0],
           type_vector_layer_name: data[0].Type_vector_layer?.name || ""
         }
       })
       .catch((error) => {
+        console.error('Error in updateVectorLayer:', error)
         throw error
       })
   }
 
   deleteVectorLayer(id) {
     // Получаем информацию о слое для удаления файла
-    return supabaseAdmin
+    return supabase
       .from('Vector_layer')
       .select('file_path, name')
       .eq('id', id)
@@ -276,7 +285,7 @@ export class VectorLayerService {
         if (fetchError) throw fetchError
 
         // Удаляем запись из базы данных сначала
-        return supabaseAdmin
+        return supabase
           .from('Vector_layer')
           .delete()
           .eq('id', id)

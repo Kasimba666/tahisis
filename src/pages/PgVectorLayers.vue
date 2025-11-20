@@ -251,19 +251,26 @@ export default {
       const layerId = this.currentEditingLayer.id
       const layerName = this.currentEditingLayer.name
 
+      console.log('=== PgVectorLayers handleStyleSave ===')
       console.log('Saving style for layer ID:', layerId, 'Name:', layerName)
-      console.log('Style JSON:', styleJSON)
+      console.log('Style JSON:', JSON.stringify(styleJSON, null, 2))
 
       try {
-        await vectorLayerService.updateVectorLayer(layerId, {
+        const updateData = {
           style: styleJSON
-        })
+        }
+        console.log('Update data being sent to service:', updateData)
+
+        const result = await vectorLayerService.updateVectorLayer(layerId, updateData)
+        console.log('Update result:', result)
+
         this.$message.success(`Стиль слоя "${layerName}" сохранён`)
         this.currentEditingLayer = null
         this.fetchData()
         this.refreshMapLayers()
       } catch (error) {
         console.error('Error saving style for layer', layerId, error)
+        console.error('Error details:', error.message, error.details)
         this.$message.error(`Ошибка сохранения стиля: ${error.message}`)
       }
     },

@@ -69,13 +69,13 @@
           <!-- Для Point -->
           <template v-if="isPointGeometry">
             <el-form-item label="Цвет маркера">
-              <el-color-picker v-model="styleConfig.fillColor" show-alpha />
+              <el-color-picker :value="styleConfig.fillColor" show-alpha @change="onColorChange('fillColor', $event)" />
             </el-form-item>
             <el-form-item label="Радиус">
               <el-slider v-model="styleConfig.radius" :min="2" :max="30" />
             </el-form-item>
             <el-form-item label="Цвет обводки">
-              <el-color-picker v-model="styleConfig.strokeColor" show-alpha />
+              <el-color-picker :value="styleConfig.strokeColor" show-alpha @change="onColorChange('strokeColor', $event)" />
             </el-form-item>
             <el-form-item label="Толщина обводки">
               <el-slider v-model="styleConfig.strokeWidth" :min="0" :max="10" />
@@ -85,7 +85,7 @@
           <!-- Для LineString -->
           <template v-if="isLineGeometry">
             <el-form-item label="Цвет линии">
-              <el-color-picker v-model="styleConfig.strokeColor" show-alpha />
+              <el-color-picker :value="styleConfig.strokeColor" show-alpha @change="onColorChange('strokeColor', $event)" />
             </el-form-item>
             <el-form-item label="Толщина линии">
               <el-slider v-model="styleConfig.strokeWidth" :min="1" :max="10" />
@@ -98,13 +98,13 @@
           <!-- Для Polygon -->
           <template v-if="isPolygonGeometry">
             <el-form-item label="Цвет заливки">
-              <el-color-picker v-model="styleConfig.fillColor" show-alpha />
+              <el-color-picker :value="styleConfig.fillColor" show-alpha @change="onColorChange('fillColor', $event)" />
             </el-form-item>
             <el-form-item label="Прозрачность заливки">
               <el-slider v-model="styleConfig.fillOpacity" :min="0" :max="1" :step="0.1" />
             </el-form-item>
             <el-form-item label="Цвет обводки">
-              <el-color-picker v-model="styleConfig.strokeColor" show-alpha />
+              <el-color-picker :value="styleConfig.strokeColor" show-alpha @change="onColorChange('strokeColor', $event)" />
             </el-form-item>
             <el-form-item label="Толщина обводки">
               <el-slider v-model="styleConfig.strokeWidth" :min="0" :max="10" />
@@ -315,8 +315,10 @@ export default {
       console.log('=== VectorLayerStyleEditor handleSave ===')
       console.log('Saving style for layer ID:', this.layer?.id)
       console.log('Layer name:', this.layer?.name)
-      console.log('Style JSON:', this.styleJSON)
-      
+      console.log('Geometry type:', this.geometryType)
+      console.log('Is line geometry:', this.isLineGeometry)
+      console.log('Style JSON:', JSON.stringify(this.styleJSON, null, 2))
+
       this.$emit('save', this.styleJSON)
       this.handleClose()
     },
@@ -325,14 +327,25 @@ export default {
       this.visible = false
     },
 
+    onColorChange(property, color) {
+      console.log('Color change:', property, color)
+      // Element Plus color picker возвращает объект с hex значением
+      if (color && typeof color === 'object' && color.hex) {
+        this.styleConfig[property] = color.hex
+      } else if (typeof color === 'string') {
+        this.styleConfig[property] = color
+      }
+      console.log('Updated styleConfig:', this.styleConfig)
+    },
+
     hexToRgba(hex, alpha) {
       // Конвертирует HEX в RGBA
       if (!hex) return 'rgba(51, 136, 255, 0.3)'
-      
+
       const r = parseInt(hex.slice(1, 3), 16)
       const g = parseInt(hex.slice(3, 5), 16)
       const b = parseInt(hex.slice(5, 7), 16)
-      
+
       return `rgba(${r}, ${g}, ${b}, ${alpha || 1})`
     }
   }
