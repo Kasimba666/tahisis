@@ -3,9 +3,9 @@
     {{ screen.type }}<br/>
     {{ screen.width }}px
   </div>
-  <AppHeader site-title="Историко-Географическая информационная система Восточного Закамья XVIII–XIX вв." />
+  <AppHeader site-title="Историко-географическая информационная система Восточного Закамья XVIII–XIX вв." />
   <router-view />
-  <AppFooter site-title="Историко-Географическая информационная система Восточного Закамья XVIII–XIX вв." />
+  <AppFooter site-title="Историко-географическая информационная система Восточного Закамья XVIII–XIX вв." />
 </template>
 
 <script>
