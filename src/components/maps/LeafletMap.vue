@@ -119,22 +119,13 @@ export default {
 
       // Обновляем позицию маркеров при изменении проекции карты
       this.mapInstance.on('viewreset', () => {
-        console.log('Leaflet viewreset - invalidating size and updating markers')
+        console.log('Leaflet viewreset - invalidating size')
         this.mapInstance.invalidateSize()
-        // Принудительно обновляем маркеры после изменения проекции
-        this.$nextTick(() => {
-          this.updateMarkers()
-        })
+        // Не пересоздаём маркеры, только корректируем позицию
       })
 
-      // Также обновляем маркеры при zoom и move для надежности
-      this.mapInstance.on('zoomend moveend', () => {
-        // Небольшая задержка чтобы избежать слишком частых обновлений
-        clearTimeout(this.markerUpdateTimeout)
-        this.markerUpdateTimeout = setTimeout(() => {
-          this.updateMarkers()
-        }, 100)
-      })
+      // Обновляем маркеры только при изменении данных, не при каждом zoom/move
+      // Это предотвращает проблемы с позиционированием
 
       // События полноэкранного режима
       this.mapInstance.on('fullscreenchange', () => {
