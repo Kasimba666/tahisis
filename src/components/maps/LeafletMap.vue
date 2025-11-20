@@ -43,7 +43,8 @@ export default {
       markers: [],
       vectorLayersMap: new Map(),
       currentHighlightCircle: null,
-      singleMarker: null
+      singleMarker: null,
+      markerUpdateTimeout: null
     }
   },
   mounted() {
@@ -114,6 +115,25 @@ export default {
           center: this.mapInstance.getCenter(),
           zoom: this.mapInstance.getZoom()
         })
+      })
+
+      // Обновляем позицию маркеров при изменении проекции карты
+      this.mapInstance.on('viewreset', () => {
+        console.log('Leaflet viewreset - invalidating size and updating markers')
+        this.mapInstance.invalidateSize()
+        // Принудительно обновляем маркеры после изменения проекции
+        this.$nextTick(() => {
+          this.updateMarkers()
+        })
+      })
+
+      // Также обновляем маркеры при zoom и move для надежности
+      this.mapInstance.on('zoomend moveend', () => {
+        // Небольшая задержка чтобы избежать слишком частых обновлений
+        clearTimeout(this.markerUpdateTimeout)
+        this.markerUpdateTimeout = setTimeout(() => {
+          this.updateMarkers()
+        }, 100)
       })
 
       // События полноэкранного режима
