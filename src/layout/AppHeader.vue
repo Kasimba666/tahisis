@@ -2,7 +2,8 @@
   <header class="app-header">
     <div class="header-container">
       <div class="header-logo">
-        <img src="/assets/signs/institut_istorii.svg" alt="Институт истории" class="logo-image">
+        <img src="/assets/signs/tarihgis_77px.png" alt="Тарихгис" class="logo-image">
+<!--        <img src="/assets/signs/institut_istorii.svg" alt="Институт истории" class="logo-image">-->
       </div>
       
       <div class="header-content">
@@ -177,12 +178,12 @@ export default {
 .header-logo {
   display: flex;
   align-items: center;
-  padding: 3px 0;
+  padding: 5px 0;
   
   .logo-image {
     height: 100%;
     width: auto;
-    max-height: 80px;
+    max-height: 70px;
     object-fit: contain;
   }
 }
@@ -209,11 +210,11 @@ export default {
     font-family: 'Century Schoolbook', serif;
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: var(--text-title);
     margin: 0;
-    background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
+    //background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
     -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    //-webkit-text-fill-color: transparent;
     background-clip: text;
   }
 }
