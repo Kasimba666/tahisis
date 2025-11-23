@@ -429,7 +429,11 @@ export default {
 
     // Синхронизированные computed properties для MapView (только когда данные загружены)
     syncedSettlementsForMap() {
-      return this.settlementsData && this.settlementsData.length > 0 ? this.settlementsForMap : []
+      // Не возвращаем данные для карты пока не загружены цвета подтипов
+      if (!this.settlementsData || this.settlementsData.length === 0 || Object.keys(this.estateTypeColors).length === 0) {
+        return []
+      }
+      return this.settlementsForMap
     },
 
     syncedSettlementsGeoJson() {
