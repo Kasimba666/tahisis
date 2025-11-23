@@ -835,14 +835,16 @@ export default {
       `
       this.$refs.olMap.appendChild(labelEl)
 
-      // Создаем overlay с меткой
-      const labelOverlay = new Overlay({
-        element: labelEl,
-        position: coordinates,
-        positioning: 'bottom-center',
-        offset: [0, -15], // Отображаем ниже центра маркера (выше маркера)
-        stopEvent: false
-      })
+        // Создаем overlay с меткой
+        // Центр маркера совпадает с координатами точки, максимальный радиус 12px
+        // Размещаем labels выше маркера с дополнительными отступами 3px вверх и 3px вправо
+        const labelOverlay = new Overlay({
+          element: labelEl,
+          position: coordinates,
+          positioning: 'bottom-center',
+          offset: [3, -21], // Отступ 21px вверх (>12px радиуса) + 3px вправо
+          stopEvent: false
+        })
 
       this.mapInstance.addOverlay(labelOverlay)
       this.settlementLabelOverlays.push(labelOverlay)
