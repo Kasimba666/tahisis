@@ -2,8 +2,8 @@
   <div class="map-view">
     <div class="map-controls">
       <el-radio-group v-model="mapProvider" size="small">
-        <el-radio-button label="leaflet">Leaflet</el-radio-button>
         <el-radio-button label="openlayers">OpenLayers</el-radio-button>
+        <el-radio-button label="leaflet">Leaflet</el-radio-button>
       </el-radio-group>
       
       <vector-layers-control
@@ -15,7 +15,7 @@
       <!-- Контрол для выбора режима отображения названий населённых пунктов -->
       <div style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
         <label style="font-size: 12px; color: var(--text-secondary); margin: 0; padding: 0; font-weight: 500; white-space: nowrap;">
-          Показывать наименования населённых пунктов:
+          Показывать имена нас.пунктов:
         </label>
         <el-select
           v-model="settlementNameMode"
@@ -102,7 +102,7 @@ export default {
   },
   data() {
     return {
-      mapProvider: 'leaflet',
+      mapProvider: 'openlayers',
       settlementNameMode: 'none',
       vectorLayers: [],
       isSyncing: false,

@@ -47,6 +47,10 @@ export default {
       type: Object,
       default: null
     },
+    settlementNameMode: {
+      type: String,
+      default: 'none'
+    },
     isActive: {
       type: Boolean,
       default: true
@@ -60,7 +64,8 @@ export default {
       popupOverlay: null,
       tooltipOverlay: null,
       currentHighlightLayer: null,
-      singleMarkerLayer: null
+      singleMarkerLayer: null,
+      settlementLabelOverlays: []
     }
   },
   mounted() {
@@ -212,10 +217,10 @@ export default {
       const tooltipEl = document.createElement('div')
       tooltipEl.className = 'ol-tooltip'
       this.$refs.olMap.appendChild(tooltipEl)
-      
+
       this.tooltipOverlay = new Overlay({
         element: tooltipEl,
-        offset: [0, -15],
+        offset: [0, -8],
         positioning: 'bottom-center',
         stopEvent: false
       })
@@ -372,6 +377,9 @@ export default {
       const source = this.vectorLayer.getSource()
       source.clear()
 
+      // Очищаем старые settlement labels
+      this.clearSettlementLabels()
+
       // Поддержка как массива, так и GeoJSON
       let settlementsArray = []
       if (this.settlements && this.settlements.type === 'FeatureCollection') {
@@ -423,6 +431,12 @@ export default {
           const styles = this.createMarkerStyle(estateTypes)
           feature.setStyle(styles)
           source.addFeature(feature)
+
+          // Создаем текстовую label над маркером если settlementNameMode !== 'none'
+          if (this.settlementNameMode !== 'none') {
+            this.createSettlementTextLabel(settlement, [x, y])
+          }
+
           addedCount++
         }
       })
@@ -796,6 +810,57 @@ export default {
         }
       }
       return null
+    },
+
+    createSettlementTextLabel(settlement, coordinates) {
+      if (!this.mapInstance) return
+
+      // Определяем название для отображения в зависимости от режима
+      let displayName = ''
+      if (this.settlementNameMode === 'old') {
+        displayName = settlement.name || settlement.nameModern || ''
+      } else if (this.settlementNameMode === 'modern') {
+        displayName = settlement.nameModern || settlement.name || ''
+      }
+
+      if (!displayName) return
+
+      // Создаем элемент для метки
+      const labelEl = document.createElement('div')
+      labelEl.className = 'settlement-label'
+      labelEl.innerHTML = `
+        <div class="settlement-label-content">
+          <div class="label-name">${displayName}</div>
+        </div>
+      `
+      this.$refs.olMap.appendChild(labelEl)
+
+      // Создаем overlay с меткой
+      const labelOverlay = new Overlay({
+        element: labelEl,
+        position: coordinates,
+        positioning: 'bottom-center',
+        offset: [0, -15], // Отображаем ниже центра маркера (выше маркера)
+        stopEvent: false
+      })
+
+      this.mapInstance.addOverlay(labelOverlay)
+      this.settlementLabelOverlays.push(labelOverlay)
+    },
+
+    clearSettlementLabels() {
+      if (!this.mapInstance) return
+
+      // Удаляем все settlement label overlay'ы
+      this.settlementLabelOverlays.forEach(overlay => {
+        this.mapInstance.removeOverlay(overlay)
+        const element = overlay.getElement()
+        if (element && element.parentNode) {
+          element.parentNode.removeChild(element)
+        }
+      })
+
+      this.settlementLabelOverlays = []
     }
   },
   watch: {
@@ -810,6 +875,11 @@ export default {
         this.updateSingleMarker()
       },
       deep: true
+    },
+    settlementNameMode: {
+      handler() {
+        this.updateMarkers()
+      }
     },
     vectorLayers: {
       handler(newLayers, oldLayers) {
@@ -948,17 +1018,25 @@ export default {
 }
 
 :deep(.settlement-tooltip) {
+  padding: 2px 4px;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  pointer-events: none;
+  font-weight: normal;
+
   .tooltip-name {
-    font-weight: 700;
+    font-weight: normal;
     color: var(--text-primary);
-    text-shadow: -1px -1px 0 var(--bg-primary), 1px -1px 0 var(--bg-primary), -1px 1px 0 var(--bg-primary), 1px 1px 0 var(--bg-primary);
+    margin-bottom: 1px;
+    text-shadow: none;
   }
 
   .tooltip-district {
     font-size: 11px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-shadow: -1px -1px 0 var(--bg-primary), 1px -1px 0 var(--bg-primary), -1px 1px 0 var(--bg-primary), 1px 1px 0 var(--bg-primary);
+    font-weight: normal;
+    color: var(--text-primary);
+    text-shadow: none;
   }
 }
 
@@ -1030,6 +1108,29 @@ export default {
         background: var(--bg-hover);
         border-color: var(--accent-primary);
       }
+    }
+  }
+}
+
+:deep(.settlement-label) {
+  position: absolute;
+  padding: 0;
+  background: transparent;
+  border: none;
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: normal;
+  z-index: 1000;
+
+  .settlement-label-content {
+    text-align: center;
+    white-space: nowrap;
+
+    .label-name {
+      font-weight: normal;
+      color: var(--text-primary);
+      text-shadow: none;
+      margin: 0;
     }
   }
 }

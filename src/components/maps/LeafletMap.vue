@@ -125,15 +125,7 @@ export default {
         })
       })
 
-      // Прерываем tooltip анимации перед зумом во избежание ошибок
-      this.mapInstance.on('zoomanim', (e) => {
-        // Закрываем все открытые tooltip во время анимации зума
-        this.mapInstance.eachLayer((layer) => {
-          if (layer.options && layer.options.pane === 'tooltipPane') {
-            this.mapInstance.closeTooltip(layer)
-          }
-        })
-      })
+      // События для управления tooltip анимациями
 
       // Обновляем позицию маркеров при изменении проекции карты
       this.mapInstance.on('viewreset', () => {
@@ -214,19 +206,22 @@ export default {
             zIndexOffset: 1000  // Маркеры населённых пунктов всегда поверх векторных слоёв
           })
 
-          // Добавляем tooltip только если settlementNameMode !== 'none'
+          // Всегда создаем tooltip для маркера
+          marker.bindTooltip(`
+            <div class="settlement-tooltip">
+              <div class="tooltip-name">${displayName}</div>
+            </div>
+          `, {
+            direction: 'top',
+            offset: [0, -9],
+            opacity: 0.95,
+            className: 'custom-tooltip',
+            permanent: false
+          })
+
+          // Если settlementNameMode !== 'none', открываем tooltip сразу для постоянного отображения
           if (this.settlementNameMode !== 'none') {
-            marker.bindTooltip(`
-              <div class="settlement-tooltip">
-                <div class="tooltip-name">${displayName}</div>
-              </div>
-            `, {
-              direction: 'top',
-              offset: [0, -18],
-              opacity: 0.95,
-              className: 'custom-tooltip',
-              permanent: true
-            })
+            marker.openTooltip()
           }
 
           marker.bindPopup(popupContent)
@@ -659,7 +654,7 @@ export default {
 
   .tooltip-name {
     font-weight: normal;
-    color: black;
+    color: var(--text-primary);
     margin-bottom: 1px;
     text-shadow: none;
   }
@@ -667,7 +662,7 @@ export default {
   .tooltip-district {
     font-size: 11px;
     font-weight: normal;
-    color: black;
+    color: var(--text-primary);
     text-shadow: none;
   }
 }
