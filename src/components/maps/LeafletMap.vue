@@ -111,9 +111,23 @@ export default {
 
       // События карты
       this.mapInstance.on('moveend zoomend', () => {
+        const currentCenter = this.mapInstance.getCenter()
+        const currentZoom = this.mapInstance.getZoom()
+        console.log(`Leaflet zoom: ${currentZoom}, center: [${currentCenter.lat.toFixed(4)}, ${currentCenter.lng.toFixed(4)}]`)
+
         this.$emit('view-change', {
-          center: this.mapInstance.getCenter(),
-          zoom: this.mapInstance.getZoom()
+          center: currentCenter,
+          zoom: currentZoom
+        })
+      })
+
+      // Прерываем tooltip анимации перед зумом во избежание ошибок
+      this.mapInstance.on('zoomanim', (e) => {
+        // Закрываем все открытые tooltip во время анимации зума
+        this.mapInstance.eachLayer((layer) => {
+          if (layer.options && layer.options.pane === 'tooltipPane') {
+            this.mapInstance.closeTooltip(layer)
+          }
         })
       })
 

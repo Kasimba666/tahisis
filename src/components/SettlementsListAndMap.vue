@@ -385,15 +385,18 @@ export default {
 
     // Преобразование данных для MapView компонента
     settlementsForMap() {
-      console.log('=== settlementsForMap computed ===')
-      console.log('settlementsData.length:', this.settlementsData.length)
+      // Не возвращаем данные если справочники не загружены
+      if (!this.allSubtypeEstates || this.allSubtypeEstates.length === 0 || Object.keys(this.estateTypeColors).length === 0) {
+        return []
+      }
+
       const mapped = this.settlementsData.map(settlement => {
         // Получаем все типы сословий с населением
         const estateTypes = this.getEstateTypesByPopulation(settlement)
-        
+
         // Собираем уникальные религии из estates
         const religions = this.getUniqueReligions(settlement)
-        
+
         return {
           lat: settlement.lat,
           lon: settlement.lon,
@@ -408,32 +411,19 @@ export default {
           estates: settlement.estates || [] // детальные данные по сословиям
         }
       })
-      console.log('mapped settlements:', mapped.slice(0, 2))
       const filtered = mapped.filter(s => s.lat && s.lon) // Только с координатами
-      console.log('filtered settlements (with coordinates):', filtered.length)
       return filtered
     },
 
     settlementsGeoJson() {
       // Всегда конвертировать settlementsData в GeoJSON
-      console.log('=== Settlements GeoJSON Debug ===')
-      console.log('settlementsData length:', this.settlementsData?.length || 0)
-      console.log('settlementsData sample:', this.settlementsData?.slice(0, 2))
-
       const result = this.convertToGeoJsonForMap(this.settlementsData)
-      console.log('converted GeoJSON features:', result?.features?.length || 0)
-      console.log('converted GeoJSON:', result)
-
       return result
     },
 
     // Синхронизированные computed properties для MapView (только когда данные загружены)
     syncedSettlementsForMap() {
-      // Не возвращаем данные для карты пока не загружены цвета подтипов
-      if (!this.settlementsData || this.settlementsData.length === 0 || Object.keys(this.estateTypeColors).length === 0) {
-        return []
-      }
-      return this.settlementsForMap
+      return this.settlementsData && this.settlementsData.length > 0 ? this.settlementsForMap : []
     },
 
     syncedSettlementsGeoJson() {

@@ -350,9 +350,12 @@ export default {
       this.mapInstance.on('moveend', () => {
         const view = this.mapInstance.getView()
         const center = transform(view.getCenter(), 'EPSG:3857', 'EPSG:4326')
+        const currentZoom = view.getZoom()
+        console.log(`OpenLayers zoom: ${currentZoom}, center: [${center[1].toFixed(4)}, ${center[0].toFixed(4)}]`)
+
         this.$emit('view-change', {
           center: { lat: center[1], lng: center[0] },
-          zoom: view.getZoom()
+          zoom: currentZoom
         })
       })
     },
