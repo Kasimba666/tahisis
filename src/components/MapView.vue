@@ -31,6 +31,77 @@
 
     <map-legend :estate-types-legend="estateTypesLegend" :force-expanded="isFullscreen" />
 
+    <!-- Острой visible панель управления для fullscreen режима -->
+    <div v-if="isFullscreen" class="fullscreen-controls">
+      <div class="fullscreen-controls-inner">
+        <!-- Заголовок панели -->
+        <div class="controls-header">
+          <el-icon><Setting /></el-icon>
+          <span>Управление картой</span>
+        </div>
+
+        <!-- Секция 1: Выбор типа карты -->
+        <div class="control-section">
+          <div class="section-title">
+            <el-icon><MapLocation /></el-icon>
+            <span>Тип карты</span>
+          </div>
+          <el-radio-group v-model="mapProvider" size="small" class="map-provider-selector">
+            <el-radio-button label="openlayers">OpenLayers</el-radio-button>
+            <el-radio-button label="leaflet">Leaflet</el-radio-button>
+          </el-radio-group>
+        </div>
+
+        <!-- Секция 2: Имена населенных пунктов -->
+        <div class="control-section">
+          <div class="section-title">
+            <el-icon><Document /></el-icon>
+            <span>Названия поселений</span>
+          </div>
+          <div class="settlement-names-control">
+            <label class="control-label">Показывать:</label>
+            <el-select
+              v-model="settlementNameMode"
+              size="small"
+              style="width: 140px;"
+              placeholder="Выберите режим"
+            >
+              <el-option label="Не показывать" value="none" />
+              <el-option label="Старые названия" value="old" />
+              <el-option label="Современные названия" value="modern" />
+            </el-select>
+          </div>
+        </div>
+
+        <!-- Секция 3: Векторные слои -->
+        <div v-if="vectorLayers.length > 0" class="control-section">
+          <div class="section-title">
+            <el-icon><Management /></el-icon>
+            <span>Векторные слои</span>
+            <el-tag size="small" type="info">{{ visibleLayersCount }}/{{ vectorLayers.length }}</el-tag>
+          </div>
+          <div class="layers-container">
+            <vector-layers-control
+              :vector-layers="vectorLayers"
+              @layer-visibility-changed="handleLayerVisibilityChange"
+            />
+          </div>
+        </div>
+
+        <!-- Секция 4: Краткая информация -->
+        <div class="control-section info-section">
+          <div class="info-item">
+            <el-icon><Aim /></el-icon>
+            <span>{{ settlementsCount }} поселений</span>
+          </div>
+          <div class="info-item">
+            <el-icon><CircleClose /></el-icon>
+            <span>{{ estateTypesCount }} типов сословий</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="map-container" :class="{ hidden: mapProvider !== 'leaflet' }">
       <LeafletMap
         ref="leafletMap"
@@ -69,6 +140,14 @@ import LeafletMap from './maps/LeafletMap.vue'
 import OpenLayersMap from './maps/OpenLayersMap.vue'
 import VectorLayersControl from './VectorLayersControl.vue'
 import { vectorLayerService } from '@/services/vectorLayers.js'
+import {
+  Setting,
+  MapLocation,
+  Document,
+  Management,
+  Aim,
+  CircleClose
+} from '@element-plus/icons-vue'
 
 export default {
   name: 'MapView',
@@ -155,6 +234,26 @@ export default {
       })
 
       return Array.from(typesMap.values()).sort((a, b) => a.name.localeCompare(b.name))
+    },
+
+    // Количество поселений
+    settlementsCount() {
+      if (this.settlements && Array.isArray(this.settlements)) {
+        return this.settlements.length
+      } else if (this.settlements && this.settlements.features) {
+        return this.settlements.features.length
+      }
+      return 0
+    },
+
+    // Количество типов сословий
+    estateTypesCount() {
+      return this.estateTypesLegend.length
+    },
+
+    // Количество видимых слоев
+    visibleLayersCount() {
+      return this.vectorLayers.filter(layer => layer.visible !== false).length
     }
   },
   mounted() {
@@ -333,6 +432,280 @@ export default {
 
     &.hidden {
       display: none;
+    }
+  }
+
+  // Панель управления для fullscreen режима
+  .fullscreen-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 1100; // Выше чем карта, ниже чем элементы карты
+
+    .fullscreen-controls-inner {
+      background-color: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(12px);
+      border: 2px solid var(--accent-primary);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 240px;
+      max-width: 320px;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.2),
+        0 2px 8px rgba(0, 0, 0, 0.1);
+
+      // Анимация появления/исчезновения
+      transition: all 0.4s ease-out;
+      opacity: 0;
+      transform: translateY(-15px) scale(0.95);
+
+      // Заголовок панели
+      .controls-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+        border-bottom: 2px solid var(--accent-primary);
+
+        .el-icon {
+          font-size: 18px;
+          color: var(--accent-primary);
+        }
+
+        span {
+          font-weight: 700;
+          font-size: 14px;
+          color: var(--text-primary);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+      }
+
+      // Секции управления
+      .control-section {
+        padding: 8px;
+        background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+
+        .section-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 8px;
+          gap: 8px;
+
+          .el-icon {
+            font-size: 16px;
+            color: var(--accent-primary);
+            flex-shrink: 0;
+          }
+
+          span {
+            font-weight: 600;
+            font-size: 13px;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            flex: 1;
+          }
+
+          .el-tag {
+            font-size: 10px;
+            flex-shrink: 0;
+          }
+        }
+
+        // Стили для секции слоев
+        &.layers-container {
+          max-height: 150px;
+          overflow-y: auto;
+
+          &::-webkit-scrollbar {
+            width: 6px;
+          }
+
+          &::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+          }
+
+          &::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 3px;
+
+            &:hover {
+              background: var(--accent-secondary);
+            }
+          }
+        }
+      }
+
+      // Специальный стиль для селектора карт
+      .map-provider-selector {
+        width: 100%;
+
+        :deep(.el-radio-group) {
+          display: flex;
+          width: 100%;
+
+          .el-radio-button {
+            flex: 1;
+
+            &:first-child {
+              border-radius: 6px 0 0 6px;
+            }
+
+            &:last-child {
+              border-radius: 0 6px 6px 0;
+            }
+
+            .el-radio-button__inner {
+              border: none;
+              background: var(--bg-tertiary);
+              color: var(--text-secondary);
+              font-weight: 600;
+              font-size: 12px;
+              padding: 8px 12px;
+              width: 100%;
+              text-align: center;
+              transition: all 0.2s ease;
+
+              &:hover {
+                background: var(--accent-primary);
+                color: white;
+              }
+
+              &.is-active {
+                background: var(--accent-primary);
+                color: white;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+              }
+            }
+          }
+        }
+      }
+
+      // Секция информации
+      .info-section {
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+        border-color: var(--accent-primary);
+        color: white;
+
+        .info-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 0;
+          font-size: 12px;
+
+          .el-icon {
+            font-size: 14px;
+            opacity: 0.9;
+          }
+
+          span {
+            font-weight: 500;
+            color: inherit;
+          }
+
+          &:not(:last-child) {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            margin-bottom: 4px;
+          }
+        }
+      }
+
+      // Размещение элементов управления
+      .settlement-names-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: space-between;
+
+        .control-label {
+          color: var(--text-secondary);
+          font-weight: 600;
+          font-size: 12px;
+          white-space: nowrap;
+          margin: 0;
+          min-width: fit-content;
+        }
+
+        :deep(.el-select) {
+          flex: 1;
+          min-width: 120px;
+        }
+      }
+
+      // Масштабирование кнопок для fullscreen
+      :deep(.el-radio-group) {
+        font-size: 12px;
+
+        .el-radio-button__inner {
+          font-size: 12px;
+          padding: 6px 12px;
+        }
+      }
+
+      // Векторные слои контроль в fullscreen
+      :deep(.vector-layers-control) {
+        background-color: transparent;
+
+        .layer-item {
+          font-size: 12px;
+          padding: 6px 8px;
+          margin: 2px 0;
+          background: var(--bg-primary);
+          border-radius: 4px;
+          border: 1px solid transparent;
+
+          &:hover {
+            background: rgba(var(--accent-primary-rgb, 0.1), 0.8);
+            border-color: var(--accent-primary);
+          }
+
+          .layer-toggle {
+            font-size: 11px;
+            font-weight: 600;
+          }
+
+          .layer-name {
+            font-weight: 500;
+          }
+        }
+      }
+    }
+
+    // Анимационные состояния
+    &.v-enter-active,
+    &.v-leave-active {
+      transition: all 0.4s ease-out;
+    }
+
+    &.v-enter-from,
+    &.v-leave-to {
+      opacity: 0;
+      transform: translateY(-15px) scale(0.95);
+    }
+
+    &.v-enter-to,
+    &.v-leave-from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  // Убедимся что fullscreen панель всегда видна
+  :deep(.leaflet-container:has(.leaflet-fullscreen-button)) ~ .fullscreen-controls,
+  :deep(.ol-viewport:has(.ol-fullscreen)) ~ .fullscreen-controls {
+    .fullscreen-controls-inner {
+      opacity: 1 !important;
+      transform: translateY(0) !important;
     }
   }
 }
