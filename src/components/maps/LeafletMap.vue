@@ -125,14 +125,14 @@ export default {
         })
       })
 
-      // События для управления tooltip анимациями
-
       // Обновляем позицию маркеров при изменении проекции карты
       this.mapInstance.on('viewreset', () => {
         console.log('Leaflet viewreset - invalidating size')
         this.mapInstance.invalidateSize()
         // Не пересоздаём маркеры, только корректируем позицию
       })
+
+
 
       // Обновляем маркеры только при изменении данных, не при каждом zoom/move
       // Это предотвращает проблемы с позиционированием
@@ -216,10 +216,10 @@ export default {
             offset: [0, -9],
             opacity: 0.95,
             className: 'custom-tooltip',
-            permanent: false
+            permanent: this.settlementNameMode !== 'none'  // Постоянные только если выбран режим отображения названий
           })
 
-          // Если settlementNameMode !== 'none', открываем tooltip сразу для постоянного отображения
+          // Для постоянных tooltip открываем сразу
           if (this.settlementNameMode !== 'none') {
             marker.openTooltip()
           }
