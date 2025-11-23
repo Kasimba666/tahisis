@@ -11,6 +11,22 @@
         :vector-layers="vectorLayers"
         @layer-visibility-changed="handleLayerVisibilityChange"
       />
+
+      <!-- Контрол для выбора режима отображения названий населённых пунктов -->
+      <div style="display: flex; flex-direction: row; align-items: center; gap: 8px;">
+        <label style="font-size: 12px; color: var(--text-secondary); margin: 0; padding: 0; font-weight: 500; white-space: nowrap;">
+          Показывать наименования населённых пунктов:
+        </label>
+        <el-select
+          v-model="settlementNameMode"
+          size="small"
+          style="width: 180px;"
+        >
+          <el-option label="Нет" value="none" />
+          <el-option label="Старые" value="old" />
+          <el-option label="Современные" value="modern" />
+        </el-select>
+      </div>
     </div>
 
     <map-legend :estate-types-legend="estateTypesLegend" :force-expanded="isFullscreen" />
@@ -23,6 +39,7 @@
         :initial-center="effectiveCenter"
         :initial-zoom="effectiveZoom"
         :marker="marker"
+        :settlement-name-mode="settlementNameMode"
         :is-active="mapProvider === 'leaflet'"
         @view-change="onLeafletViewChange"
         @fullscreen-change="onFullscreenChange"
@@ -37,6 +54,7 @@
         :initial-center="effectiveCenterOL"
         :initial-zoom="effectiveZoom"
         :marker="marker"
+        :settlement-name-mode="settlementNameMode"
         :is-active="mapProvider === 'openlayers'"
         @view-change="onOLViewChange"
         @fullscreen-change="onFullscreenChange"
@@ -85,6 +103,7 @@ export default {
   data() {
     return {
       mapProvider: 'leaflet',
+      settlementNameMode: 'none',
       vectorLayers: [],
       isSyncing: false,
       isFullscreen: false
@@ -274,6 +293,10 @@ export default {
           }
         }, 100)
       })
+    },
+
+    settlementNameMode(newVal) {
+      this.$emit('update:settlement-name-mode', newVal)
     }
   }
 }

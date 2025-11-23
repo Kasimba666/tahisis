@@ -32,6 +32,10 @@ export default {
       type: Object,
       default: null
     },
+    settlementNameMode: {
+      type: String,
+      default: 'none'
+    },
     isActive: {
       type: Boolean,
       default: true
@@ -192,6 +196,14 @@ export default {
             iconAnchor: [14, 14]
           })
 
+          // Определяем название для отображения в зависимости от режима
+          let displayName = ''
+          if (this.settlementNameMode === 'old') {
+            displayName = settlement.name || settlement.nameModern || ''
+          } else if (this.settlementNameMode === 'modern') {
+            displayName = settlement.nameModern || settlement.name || ''
+          }
+
           // Используем простой popup если нет district (данные из SubtypeEstateDetails)
           const popupContent = !settlement.district
             ? generateSimpleSettlementPopup(settlement)
@@ -201,20 +213,24 @@ export default {
             icon: customIcon,
             zIndexOffset: 1000  // Маркеры населённых пунктов всегда поверх векторных слоёв
           })
-            .bindTooltip(`
+
+          // Добавляем tooltip только если settlementNameMode !== 'none'
+          if (this.settlementNameMode !== 'none') {
+            marker.bindTooltip(`
               <div class="settlement-tooltip">
-                <div class="tooltip-name">${settlement.name}</div>
-                <div class="tooltip-district">${settlement.district || '—'}</div>
+                <div class="tooltip-name">${displayName}</div>
               </div>
             `, {
               direction: 'top',
               offset: [0, -18],
               opacity: 0.95,
               className: 'custom-tooltip',
-              permanent: false
+              permanent: true
             })
-            .bindPopup(popupContent)
-            .addTo(this.mapInstance)
+          }
+
+          marker.bindPopup(popupContent)
+          marker.addTo(this.mapInstance)
 
           // Добавляем обработчик для кнопки "Детали" программно (только для полного popup)
           if (settlement.district) {
@@ -533,6 +549,11 @@ export default {
       },
       deep: true
     },
+    settlementNameMode: {
+      handler() {
+        this.updateMarkers()
+      }
+    },
     vectorLayers: {
       handler(newLayers, oldLayers) {
         // Перезагружаем слои при изменении данных
@@ -634,27 +655,20 @@ export default {
   border: none;
   font-size: 12px;
   pointer-events: none;
+  font-weight: normal;
 
   .tooltip-name {
-    font-weight: 700;
-    color: var(--text-primary);
+    font-weight: normal;
+    color: black;
     margin-bottom: 1px;
-    text-shadow:
-      -1px -1px 0 var(--bg-primary),
-      1px -1px 0 var(--bg-primary),
-      -1px 1px 0 var(--bg-primary),
-      1px 1px 0 var(--bg-primary);
+    text-shadow: none;
   }
 
   .tooltip-district {
     font-size: 11px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-shadow:
-      -1px -1px 0 var(--bg-primary),
-      1px -1px 0 var(--bg-primary),
-      -1px 1px 0 var(--bg-primary),
-      1px 1px 0 var(--bg-primary);
+    font-weight: normal;
+    color: black;
+    text-shadow: none;
   }
 }
 

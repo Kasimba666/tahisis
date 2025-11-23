@@ -109,7 +109,13 @@
       </div>
 
       <div v-if="viewMode === 'map' || viewMode === 'split'" class="map-section">
-        <MapView ref="mapView" :settlements="syncedSettlementsForMap" :geoJsonData="syncedSettlementsGeoJson" />
+        <MapView
+          ref="mapView"
+          :settlements="syncedSettlementsForMap"
+          :geoJsonData="syncedSettlementsGeoJson"
+          :settlement-name-mode="settlementNameMode"
+          @update:settlement-name-mode="settlementNameMode = $event"
+        />
       </div>
 
       <div v-if="viewMode === 'geojson'" class="geojson-section">
@@ -344,6 +350,7 @@ export default {
     return {
       dataMode: 'settlement',
       viewMode: pageState.viewMode.get() || 'list',
+      settlementNameMode: 'none',
       settlementsData: [],
       allSettlements: [],
       allRevisions: [],
