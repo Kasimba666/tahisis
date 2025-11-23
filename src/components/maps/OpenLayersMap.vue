@@ -1122,7 +1122,7 @@ export default {
   pointer-events: none;
   font-size: 12px;
   font-weight: normal;
-  z-index: 1000;
+  z-index: 2000;
 
   .settlement-label-content {
     text-align: center;
