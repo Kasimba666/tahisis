@@ -1977,7 +1977,7 @@ export default {
     }
 
     &.split {
-      flex-direction: row-reverse;
+      flex-direction: row;
 
       .list-section {
         flex: 1;
@@ -1988,8 +1988,8 @@ export default {
         border: 1px solid var(--border-color);
         border-radius: 8px;
         background-color: var(--bg-secondary);
-        margin-left: 0.5rem;
-        margin-right: 0;
+        margin-right: 0.5rem;
+        margin-left: 0;
       }
       .map-section {
         flex: 1;
@@ -2002,8 +2002,8 @@ export default {
         border-radius: 8px;
         background-color: var(--bg-secondary);
         overflow: hidden;
-        margin-right: 0.5rem;
-        margin-left: 0;
+        margin-left: 0.5rem;
+        margin-right: 0;
       }
     }
 
