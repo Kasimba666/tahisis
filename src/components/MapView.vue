@@ -196,12 +196,13 @@ export default {
 
     onLeafletViewChange(view) {
       if (this.isSyncing) return
+      console.log(`🔄 SYNC Leaflet -> OpenLayers: center [${view.center.lat.toFixed(4)}, ${view.center.lng.toFixed(4)}], zoom ${view.zoom}`)
       this.isSyncing = true
-      
+
       if (this.$refs.olMap && view.center && view.zoom) {
         this.$refs.olMap.syncView(view.center, view.zoom)
       }
-      
+
       setTimeout(() => {
         this.isSyncing = false
       }, 100)
@@ -209,12 +210,13 @@ export default {
 
     onOLViewChange(view) {
       if (this.isSyncing) return
+      console.log(`🔄 SYNC OpenLayers -> Leaflet: center [${view.center.lat.toFixed(4)}, ${view.center.lng.toFixed(4)}], zoom ${view.zoom}`)
       this.isSyncing = true
-      
+
       if (this.$refs.leafletMap && view.center && view.zoom) {
         this.$refs.leafletMap.syncView(view.center, view.zoom)
       }
-      
+
       setTimeout(() => {
         this.isSyncing = false
       }, 100)

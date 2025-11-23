@@ -132,6 +132,31 @@ export default {
         // Не пересоздаём маркеры, только корректируем позицию
       })
 
+      // Обрабатываем анимацию зума для предотвращения ошибок с tooltip'ами
+      this.mapInstance.on('zoomstart', () => {
+        console.log('Leaflet zoomstart - closing all tooltips to prevent animation errors')
+        this.mapInstance.eachLayer((layer) => {
+          if (layer instanceof L.Marker && layer.getTooltip()) {
+            // Временно закрываем tooltip чтобы избежать анимационных ошибок
+            layer.closeTooltip()
+          }
+        })
+      })
+
+      this.mapInstance.on('zoomend', () => {
+        console.log('Leaflet zoomend - restoring tooltips and updating marker sizes')
+        // При изменении зума обновляем размеры маркеров
+        this.updateMarkerSizes()
+        setTimeout(() => {
+          this.mapInstance.eachLayer((layer) => {
+            if (layer instanceof L.Marker && layer.getTooltip() && this.settlementNameMode !== 'none') {
+              // Восстанавливаем tooltip через небольшой таймаут
+              layer.openTooltip()
+            }
+          })
+        }, 50)
+      })
+
 
 
       // Обновляем маркеры только при изменении данных, не при каждом zoom/move
@@ -149,7 +174,14 @@ export default {
     },
 
     updateMarkers() {
-      if (!this.mapInstance) return
+      console.log('=== LeafletMap updateMarkers ===')
+      console.log('this.mapInstance exists:', !!this.mapInstance)
+      console.log('this.settlements:', this.settlements)
+
+      if (!this.mapInstance) {
+        console.log('No mapInstance, returning')
+        return
+      }
 
       const { createConcentricCirclesMarker, generateSettlementPopup, generateSimpleSettlementPopup } = useMapMarkers()
 
@@ -179,13 +211,16 @@ export default {
 
           if (isNaN(lat) || isNaN(lon)) return
 
-          const markerElement = createConcentricCirclesMarker(settlement.estateTypes || [])
+          // Рассчитываем размер маркера с учётом масштаба карты и населения
+          const currentZoom = this.mapInstance ? this.mapInstance.getZoom() : 8
+          const markerSize = this.calculateMarkerSize(settlement.estateTypes || [], currentZoom)
+          const markerElement = createConcentricCirclesMarker(settlement.estateTypes || [], markerSize)
 
           const customIcon = L.divIcon({
             className: 'custom-marker',
             html: markerElement,
-            iconSize: [28, 28],
-            iconAnchor: [14, 14]
+            iconSize: [markerSize.iconSize, markerSize.iconSize],
+            iconAnchor: [markerSize.iconAnchor, markerSize.iconAnchor]
           })
 
           // Определяем название для отображения в зависимости от режима
@@ -213,7 +248,7 @@ export default {
             </div>
           `, {
             direction: 'top',
-            offset: [0, -9],
+            offset: [0, -Math.floor(markerSize.iconSize / 2)],
             opacity: 0.95,
             className: 'custom-tooltip',
             permanent: this.settlementNameMode !== 'none'  // Постоянные только если выбран режим отображения названий
@@ -226,6 +261,10 @@ export default {
 
           marker.bindPopup(popupContent)
           marker.addTo(this.mapInstance)
+
+          // Сохраняем данные о маркере для пересоздания при зуме
+          marker._settlementData = settlement
+          marker._markerSize = markerSize
 
           // Добавляем обработчик для кнопки "Детали" программно (только для полного popup)
           if (settlement.district) {
@@ -529,6 +568,96 @@ export default {
         }
       }
       return null
+    },
+
+    calculateMarkerSize(estateTypes, currentZoom) {
+      const totalPopulation = estateTypes.reduce((sum, type) => sum + (type.population || 0), 0)
+
+      // Базовые размеры аналогично OpenLayers
+      let minRadius = 2.5
+      let maxRadius = 12
+
+      // Масштабируем размер в зависимости от зума карты
+      const zoomFactor = Math.max(0.5, Math.min(2.0, currentZoom / 10.0))
+
+      // Применяем factor к базовым размерам
+      minRadius *= zoomFactor
+      maxRadius *= zoomFactor
+
+      const normalizedPopulation = Math.min(Math.max(totalPopulation - 10, 0) / 990, 1)
+      const radius = minRadius + (maxRadius - minRadius) * normalizedPopulation
+
+      // Рассчитываем размер маркера
+      const iconSize = Math.max(20, Math.round(radius * 2.5))
+      const iconAnchor = Math.round(iconSize / 2)
+
+      const scaleFactor = Math.max(0.5, currentZoom / 8.0) // Масштабируем от 50% при zoom=4 до 200% при zoom=16
+
+      return {
+        radius: Math.round(radius),
+        iconSize: Math.round(iconSize * scaleFactor),
+        iconAnchor: Math.round(iconAnchor * scaleFactor),
+        scaleFactor: scaleFactor
+      }
+    },
+
+    updateMarkerSizes() {
+      console.log('=== LeafletMap updateMarkerSizes ===')
+
+      if (!this.mapInstance || this.markers.length === 0) return
+
+      const { createConcentricCirclesMarker } = useMapMarkers()
+      const currentZoom = this.mapInstance.getZoom()
+
+      this.markers.forEach(marker => {
+        if (marker._settlementData && marker instanceof L.Marker) {
+          // Пересчитываем размер маркера
+          const newMarkerSize = this.calculateMarkerSize(marker._settlementData.estateTypes || [], currentZoom)
+
+          // Проверяем, изменился ли размер
+          if (JSON.stringify(newMarkerSize) !== JSON.stringify(marker._markerSize)) {
+            // Создаём новый элемент маркера с новым размером
+            const markerElement = createConcentricCirclesMarker(marker._settlementData.estateTypes || [], newMarkerSize)
+
+            // Создаём новую иконку
+            const newCustomIcon = L.divIcon({
+              className: 'custom-marker',
+              html: markerElement,
+              iconSize: [newMarkerSize.iconSize, newMarkerSize.iconSize],
+              iconAnchor: [newMarkerSize.iconAnchor, newMarkerSize.iconAnchor]
+            })
+
+            // Обновляем иконку маркера
+            marker.setIcon(newCustomIcon)
+
+            // Обновляем сохранённые данные
+            marker._markerSize = newMarkerSize
+
+            // Обновляем позицию tooltip'а
+            if (marker.getTooltip()) {
+              marker.unbindTooltip()
+              marker.bindTooltip(`
+                <div class="settlement-tooltip">
+                  <div class="tooltip-name">${marker._settlementData.name || marker._settlementData.nameModern || ''}</div>
+                </div>
+              `, {
+                direction: 'top',
+                offset: [0, -Math.floor(newMarkerSize.iconSize / 2)],
+                opacity: 0.95,
+                className: 'custom-tooltip',
+                permanent: this.settlementNameMode !== 'none'
+              })
+
+              // Повторно открываем tooltip если нужно
+              if (this.settlementNameMode !== 'none') {
+                setTimeout(() => marker.openTooltip(), 10)
+              }
+            }
+          }
+        }
+      })
+
+      console.log(`Updated marker sizes for ${this.markers.length} markers at zoom ${currentZoom}`)
     }
   },
   watch: {
@@ -645,18 +774,20 @@ export default {
 }
 
 :deep(.settlement-tooltip) {
-  padding: 2px 4px;
+  position: absolute;
+  padding: 0;
   background: transparent;
   border: none;
-  font-size: 12px;
   pointer-events: none;
+  font-size: 12px;
   font-weight: normal;
+  z-index: 2000;
 
   .tooltip-name {
     font-weight: normal;
     color: var(--text-primary);
-    margin-bottom: 1px;
     text-shadow: none;
+    margin: 0;
   }
 
   .tooltip-district {

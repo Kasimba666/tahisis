@@ -368,6 +368,7 @@ export default {
     updateMarkers() {
       console.log('=== OpenLayers updateMarkers ===')
       console.log('vectorLayer exists:', !!this.vectorLayer)
+      console.log('this.settlements:', this.settlements)
 
       if (!this.vectorLayer) {
         console.warn('No vectorLayer in updateMarkers')

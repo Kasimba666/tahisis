@@ -392,17 +392,25 @@ export default {
 
     // Преобразование данных для MapView компонента
     settlementsForMap() {
-      // Не возвращаем данные если справочники не загружены
-      if (!this.allSubtypeEstates || this.allSubtypeEstates.length === 0 || Object.keys(this.estateTypeColors).length === 0) {
+      console.log('=== settlementsForMap: Processing data ===')
+      console.log('settlementsData length:', this.settlementsData?.length || 0)
+      console.log('allSubtypeEstates loaded:', this.allSubtypeEstates?.length || 0)
+      console.log('estateTypeColors loaded:', Object.keys(this.estateTypeColors).length)
+
+      if (!this.settlementsData || this.settlementsData.length === 0) {
         return []
       }
 
       const mapped = this.settlementsData.map(settlement => {
-        // Получаем все типы сословий с населением
-        const estateTypes = this.getEstateTypesByPopulation(settlement)
+        // Получаем все типы сословий с населением (если справочники загружены)
+        const estateTypes = (this.allSubtypeEstates && this.allSubtypeEstates.length > 0)
+          ? this.getEstateTypesByPopulation(settlement)
+          : []
 
-        // Собираем уникальные религии из estates
-        const religions = this.getUniqueReligions(settlement)
+        // Собираем уникальные религии из estates (если данные есть)
+        const religions = (settlement.estates && settlement.estates.length > 0)
+          ? this.getUniqueReligions(settlement)
+          : []
 
         return {
           lat: settlement.lat,
@@ -418,7 +426,11 @@ export default {
           estates: settlement.estates || [] // детальные данные по сословиям
         }
       })
+
       const filtered = mapped.filter(s => s.lat && s.lon) // Только с координатами
+      console.log('Mapped settlements with coordinates:', filtered.length)
+      console.log('Sample settlement:', filtered[0])
+
       return filtered
     },
 
@@ -495,8 +507,14 @@ export default {
       if (hasFilters) {
         console.log('=== APPLYING FILTERS ===')
         this.applyFilters(this.filters)
+      } else {
+        console.log('=== LOADING DEFAULT DATA FOR MAP TEST ===')
+        // Загружаем немного данных по умолчанию для тестирования карт
+        this.currentFilters = {
+          revision: [6] // рев. №6 по умолчанию
+        }
+        this.loadData()
       }
-      // Не загружаем данные автоматически, ждем применения фильтров
     } catch (error) {
       console.error('Error in mounted:', error)
     }
@@ -1874,7 +1892,16 @@ export default {
     settlementsData: {
       handler() {
         if (this.viewMode === 'map' || this.viewMode === 'split') {
-          this.updateMapMarkers()
+          console.log('=== SettlementsListAndMap settlementsData changed ===')
+          console.log('Current settlementsData length:', this.settlementsData?.length || 0)
+          console.log('Current settlementsForMap length:', this.settlementsForMap?.length || 0)
+          console.log('estateTypeColors keys:', Object.keys(this.estateTypeColors))
+
+          // Используем nextTick чтобы дать время на пересчет computed свойств
+          this.$nextTick(() => {
+            console.log('After nextTick - settlementsForMap length:', this.settlementsForMap?.length || 0)
+            this.updateMapMarkers()
+          })
         }
       },
       deep: true

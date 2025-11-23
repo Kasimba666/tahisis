@@ -1,24 +1,31 @@
 // Composable для работы с маркерами карты
 export function useMapMarkers() {
   // Создание маркера в виде концентрических кругов для Leaflet
-  const createConcentricCirclesMarker = (estateTypes) => {
+  const createConcentricCirclesMarker = (estateTypes, markerSize) => {
+    const svgSize = 30 // Фиксированный размер SVG
+    const center = svgSize / 2
+
     if (!estateTypes || estateTypes.length === 0) {
-      return '<div class="pie-marker"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7" fill="transparent" stroke="hsl(0, 0%, 60%)" stroke-width="3"/></svg></div>'
+      // Маркер по умолчанию с учётом масштаба
+      const defaultRadius = 7
+      const defaultStrokeWidth = Math.max(1, 3 * (markerSize?.scaleFactor || 1))
+      const scaledRadius = defaultRadius * (markerSize?.scaleFactor || 1)
+      const scaledSize = svgSize * (markerSize?.scaleFactor || 1)
+
+      return `<div class="pie-marker"><svg width="${scaledSize}" height="${scaledSize}" viewBox="0 0 ${svgSize} ${svgSize}"><circle cx="${center}" cy="${center}" r="${scaledRadius}" fill="transparent" stroke="hsl(0, 0%, 60%)" stroke-width="${defaultStrokeWidth}"/></svg></div>`
     }
 
-    const totalPopulation = estateTypes.reduce((sum, type) => sum + type.population, 0)
-    
-    const minRadius = 2.5
-    const maxRadius = 12
-    const minPopulation = 10
-    const maxPopulation = 1000
-    
-    const normalizedPopulation = Math.min(Math.max(totalPopulation - minPopulation, 0) / (maxPopulation - minPopulation), 1)
-    const radius = minRadius + (maxRadius - minRadius) * normalizedPopulation
-    
-    const strokeWidth = 3
-    const svgSize = (maxRadius + strokeWidth) * 2
-    const center = svgSize / 2
+    // Используем переданный radius или рассчитываем
+    const radius = markerSize?.radius || (() => {
+      const totalPopulation = estateTypes.reduce((sum, type) => sum + (type.population || 0), 0)
+      const minRadius = 2.5
+      const maxRadius = 12
+      const normalizedPopulation = Math.min(Math.max(totalPopulation - 10, 0) / 990, 1)
+      return minRadius + (maxRadius - minRadius) * normalizedPopulation
+    })()
+
+    const strokeWidth = Math.max(1, 3 * (markerSize?.scaleFactor || 1))
+    const scaledRadius = radius * (markerSize?.scaleFactor || 1)
 
     if (estateTypes.length === 1) {
       return `<div class="pie-marker"><svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}"><circle cx="${center}" cy="${center}" r="${radius}" fill="transparent" stroke="${estateTypes[0].color}" stroke-width="${strokeWidth}"/></svg></div>`
