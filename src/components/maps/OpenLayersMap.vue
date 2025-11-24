@@ -8,6 +8,7 @@ import TileLayer from 'ol/layer/Tile'
 import OSM from 'ol/source/OSM'
 import VectorLayer from 'ol/layer/Vector'
 import VectorSource from 'ol/source/Vector'
+import Heatmap from 'ol/layer/Heatmap'
 import Feature from 'ol/Feature'
 import Point from 'ol/geom/Point'
 import Polygon from 'ol/geom/Polygon'
@@ -51,6 +52,10 @@ export default {
       type: String,
       default: 'none'
     },
+    settlementSubtypeColors: {
+      type: Object,
+      default: () => ({})
+    },
     isActive: {
       type: Boolean,
       default: true
@@ -65,7 +70,8 @@ export default {
       tooltipOverlay: null,
       currentHighlightLayer: null,
       singleMarkerLayer: null,
-      settlementLabelOverlays: []
+      settlementLabelOverlays: [],
+      heatmapLayer: null
     }
   },
   mounted() {
@@ -368,10 +374,27 @@ export default {
     updateMarkers() {
       console.log('=== OpenLayers updateMarkers ===')
       console.log('vectorLayer exists:', !!this.vectorLayer)
-      console.log('this.settlements:', this.settlements)
+      console.log('settlements length:', this.settlements?.length || 0)
 
       if (!this.vectorLayer) {
         console.warn('No vectorLayer in updateMarkers')
+        return
+      }
+
+      // ЗАДЕРЖКА: Ждем полной загрузки данных субтипов сословий с цветами
+      // Это критично для правильного окрашивания маркеров
+      if (!this.settlementSubtypeColors || Object.keys(this.settlementSubtypeColors).length === 0) {
+        console.log('Waiting for settlement subtype colors to load...')
+        // Попробуем еще раз через небольшую задержку
+        setTimeout(() => {
+          if (!this.settlementSubtypeColors || Object.keys(this.settlementSubtypeColors).length === 0) {
+            console.log('Still waiting for subtype colors...')
+            // Если данные все равно не загружены, создадим маркеры с default стилями
+            this.createMarkersWithDefaultStyle()
+          } else {
+            this.updateMarkers()
+          }
+        }, 100)
         return
       }
 
@@ -446,6 +469,74 @@ export default {
       console.log('Total features in source:', source.getFeatures().length)
     },
 
+    createMarkersWithDefaultStyle() {
+      console.log('=== createMarkersWithDefaultStyle: Using gray default style ===')
+
+      if (!this.vectorLayer) return
+
+      const source = this.vectorLayer.getSource()
+      source.clear()
+
+      // Очищаем старые settlement labels
+      this.clearSettlementLabels()
+
+      // Создаем маркеры с серым цветом по умолчанию
+      let settlementsArray = []
+      if (this.settlements && this.settlements.type === 'FeatureCollection') {
+        this.settlements.features.forEach(feature => {
+          const settlement = {
+            ...feature.properties,
+            lat: feature.geometry.coordinates[1],
+            lon: feature.geometry.coordinates[0]
+          }
+          settlementsArray.push(settlement)
+        })
+      } else if (Array.isArray(this.settlements)) {
+        settlementsArray = this.settlements
+      }
+
+      let addedCount = 0
+      settlementsArray.forEach(settlement => {
+        if (settlement.lat && settlement.lon) {
+          const lat = parseFloat(settlement.lat)
+          const lon = parseFloat(settlement.lon)
+
+          if (isNaN(lat) || isNaN(lon)) return
+
+          const [x, y] = fromLonLat([lon, lat])
+
+          const feature = new Feature({
+            geometry: new Point([x, y]),
+            name: settlement.name,
+            nameModern: settlement.nameModern,
+            district: settlement.district,
+            estates: settlement.estates || []
+          })
+
+          // СЕРЫЙ стиль по умолчанию
+          const defaultStyle = new Style({
+            image: new Circle({
+              radius: 8,
+              fill: new Fill({ color: 'transparent' }),
+              stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 3 })
+            })
+          })
+
+          feature.setStyle(defaultStyle)
+          source.addFeature(feature)
+
+          // Создаем текстовую label если включено
+          if (this.settlementNameMode !== 'none') {
+            this.createSettlementTextLabel(settlement, [x, y])
+          }
+
+          addedCount++
+        }
+      })
+
+      console.log('Created default markers count:', addedCount)
+    },
+
     updateSingleMarker() {
       if (!this.mapInstance) return
 
@@ -507,18 +598,37 @@ export default {
         })
       }
 
-      const totalPopulation = estateTypes.reduce((sum, type) => sum + type.population, 0)
+      // Проверяем что у каждого типа есть цвет из settlementSubtypeColors
+      const estateTypesWithValidColors = estateTypes.filter(type => {
+        if (!type.id) return false
+        return this.settlementSubtypeColors[type.id] !== undefined
+      })
+
+      // Если нет типов с валидными цветами, создаем серый маркер
+      if (estateTypesWithValidColors.length === 0) {
+        console.warn('No valid colors found for settlement estate types:', estateTypes)
+        return new Style({
+          image: new Circle({
+            radius: 8,
+            fill: new Fill({ color: 'transparent' }),
+            stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 3 })
+          })
+        })
+      }
+
+      const totalPopulation = estateTypesWithValidColors.reduce((sum, type) => sum + type.population, 0)
       const minRadius = 2.5
       const maxRadius = 12
       const normalizedPopulation = Math.min(Math.max(totalPopulation - 10, 0) / 990, 1)
       const radius = minRadius + (maxRadius - minRadius) * normalizedPopulation
 
-      if (estateTypes.length === 1) {
+      if (estateTypesWithValidColors.length === 1) {
+        const color = this.settlementSubtypeColors[estateTypesWithValidColors[0].id] || 'hsl(0, 0%, 60%)'
         return new Style({
           image: new Circle({
             radius,
             fill: new Fill({ color: 'transparent' }),
-            stroke: new Stroke({ color: estateTypes[0].color, width: 3 })
+            stroke: new Stroke({ color: color, width: 3 })
           })
         })
       }
@@ -528,24 +638,25 @@ export default {
           const ctx = state.context
           const x = coordinates[0]
           const y = coordinates[1]
-          
+
           ctx.save()
           ctx.translate(x, y)
-          
-          const segmentAngle = (2 * Math.PI) / estateTypes.length
-          
-          estateTypes.forEach((type, index) => {
+
+          const segmentAngle = (2 * Math.PI) / estateTypesWithValidColors.length
+
+          estateTypesWithValidColors.forEach((type, index) => {
+            const color = this.settlementSubtypeColors[type.id] || 'hsl(0, 0%, 60%)'
             const startAngle = -Math.PI / 2 + (index * segmentAngle)
             const endAngle = -Math.PI / 2 + ((index + 1) * segmentAngle)
 
             ctx.beginPath()
             ctx.arc(0, 0, radius, startAngle, endAngle, false)
-            ctx.strokeStyle = type.color
+            ctx.strokeStyle = color
             ctx.lineWidth = 3
             ctx.lineCap = 'butt'
             ctx.stroke()
           })
-          
+
           ctx.restore()
         }
       })
@@ -784,18 +895,66 @@ export default {
       }
     },
 
-    toggleHeatmapLayer(visible) {
-      console.log('OpenLayersMap: toggle heatmap visibility to', visible)
+    toggleHeatmapLayer(visible, settings = null) {
+      console.log('OpenLayersMap: toggle heatmap visibility to', visible, 'settings:', settings)
 
       if (!this.mapInstance) return
 
-      // Для демонстрации просто логируем, реальная реализация тепловой карты
-      // потребует реализации на основе данных поселений
       if (visible) {
-        // Создать/показать тепловую карту поселений
-        console.log('Показать тепловую карту поселений в OpenLayers')
+        // Удаляем существующий heatmap слой если есть
+        if (this.heatmapLayer) {
+          this.mapInstance.removeLayer(this.heatmapLayer)
+        }
+
+        // Подготавливаем данные для тепловой карты
+        const heatmapFeatures = this.prepareHeatmapFeatures()
+
+        // Создаём тепловую карту с использованием ol/layer/Heatmap
+        const heatmapSource = new VectorSource({
+          features: heatmapFeatures
+        })
+
+        // Используем настройки или значения по умолчанию
+        const radius = settings?.radius || 12
+        const blur = settings?.blur || 20
+        const intensity = settings?.intensity || 1.0
+        const colorPalette = settings?.colorPalette || 'red-yellow'
+
+        console.log(`Создаём heatmap с радиусом ${radius}px, размытием ${blur}px, интенсивностью ${intensity}, палитрой ${colorPalette}`)
+
+        // Получаем градиент в зависимости от выбранной палитры
+        const gradient = this.getHeatmapGradient(colorPalette)
+
+        this.heatmapLayer = new Heatmap({
+          source: heatmapSource,
+          blur: blur,
+          radius: radius,
+          gradient: gradient,
+          zIndex: 500      // под маркерами
+        })
+
+        // Применяем интенсивность к градиенту (номерверт weight features)
+        if (intensity !== 1.0) {
+          // Модифицируем веса features для интенсивности
+          const features = heatmapSource.getFeatures()
+          features.forEach(feature => {
+            const weight = feature.get('weight')
+            if (weight) {
+              feature.set('weight', weight * intensity)
+            }
+          })
+        }
+
+        // Добавляем слой на карту
+        this.mapInstance.addLayer(this.heatmapLayer)
+
+        console.log(`Показать тепловую карту для ${heatmapFeatures.length} поселений`)
       } else {
-        // Скрыть тепловую карту
+        // Скрываем и удаляем тепловую карту
+        if (this.heatmapLayer) {
+          this.mapInstance.removeLayer(this.heatmapLayer)
+          this.heatmapLayer = null
+        }
         console.log('Скрыть тепловую карту поселений в OpenLayers')
       }
     },
@@ -833,6 +992,81 @@ export default {
         }
       }
       return null
+    },
+
+    getHeatmapGradient(palette) {
+      // Возвращает массив цветов для градиента OpenLayers heatmap в формате CSS RGBA строк
+      switch (palette) {
+        case 'red-yellow':
+          // Красно-жёлтый градиент (по умолчанию)
+          return [
+            'rgba(0, 0, 0, 0)',       // Прозрачный
+            'rgba(255, 0, 0, 0.5)',   // Красный полупрозрачный
+            'rgba(255, 255, 0, 0.8)', // Жёлтый
+            'rgba(255, 255, 0, 1)'    // Жёлтый непрозрачный
+          ]
+
+        case 'blue-green':
+          // Синий-зелёный градиент
+          return [
+            'rgba(0, 0, 0, 0)',         // Прозрачный
+            'rgba(0, 0, 255, 0.5)',     // Синий полупрозрачный
+            'rgba(0, 128, 128, 0.7)',   // Циан
+            'rgba(0, 255, 0, 0.9)',     // Зелёный
+            'rgba(128, 255, 128, 1)'    // Светло-зелёный
+          ]
+
+        case 'purple-orange':
+          // Фиолетовый-оранжевый градиент
+          return [
+            'rgba(0, 0, 0, 0)',         // Прозрачный
+            'rgba(128, 0, 128, 0.5)',   // Фиолетовый полупрозрачный
+            'rgba(204, 51, 204, 0.7)', // Светло-фиолетовый
+            'rgba(255, 128, 0, 0.9)',  // Оранжевый
+            'rgba(255, 204, 0, 1)'     // Жёлто-оранжевый
+          ]
+
+        case 'blue-red':
+          // Синий-красный градиент
+          return [
+            'rgba(0, 0, 0, 0)',           // Прозрачный
+            'rgba(0, 0, 255, 0.5)',     // Синий полупрозрачный
+            'rgba(51, 51, 255, 0.7)',  // Светло-синий
+            'rgba(204, 51, 51, 0.8)',  // Светло-красный
+            'rgba(255, 0, 0, 1)'       // Красный
+          ]
+
+        case 'green-red':
+          // Зелёный-красный градиент
+          return [
+            'rgba(0, 0, 0, 0)',         // Прозрачный
+            'rgba(0, 77, 0, 0.5)',      // Тёмно-зелёный полупрозрачный
+            'rgba(0, 255, 0, 0.7)',     // Зелёный
+            'rgba(255, 255, 0, 0.8)',   // Жёлтый
+            'rgba(255, 0, 0, 0.9)',     // Красный
+            'rgba(204, 0, 0, 1)'        // Тёмно-красный
+          ]
+
+        case 'viridis':
+          // Viridis градиент (наиболее воспринимаемый для людей с цветовыми отклонениями)
+          return [
+            'rgba(0, 0, 0, 0)',           // Прозрачный
+            'rgba(68, 1, 84, 0.5)',       // Тёмно-фиолетовый
+            'rgba(33, 145, 140, 0.7)',    // Бирюзовый
+            'rgba(107, 199, 148, 0.8)',   // Зелёный
+            'rgba(253, 192, 6, 0.9)',     // Жёлтый
+            'rgba(253, 231, 33, 1)'       // Светло-жёлтый
+          ]
+
+        default:
+          // Красно-жёлтый по умолчанию
+          return [
+            'rgba(0, 0, 0, 0)',
+            'rgba(255, 0, 0, 0.5)',
+            'rgba(255, 255, 0, 0.8)',
+            'rgba(255, 255, 0, 1)'
+          ]
+      }
     },
 
     createSettlementTextLabel(settlement, coordinates) {
@@ -886,6 +1120,100 @@ export default {
       })
 
       this.settlementLabelOverlays = []
+    },
+
+    prepareHeatmapFeatures() {
+      // Подготавливаем features для тепловой карты OpenLayers на основе количества населения
+      let settlementsArray = []
+
+      // Поддержка как массива, так и GeoJSON
+      if (this.settlements && this.settlements.type === 'FeatureCollection') {
+        // Обработка GeoJSON
+        this.settlements.features.forEach(feature => {
+          const settlement = {
+            ...feature.properties,
+            lat: feature.geometry.coordinates[1],
+            lon: feature.geometry.coordinates[0]
+          }
+          settlementsArray.push(settlement)
+        })
+      } else if (Array.isArray(this.settlements)) {
+        settlementsArray = this.settlements
+      }
+
+      // Находим максимальное население для нормализации
+      let maxPopulation = 0
+      settlementsArray.forEach(settlement => {
+        if (settlement.estateTypes && settlement.estateTypes.length > 0) {
+          const totalPop = settlement.estateTypes.reduce((sum, type) => sum + (type.population || 0), 0)
+          if (totalPop > maxPopulation) maxPopulation = totalPop
+        }
+      })
+
+      // Создаём features в формате OpenLayers для heatmap
+      const features = settlementsArray
+        .filter(settlement => settlement.lat && settlement.lon)
+        .map(settlement => {
+          const lat = parseFloat(settlement.lat)
+          const lng = parseFloat(settlement.lon)
+
+          if (isNaN(lat) || isNaN(lng)) return null
+
+          // Рассчитываем вес на основе населения (от 0.1 до 1.0)
+          let weight = 0.1 // Минимальный вес
+
+          if (settlement.estateTypes && settlement.estateTypes.length > 0) {
+            const totalPop = settlement.estateTypes.reduce((sum, type) => sum + (type.population || 0), 0)
+
+            // Нормализуем вес от 0.1 до 1.0
+            if (maxPopulation > 0) {
+              weight = Math.max(0.1, Math.min(1.0, 0.1 + (totalPop / maxPopulation) * 0.9))
+            }
+          }
+
+          // Создаём feature с Point геометрией и weight
+          const feature = new Feature({
+            geometry: new Point(fromLonLat([lng, lat])),
+            weight: weight
+          })
+
+          return feature
+        })
+        .filter(feature => feature !== null) // Убираем null значения
+
+      console.log(`Подготовлено ${features.length} features для тепловой карты OpenLayers, max популяция: ${maxPopulation}`)
+      return features
+    },
+
+    updateSettlementLabels() {
+      console.log('=== OpenLayersMap updateSettlementLabels ===')
+      console.log('settlementNameMode:', this.settlementNameMode)
+
+      // Радикально проще - пересоздаем все labels
+      this.clearSettlementLabels()
+
+      // Получаем все феатуры из vectorLayer
+      const source = this.vectorLayer.getSource()
+      const features = source.getFeatures()
+
+      features.forEach(feature => {
+        if (feature.getGeometry() && feature.getGeometry() instanceof Point) {
+          const coordinates = feature.getGeometry().getCoordinates()
+          const settlement = {
+            name: feature.get('name'),
+            nameModern: feature.get('nameModern'),
+            district: feature.get('district'),
+            volost: feature.get('volost')
+          }
+
+          // Создаем label только если settlementNameMode !== 'none'
+          if (this.settlementNameMode !== 'none') {
+            this.createSettlementTextLabel(settlement, coordinates)
+          }
+        }
+      })
+
+      console.log(`Обновлены labels для ${features.length} фич`)
     }
   },
   watch: {
@@ -901,9 +1229,23 @@ export default {
       },
       deep: true
     },
+    settlementSubtypeColors: {
+      handler(newVal, oldVal) {
+        console.log('=== OpenLayersMap settlementSubtypeColors changed ===')
+        console.log('New colors:', Object.keys(newVal).length, 'Old colors:', Object.keys(oldVal).length)
+
+        // Если цвета загрузились - пересоздаем маркеры
+        if (newVal && Object.keys(newVal).length > 0) {
+          console.log('Colors loaded, updating markers...')
+          this.updateMarkers()
+        }
+      },
+      deep: true
+    },
+
     settlementNameMode: {
       handler() {
-        this.updateMarkers()
+        this.updateSettlementLabels()
       }
     },
     vectorLayers: {

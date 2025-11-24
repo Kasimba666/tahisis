@@ -114,6 +114,7 @@
           :settlements="syncedSettlementsForMap"
           :geoJsonData="syncedSettlementsGeoJson"
           :settlement-name-mode="settlementNameMode"
+          :settlement-subtype-colors="estateTypeColors"
           @update:settlement-name-mode="settlementNameMode = $event"
         />
       </div>
@@ -496,20 +497,29 @@ export default {
       console.log('=== REFERENCE DATA LOADED ===')
       console.log('allSettlements:', this.allSettlements?.length || 0)
       console.log('allRevisions:', this.allRevisions?.length || 0)
+      console.log('estateTypeColors:', Object.keys(this.estateTypeColors).length)
 
       // Синхронизируем локальные данные с props (для совместимости)
       this.syncWithProps()
 
-      // Проверяем наличие фильтров перед загрузкой данных
-      const hasFilters = this.filters && Object.keys(this.filters).length > 0
-      console.log('hasFilters check:', hasFilters, 'filters object:', this.filters)
+      // Проверяем наличие активных фильтров (восстановленных из URL или переданных через props)
+      const hasActiveFilters = this.checkActiveFilters()
+      console.log('=== ACTIVE FILTERS CHECK ===')
+      console.log('hasActiveFilters result:', hasActiveFilters)
+      console.log('props filters:', JSON.stringify(this.filters))
+      console.log('currentFilters from URL:', JSON.stringify(this.currentFilters))
 
-      if (hasFilters) {
+      if (hasActiveFilters) {
         console.log('=== APPLYING FILTERS ===')
-        this.applyFilters(this.filters)
+        // Применяем восстановленные фильтры и загружаем данные
+        if (this.currentFilters && Object.keys(this.currentFilters).length > 0) {
+          this.applyFiltersAndLoad(this.currentFilters)
+        } else if (this.filters && Object.keys(this.filters).length > 0) {
+          this.applyFiltersAndLoad(this.filters)
+        }
       } else {
-        console.log('=== LOADING DEFAULT DATA FOR MAP TEST ===')
-        // Загружаем немного данных по умолчанию для тестирования карт
+        console.log('=== NO ACTIVE FILTERS - LOADING DEFAULT DATA ===')
+        // Загружаем минимальный набор данных по умолчанию для тестирования карт
         this.currentFilters = {
           revision: [6] // рев. №6 по умолчанию
         }
@@ -517,6 +527,13 @@ export default {
       }
     } catch (error) {
       console.error('Error in mounted:', error)
+
+      // В случае ошибки загрузки справочников всё равно пытаемся загрузить данные по умолчанию
+      // Загружаем минимальный набор данных по умолчанию для тестирования карт
+      this.currentFilters = {
+        revision: [6] // рев. №6 по умолчанию
+      }
+      this.loadData()
     }
   },
   beforeUnmount() {
@@ -558,9 +575,64 @@ export default {
       }
       return ''
     },
+    // Проверка активных фильтров (тщательно очищает пустые значения)
+    checkActiveFilters() {
+      console.log('=== checkActiveFilters: START ===')
+      console.log('this.filters (props):', JSON.stringify(this.filters))
+      console.log('this.currentFilters (URL):', JSON.stringify(this.currentFilters))
+
+      let hasFilters = false
+      let activeFilterCount = 0
+
+      // Функция для очистки и проверки массива или единичного значения
+      const isValidArray = (arr) => {
+        if (!Array.isArray(arr)) return false
+        return arr.length > 0 && arr.every(item => item !== null && item !== undefined && item !== '')
+      }
+
+      const isValidValue = (val) => {
+        if (Array.isArray(val)) return isValidArray(val)
+        return val !== null && val !== undefined && val !== '' && (!Array.isArray(val) || val.length === 0)
+      }
+
+      // Проверяем props фильтры
+      if (this.filters && typeof this.filters === 'object') {
+        console.log('Checking props filters...')
+        for (const [key, value] of Object.entries(this.filters)) {
+          if (isValidValue(value)) {
+            console.log(`  ✓ Props filter ${key}:`, value)
+            hasFilters = true
+            activeFilterCount++
+          } else {
+            console.log(`  ✗ Props filter ${key}: invalid/empty`, value)
+          }
+        }
+      }
+
+      // Проверяем URL фильтры
+      if (this.currentFilters && typeof this.currentFilters === 'object') {
+        console.log('Checking URL filters...')
+        for (const [key, value] of Object.entries(this.currentFilters)) {
+          // Исключаем некоторые поля которые не считаются фильтрами
+          if (['sorting', 'viewMode', 'dataMode'].includes(key)) continue
+
+          if (isValidValue(value)) {
+            console.log(`  ✓ URL filter ${key}:`, value)
+            hasFilters = true
+            activeFilterCount++
+          } else {
+            console.log(`  ✗ URL filter ${key}: invalid/empty`, value)
+          }
+        }
+      }
+
+      console.log(`=== checkActiveFilters: END === result=${hasFilters}, activeFilterCount=${activeFilterCount}`)
+      return hasFilters
+    },
+
     setFilterOptions(options) {
       console.log('=== SettlementsListAndMap setFilterOptions ===', options)
-      
+
       if (options.districts) this.allDistricts = options.districts
       if (options.settlements) this.allSettlements = options.settlements
       if (options.typeEstates) this.allTypeEstates = options.typeEstates
@@ -580,7 +652,7 @@ export default {
       if (options.landowners) this.allLandowners = options.landowners
       if (options.militaryUnits) this.allMilitaryUnits = options.militaryUnits
       if (options.revisions) this.allRevisions = options.revisions
-      
+
       console.log('Filter options set. Counts:', {
         districts: this.allDistricts.length,
         typeEstates: this.allTypeEstates.length,

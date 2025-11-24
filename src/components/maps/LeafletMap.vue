@@ -4,6 +4,7 @@
 
 <script>
 import L from 'leaflet'
+import 'leaflet.heat'
 import { useMapMarkers } from '@/composables/useMapMarkers.js'
 import { vectorLayerService } from '@/services/vectorLayers.js'
 import { HomeFilled } from '@element-plus/icons-vue'
@@ -48,7 +49,8 @@ export default {
       vectorLayersMap: new Map(),
       currentHighlightCircle: null,
       singleMarker: null,
-      markerUpdateTimeout: null
+      markerUpdateTimeout: null,
+      heatmapLayer: null
     }
   },
   mounted() {
@@ -546,13 +548,44 @@ export default {
 
       if (!this.mapInstance) return
 
-      // Для демонстрации просто логируем, реальная реализация тепловой карты
-      // потребует реализации на основе данных поселений
       if (visible) {
-        // Создать/показать тепловую карту поселений
-        console.log('Показать тепловую карту поселений в Leaflet')
+        // Удаляем существующий heatmap слой если есть
+        if (this.heatmapLayer) {
+          this.mapInstance.removeLayer(this.heatmapLayer)
+        }
+
+        // Подготавливаем данные для тепловой карты
+        const heatmapData = this.prepareHeatmapData()
+
+        // Создаём тепловую карту с использованием leaflet.heat
+        this.heatmapLayer = L.heatLayer(heatmapData, {
+          radius: 35,      // увеличен радиус точки тепла для лучшей видимости
+          blur: 25,        // увеличено размытие для плавного перехода
+          maxZoom: 18,     // максимальный зум на котором видно
+          max: 1.0,        // максимальная интенсивность
+          gradient: {     // улучшенный градиент для лучшего отражения плотности населения
+            0.0: 'transparent',
+            0.15: 'hsl(60, 90%, 95%)',   // светло-желтый для очень низкой плотности
+            0.3: 'hsl(45, 95%, 85%)',    // бледно-желтый
+            0.45: 'hsl(30, 100%, 65%)',  // желтый
+            0.6: 'hsl(20, 100%, 55%)',   // оранжевый
+            0.75: 'hsl(10, 100%, 50%)',  // ярко-оранжевый
+            0.9: 'hsl(0, 100%, 55%)',    // красный
+            1.0: 'hsl(0, 100%, 45%)'     // темно-красный для максимальной плотности
+          }
+        })
+
+        // Добавляем слой на карту с пониженным z-index, чтобы был под маркерами
+        this.heatmapLayer.setZIndex(500)
+        this.heatmapLayer.addTo(this.mapInstance)
+
+        console.log(`Показать тепловую карту для ${heatmapData.length} поселений`)
       } else {
-        // Скрыть тепловую карту
+        // Скрываем и удаляем тепловую карту
+        if (this.heatmapLayer) {
+          this.mapInstance.removeLayer(this.heatmapLayer)
+          this.heatmapLayer = null
+        }
         console.log('Скрыть тепловую карту поселений в Leaflet')
       }
     },
@@ -590,6 +623,63 @@ export default {
         }
       }
       return null
+    },
+
+    prepareHeatmapData() {
+      // Подготавливаем данные для тепловой карты на основе количества населения
+      let settlementsArray = []
+
+      // Поддержка как массива, так и GeoJSON
+      if (this.settlements && this.settlements.type === 'FeatureCollection') {
+        // Обработка GeoJSON
+        this.settlements.features.forEach(feature => {
+          const settlement = {
+            ...feature.properties,
+            lat: feature.geometry.coordinates[1],
+            lon: feature.geometry.coordinates[0]
+          }
+          settlementsArray.push(settlement)
+        })
+      } else if (Array.isArray(this.settlements)) {
+        settlementsArray = this.settlements
+      }
+
+      // Находим максимальное население для нормализации
+      let maxPopulation = 0
+      settlementsArray.forEach(settlement => {
+        if (settlement.estateTypes && settlement.estateTypes.length > 0) {
+          const totalPop = settlement.estateTypes.reduce((sum, type) => sum + (type.population || 0), 0)
+          if (totalPop > maxPopulation) maxPopulation = totalPop
+        }
+      })
+
+      // Подготавливаем данные в формате [lat, lng, intensity] для leaflet.heat
+      const heatmapData = settlementsArray
+        .filter(settlement => settlement.lat && settlement.lon)
+        .map(settlement => {
+          const lat = parseFloat(settlement.lat)
+          const lng = parseFloat(settlement.lon)
+
+          if (isNaN(lat) || isNaN(lng)) return null
+
+          // Рассчитываем интенсивность на основе населения
+          let intensity = 0.1 // Минимальная интенсивность
+
+          if (settlement.estateTypes && settlement.estateTypes.length > 0) {
+            const totalPop = settlement.estateTypes.reduce((sum, type) => sum + (type.population || 0), 0)
+
+            // Нормализуем интенсивность от 0.1 до 1.0
+            if (maxPopulation > 0) {
+              intensity = Math.max(0.1, Math.min(1.0, 0.1 + (totalPop / maxPopulation) * 0.9))
+            }
+          }
+
+          return [lat, lng, intensity]
+        })
+        .filter(point => point !== null) // Убираем null значения
+
+      console.log(`Подготовлено ${heatmapData.length} точек для тепловой карты, max популяция: ${maxPopulation}`)
+      return heatmapData
     },
 
     calculateMarkerSize(estateTypes, currentZoom) {
@@ -680,6 +770,53 @@ export default {
       })
 
       console.log(`Updated marker sizes for ${this.markers.length} markers at zoom ${currentZoom}`)
+    },
+
+    updateSettlementLabels() {
+      console.log('=== LeafletMap updateSettlementLabels ===')
+      console.log('settlementNameMode:', this.settlementNameMode)
+
+      this.markers.forEach(marker => {
+        if (marker._settlementData && marker instanceof L.Marker) {
+          const settlement = marker._settlementData
+
+          // Определяем название для отображения в зависимости от режима
+          let displayName = ''
+          if (this.settlementNameMode === 'old') {
+            displayName = settlement.name || settlement.nameModern || ''
+          } else if (this.settlementNameMode === 'modern') {
+            displayName = settlement.nameModern || settlement.name || ''
+          }
+
+          // Обновляем tooltip
+          const tooltipContent = `
+            <div class="settlement-tooltip">
+              <div class="tooltip-name">${displayName}</div>
+            </div>
+          `
+
+          if (marker.getTooltip()) {
+            marker.unbindTooltip()
+          }
+
+          marker.bindTooltip(tooltipContent, {
+            direction: 'top',
+            offset: [0, -Math.floor(marker._markerSize.iconSize / 2)],
+            opacity: 0.95,
+            className: 'custom-tooltip',
+            permanent: this.settlementNameMode !== 'none'
+          })
+
+          // Для постоянных tooltip открываем сразу
+          if (this.settlementNameMode !== 'none') {
+            marker.openTooltip()
+          } else {
+            marker.closeTooltip()
+          }
+        }
+      })
+
+      console.log(`Обновлены labels для ${this.markers.length} маркеров`)
     }
   },
   watch: {
@@ -697,7 +834,7 @@ export default {
     },
     settlementNameMode: {
       handler() {
-        this.updateMarkers()
+        this.updateSettlementLabels()
       }
     },
     vectorLayers: {

@@ -1,14 +1,15 @@
 <template>
   <div class="map-view">
-    <div class="map-controls">
+    <div class="map-controls" :class="{ fullscreen: isFullscreen }">
       <el-radio-group v-model="mapProvider" size="small">
         <el-radio-button label="openlayers">OpenLayers</el-radio-button>
         <el-radio-button label="leaflet">Leaflet</el-radio-button>
       </el-radio-group>
-      
+
       <vector-layers-control
         v-if="vectorLayers.length > 0"
         :vector-layers="vectorLayers"
+        :map-provider="mapProvider"
         @layer-visibility-changed="handleLayerVisibilityChange"
       />
 
@@ -26,6 +27,90 @@
           <el-option label="Старые" value="old" />
           <el-option label="Современные" value="modern" />
         </el-select>
+      </div>
+
+      <!-- Настройки тепловой карты (только для OpenLayers) -->
+      <div
+        v-if="mapProvider === 'openlayers' && isHeatmapVisible"
+        class="heatmap-settings-panel"
+      >
+        <el-divider direction="vertical" style="height: 20px; margin: 0 8px;"></el-divider>
+
+        <!-- Огонёк для переключения элементов управления тепловой картой -->
+        <span
+          @click="toggleHeatmapControls"
+          class="heatmap-toggle-icon"
+          :class="{ 'active': showHeatmapControls }"
+          title="Настройки тепловой карты"
+        >
+          🔥
+        </span>
+
+        <!-- Элементы управления тепловой картой -->
+        <transition name="fade">
+          <div
+            v-show="showHeatmapControls"
+            class="heatmap-compact-controls"
+          >
+            <!-- Палитра -->
+            <el-select
+              v-model="heatmapSettings.colorPalette"
+              size="small"
+              style="width: 120px;"
+              placeholder="Палитра"
+              @change="updateHeatmapSettings"
+            >
+              <el-option
+                v-for="palette in colorPalettes"
+                :key="palette.value"
+                :label="palette.label"
+                :value="palette.value"
+              />
+            </el-select>
+
+            <!-- Радиус -->
+            <span class="control-item">
+              <span class="control-label">R{{ heatmapSettings.radius }}</span>
+              <el-slider
+                v-model="heatmapSettings.radius"
+                :min="5"
+                :max="50"
+                :step="1"
+                size="small"
+                style="width: 60px;"
+                @change="updateHeatmapSettings"
+              />
+            </span>
+
+            <!-- Размытие -->
+            <span class="control-item">
+              <span class="control-label">B{{ heatmapSettings.blur }}</span>
+              <el-slider
+                v-model="heatmapSettings.blur"
+                :min="5"
+                :max="100"
+                :step="5"
+                size="small"
+                style="width: 60px;"
+                @change="updateHeatmapSettings"
+              />
+            </span>
+
+            <!-- Интенсивность -->
+            <span class="control-item">
+              <span class="control-label">{{ heatmapSettings.intensity.toFixed(1) }}x</span>
+              <el-slider
+                v-model="heatmapSettings.intensity"
+                :min="0.1"
+                :max="2.0"
+                :step="0.1"
+                size="small"
+                style="width: 60px;"
+                @change="updateHeatmapSettings"
+              />
+            </span>
+          </div>
+        </transition>
       </div>
     </div>
 
@@ -71,6 +156,57 @@
               <el-option label="Современные названия" value="modern" />
             </el-select>
           </div>
+
+          <!-- Настройки тепловой карты (только для OpenLayers) -->
+          <div v-if="mapProvider === 'openlayers' && isHeatmapVisible" class="heatmap-settings">
+            <el-divider style="margin: 12px 0;"></el-divider>
+            <div class="heatmap-section-title">🔥 Настройки тепловой карты</div>
+
+            <div class="setting-row">
+              <div class="setting-item">
+                <label class="setting-label">Радиус:</label>
+                <el-slider
+                  v-model="heatmapSettings.radius"
+                  :min="5"
+                  :max="50"
+                  :step="1"
+                  size="small"
+                  @change="updateHeatmapSettings"
+                />
+                <span class="setting-value">{{ heatmapSettings.radius }}</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-item">
+                <label class="setting-label">Размытие:</label>
+                <el-slider
+                  v-model="heatmapSettings.blur"
+                  :min="5"
+                  :max="100"
+                  :step="5"
+                  size="small"
+                  @change="updateHeatmapSettings"
+                />
+                <span class="setting-value">{{ heatmapSettings.blur }}</span>
+              </div>
+            </div>
+
+            <div class="setting-row">
+              <div class="setting-item">
+                <label class="setting-label">Интенсивность:</label>
+                <el-slider
+                  v-model="heatmapSettings.intensity"
+                  :min="0.1"
+                  :max="2.0"
+                  :step="0.1"
+                  size="small"
+                  @change="updateHeatmapSettings"
+                />
+                <span class="setting-value">{{ heatmapSettings.intensity.toFixed(1) }}x</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Секция 3: Векторные слои -->
@@ -83,6 +219,7 @@
           <div class="layers-container">
             <vector-layers-control
               :vector-layers="vectorLayers"
+              :map-provider="mapProvider"
               @layer-visibility-changed="handleLayerVisibilityChange"
             />
           </div>
@@ -126,6 +263,7 @@
         :initial-zoom="effectiveZoom"
         :marker="marker"
         :settlement-name-mode="settlementNameMode"
+        :settlement-subtype-colors="settlementSubtypeColors"
         :is-active="mapProvider === 'openlayers'"
         @view-change="onOLViewChange"
         @fullscreen-change="onFullscreenChange"
@@ -147,6 +285,7 @@ import {
   Management,
   Aim,
   CircleClose
+
 } from '@element-plus/icons-vue'
 
 export default {
@@ -177,6 +316,10 @@ export default {
     marker: {
       type: Object,
       default: null
+    },
+    settlementSubtypeColors: {
+      type: Object,
+      default: () => ({})
     }
   },
   data() {
@@ -185,7 +328,28 @@ export default {
       settlementNameMode: 'none',
       vectorLayers: [],
       isSyncing: false,
-      isFullscreen: false
+      isFullscreen: false,
+      isHeatmapVisible: false,
+      isHeatmapCollapsed: true,
+      showHeatmapControls: false,
+
+      // Настройки тепловой карты
+      heatmapSettings: {
+        radius: 12,
+        blur: 20,
+        intensity: 1.0,
+        colorPalette: 'red-yellow'
+      },
+
+      // Цветовые палитры для тепловой карты
+      colorPalettes: [
+        { value: 'red-yellow', label: 'Красный → Жёлтый' },
+        { value: 'blue-green', label: 'Синий → Зелёный' },
+        { value: 'purple-orange', label: 'Фиолетовый → Оранжевый' },
+        { value: 'blue-red', label: 'Синий → Красный' },
+        { value: 'green-red', label: 'Зелёный → Красный' },
+        { value: 'viridis', label: 'Viridis' }
+      ]
     }
   },
   computed: {
@@ -201,6 +365,11 @@ export default {
         return [this.center[1], this.center[0]]
       }
       return [52.68, 55.42]
+    },
+
+    // Признак того, что цвета загружены
+    areColorsLoaded() {
+      return Object.keys(this.settlementSubtypeColors || {}).length > 0
     },
     estateTypesLegend() {
       // Поддержка как массива settlements, так и GeoJSON
@@ -352,6 +521,11 @@ export default {
     handleLayerVisibilityChange(event) {
       const { layerId, visible } = event
 
+      // Обработка тепловой карты
+      if (layerId === 'heatmap') {
+        this.isHeatmapVisible = visible
+      }
+
       if (this.mapProvider === 'leaflet' && this.$refs.leafletMap) {
         this.$refs.leafletMap.toggleLayerVisibility(layerId, visible)
       }
@@ -375,6 +549,35 @@ export default {
 
     onFullscreenChange(isFullscreen) {
       this.isFullscreen = isFullscreen
+    },
+
+    updateHeatmapSettings() {
+      console.log('=== MapView updateHeatmapSettings ===')
+      console.log('New settings:', this.heatmapSettings)
+
+      // Только для OpenLayers карты
+      if (this.mapProvider === 'openlayers' && this.$refs.olMap && this.isHeatmapVisible) {
+        // Одновременно выключаем и включаем обратно с новыми настройками
+        this.$refs.olMap.toggleHeatmapLayer(false)
+        setTimeout(() => {
+          this.$refs.olMap.toggleHeatmapLayer(true, this.heatmapSettings)
+        }, 100)
+      }
+    },
+
+    toggleHeatmapControls() {
+      this.showHeatmapControls = !this.showHeatmapControls
+
+      // Если открываем элементы управления - автоматически включаем heatmap слой, если он еще не включен
+      if (this.showHeatmapControls && !this.isHeatmapVisible) {
+        console.log('Opening heatmap controls - auto-enabling heatmap layer')
+        this.isHeatmapVisible = true
+        // Эмитируем событие изменения видимости слоя
+        this.$emit('layer-visibility-changed', {
+          layerId: 'heatmap',
+          visible: true
+        })
+      }
     }
   },
   watch: {
@@ -410,6 +613,20 @@ export default {
 
     settlementNameMode(newVal) {
       this.$emit('update:settlement-name-mode', newVal)
+    },
+
+    settlements: {
+      handler() {
+        // Обновляем тепловую карту если она включена и выбрана OpenLayers карта
+        if (this.isHeatmapVisible && this.mapProvider === 'openlayers') {
+          console.log('Обновление тепловой карты из-за изменения выборки settlements')
+          this.$refs.olMap.toggleHeatmapLayer(false)
+          setTimeout(() => {
+            this.$refs.olMap.toggleHeatmapLayer(true, this.heatmapSettings)
+          }, 100)
+        }
+      },
+      deep: true
     }
   }
 }
@@ -432,6 +649,91 @@ export default {
     align-items: center;
     flex-shrink: 0;
     z-index: 1000;
+
+    // В fullscreen режиме делаем панель абсолютно позиционированной
+    // чтобы она оставалась видимой поверх полноэкранной карты
+    &.fullscreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1200; // Выше чем fullscreen панель элементов управления
+      background-color: rgba(var(--bg-secondary-rgb, 217, 217, 217), 0.95); // hsl(0, 0%, 85%)
+      backdrop-filter: blur(8px);
+      border-bottom: 2px solid var(--accent-primary);
+      border-radius: 0 0 8px 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    // Настройки тепловой карты в панели инструментов
+    .heatmap-settings-panel {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      .heatmap-toggle-icon {
+        font-size: 11px;
+        cursor: pointer;
+        user-select: none;
+        padding: 2px 4px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        color: var(--text-secondary);
+
+        &:hover {
+          color: var(--accent-primary);
+          background: rgba(var(--accent-primary-rgb), 0.1);
+        }
+
+        &.active {
+          background: var(--accent-primary);
+          color: white;
+        }
+      }
+
+      .heatmap-popup {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+        .heatmap-popup-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          white-space: nowrap;
+
+          .setting-label {
+            font-weight: 600;
+            font-size: 10px;
+            color: var(--text-secondary);
+            min-width: 60px;
+          }
+
+          :deep(.el-slider) {
+            .el-slider__runway {
+              background-color: var(--border-color);
+              height: 3px;
+            }
+
+            .el-slider__button {
+              width: 10px;
+              height: 10px;
+              border: 2px solid var(--accent-primary);
+              background: var(--bg-primary);
+            }
+
+            &:hover .el-slider__button {
+              transform: scale(1.1);
+            }
+          }
+        }
+      }
+    }
   }
 
   .map-container {
@@ -463,8 +765,8 @@ export default {
       display: flex;
       flex-direction: column;
       gap: 12px;
-      min-width: 240px;
-      max-width: 320px;
+      min-width: 260px;
+      max-width: 350px;
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.2),
         0 2px 8px rgba(0, 0, 0, 0.1);
@@ -691,6 +993,66 @@ export default {
           }
         }
       }
+
+      // Настройки тепловой карты
+      .heatmap-settings {
+        .heatmap-section-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--text-primary);
+          text-align: center;
+          margin-bottom: 8px;
+          padding: 4px 0;
+        }
+
+        .setting-row {
+          margin-bottom: 8px;
+
+          &:last-child {
+            margin-bottom: 0;
+          }
+        }
+
+        .setting-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .setting-label {
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--text-secondary);
+            min-width: 70px;
+            text-align: right;
+            flex-shrink: 0;
+          }
+
+          :deep(.el-slider) {
+            flex: 1;
+            margin: 0 6px;
+
+            .el-slider__runway {
+              background-color: var(--border-color);
+              height: 4px;
+            }
+
+            .el-slider__button {
+              width: 12px;
+              height: 12px;
+              border: 2px solid var(--accent-primary);
+            }
+          }
+
+          .setting-value {
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--accent-primary);
+            min-width: 45px;
+            text-align: center;
+            flex-shrink: 0;
+          }
+        }
+      }
     }
 
     // Анимационные состояния
@@ -719,6 +1081,204 @@ export default {
       opacity: 1 !important;
       transform: translateY(0) !important;
     }
+  }
+
+  // Dropdown панель настроек тепловой карты
+  .heatmap-dropdown {
+    position: fixed;
+    top: 30px;
+    right: 20px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(12px);
+    min-width: 300px;
+    max-width: 400px;
+    z-index: 1300;
+    margin: 0;
+
+    .heatmap-dropdown-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px 8px 16px;
+      border-bottom: 1px solid var(--border-color);
+
+      .header-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .close-button {
+        padding: 6px;
+        margin: -6px;
+        border-radius: 50%;
+
+        &:hover {
+          background: rgba(var(--accent-primary-rgb), 0.1);
+        }
+
+        .el-icon {
+          font-size: 16px;
+          color: var(--text-secondary);
+        }
+      }
+    }
+
+    .heatmap-setting-group {
+      padding: 12px 16px;
+
+      .setting-group-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 6px;
+      }
+
+      .setting-row {
+        display: flex;
+        gap: 12px;
+        align-items: end;
+        justify-content: center;
+        padding-top: 8px;
+
+        .setting-item-vertical {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+
+          .setting-label-vertical {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-align: center;
+            min-height: 32px;
+            line-height: 1.2;
+            display: flex;
+            align-items: center;
+          }
+
+          :deep(.el-slider) {
+            &:hover .el-slider__button {
+              transform: scale(1.1);
+            }
+
+            &.is-vertical {
+              .el-slider__runway {
+                width: 4px;
+              }
+
+              .el-slider__button {
+                width: 12px;
+                height: 12px;
+                left: 16px;
+                border: 2px solid var(--accent-primary);
+                background: var(--bg-primary);
+              }
+            }
+          }
+
+          .setting-value-vertical {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-primary);
+            padding: 2px 4px;
+            background: rgba(var(--accent-primary-rgb), 0.1);
+            border-radius: 4px;
+            min-width: 24px;
+            text-align: center;
+          }
+        }
+      }
+    }
+
+    .setting-row {
+      margin-bottom: 8px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  // Анимация панели настроек тепловой карты
+  .heatmap-panel-enter-active,
+  .heatmap-panel-leave-active {
+    transition: all 0.2s ease-out;
+  }
+
+  .heatmap-panel-enter-from,
+  .heatmap-panel-leave-to {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.95);
+  }
+
+  .heatmap-panel-enter-to,
+  .heatmap-panel-leave-from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  // Compact элементы управления тепловой картой в панели инструментов
+  .heatmap-compact-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+
+      .control-label {
+        font-size: 9px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      :deep(.el-slider) {
+        .el-slider__runway {
+          background-color: var(--border-color);
+          height: 2px;
+        }
+
+        .el-slider__button {
+          width: 8px;
+          height: 8px;
+          border: 1px solid var(--accent-primary);
+        }
+
+        &:hover .el-slider__button {
+          transform: scale(1.1);
+        }
+      }
+    }
+  }
+
+  // Анимация для compact controls
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: opacity 0.2s ease;
+  }
+
+  .fade-enter-from,
+  .fade-leave-to {
+    opacity: 0;
+  }
+
+  .fade-enter-to,
+  .fade-leave-from {
+    opacity: 1;
   }
 }
 </style>

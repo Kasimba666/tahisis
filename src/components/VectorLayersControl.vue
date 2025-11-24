@@ -42,6 +42,10 @@ export default {
     vectorLayers: {
       type: Array,
       default: () => []
+    },
+    mapProvider: {
+      type: String,
+      default: 'openlayers'
     }
   },
   data() {
@@ -64,16 +68,18 @@ export default {
         visible: osmVisible
       })
 
-      // Добавляем виртуальный слой "Тепловая карта"
-      const heatmapVisible = this.layersState.has('heatmap')
-        ? this.layersState.get('heatmap')
-        : false // По умолчанию отключена
+      // Добавляем виртуальный слой "Тепловая карта" только для OpenLayers
+      if (this.mapProvider === 'openlayers') {
+        const heatmapVisible = this.layersState.has('heatmap')
+          ? this.layersState.get('heatmap')
+          : false // По умолчанию отключена
 
-      layers.push({
-        id: 'heatmap',
-        name: '🔥 Тепловая карта',
-        visible: heatmapVisible
-      })
+        layers.push({
+          id: 'heatmap',
+          name: '🔥 Тепловая карта',
+          visible: heatmapVisible
+        })
+      }
 
       // Добавляем обычные векторные слои
       if (this.vectorLayers && this.vectorLayers.length > 0) {

@@ -63,6 +63,14 @@ export default {
   mounted() {
     // Загружаем фильтры из URL при инициализации
     this.loadFiltersFromURL()
+
+    // Если есть сохраненные фильтры - применяем их
+    this.$nextTick(() => {
+      if (this.currentFilters && Object.keys(this.currentFilters).length > 0) {
+        console.log('Applying loaded URL filters to child components:', this.currentFilters)
+        this.applyFiltersAndLoad(this.currentFilters)
+      }
+    })
   },
   methods: {
     setFilterOptions(options) {
