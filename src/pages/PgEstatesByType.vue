@@ -294,35 +294,8 @@ export default {
   mounted() {
     this.loadFiltersFromURL()
 
-    // После загрузки данных проверяем есть ли сохраненные фильтры из localStorage
-    this.$nextTick(() => {
-      if (this.$refs.estatesFilters && this.$refs.estatesFilters.filters) {
-        const filters = this.$refs.estatesFilters.filters
-        const hasActiveFilters =
-          filters.revision?.length > 0 ||
-          filters.districts?.length > 0 ||
-          filters.settlementNamesOld?.length > 0 ||
-          filters.settlementNamesModern?.length > 0 ||
-          filters.typeEstates?.length > 0 ||
-          filters.subtypeEstates?.length > 0 ||
-          filters.religions?.length > 0 ||
-          filters.affiliations?.length > 0 ||
-          filters.volosts?.length > 0 ||
-          filters.landowners?.length > 0 ||
-          filters.militaryUnits?.length > 0 ||
-          filters.maleEnabled ||
-          filters.femaleEnabled ||
-          filters.populationEnabled
-
-        if (hasActiveFilters) {
-          console.log('Applying filters from localStorage:', filters)
-          this.currentFilters = filters
-          this.filtersApplied = true
-          // Загружаем данные только если есть активные фильтры
-          this.loadData()
-        }
-      }
-    })
+    // НЕ загружаем данные автоматически даже если есть фильтры в localStorage
+    // Данные будут загружены только при нажатии кнопки "Применить"
   },
   methods: {
     setFilterOptions(options) {

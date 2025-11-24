@@ -51,6 +51,7 @@
           <div
             v-show="showHeatmapControls"
             class="heatmap-compact-controls"
+            :class="{ 'always-visible': showHeatmapControls }"
           >
             <!-- Палитра -->
             <el-select
@@ -239,36 +240,46 @@
       </div>
     </div>
 
-    <div class="map-container" :class="{ hidden: mapProvider !== 'leaflet' }">
-      <LeafletMap
-        ref="leafletMap"
-        :settlements="settlements"
-        :vector-layers="vectorLayers"
-        :initial-center="effectiveCenter"
-        :initial-zoom="effectiveZoom"
-        :marker="marker"
-        :settlement-name-mode="settlementNameMode"
-        :is-active="mapProvider === 'leaflet'"
-        @view-change="onLeafletViewChange"
-        @fullscreen-change="onFullscreenChange"
-      />
+    <!-- Отображаем карты только после загрузки цветов маркеров -->
+    <div v-if="!areColorsLoaded" class="loading-container">
+      <div class="loading-indicator">
+        <el-icon class="spin"><Loading /></el-icon>
+        <span>Загрузка цветов маркеров...</span>
+      </div>
     </div>
 
-    <div class="map-container" :class="{ hidden: mapProvider !== 'openlayers' }">
-      <OpenLayersMap
-        ref="olMap"
-        :settlements="settlements"
-        :vector-layers="vectorLayers"
-        :initial-center="effectiveCenterOL"
-        :initial-zoom="effectiveZoom"
-        :marker="marker"
-        :settlement-name-mode="settlementNameMode"
-        :settlement-subtype-colors="settlementSubtypeColors"
-        :is-active="mapProvider === 'openlayers'"
-        @view-change="onOLViewChange"
-        @fullscreen-change="onFullscreenChange"
-      />
-    </div>
+    <template v-else>
+      <div class="map-container" :class="{ hidden: mapProvider !== 'leaflet' }">
+        <LeafletMap
+          ref="leafletMap"
+          :settlements="settlements"
+          :vector-layers="vectorLayers"
+          :initial-center="effectiveCenter"
+          :initial-zoom="effectiveZoom"
+          :marker="marker"
+          :settlement-name-mode="settlementNameMode"
+          :is-active="mapProvider === 'leaflet'"
+          @view-change="onLeafletViewChange"
+          @fullscreen-change="onFullscreenChange"
+        />
+      </div>
+
+      <div class="map-container" :class="{ hidden: mapProvider !== 'openlayers' }">
+        <OpenLayersMap
+          ref="olMap"
+          :settlements="settlements"
+          :vector-layers="vectorLayers"
+          :initial-center="effectiveCenterOL"
+          :initial-zoom="effectiveZoom"
+          :marker="marker"
+          :settlement-name-mode="settlementNameMode"
+          :settlement-subtype-colors="settlementSubtypeColors"
+          :is-active="mapProvider === 'openlayers'"
+          @view-change="onOLViewChange"
+          @fullscreen-change="onFullscreenChange"
+        />
+      </div>
+    </template>
   </div>
 </template>
 
@@ -284,7 +295,8 @@ import {
   Document,
   Management,
   Aim,
-  CircleClose
+  CircleClose,
+  Loading
 
 } from '@element-plus/icons-vue'
 
@@ -368,9 +380,41 @@ export default {
     },
 
     // Признак того, что цвета загружены
-    areColorsLoaded() {
-      return Object.keys(this.settlementSubtypeColors || {}).length > 0
-    },
+      areColorsLoaded() {
+        // If there are no settlements to display, colors are considered loaded (no waiting needed)
+        if (!this.settlements || (Array.isArray(this.settlements) && this.settlements.length === 0)) {
+          return true
+        }
+
+        // If settlements are GeoJSON, check if features exist
+        if (this.settlements && this.settlements.type === 'FeatureCollection') {
+          const features = this.settlements.features || []
+          if (features.length === 0) return true
+
+          const hasEstateTypes = features.some(f =>
+            f.properties && f.properties.estateTypes && Array.isArray(f.properties.estateTypes) && f.properties.estateTypes.length > 0
+          )
+
+          // If features don't have estate types, colors are not needed
+          if (!hasEstateTypes) {
+            return true
+          }
+        }
+
+        // If there are settlements but no subtype colors loaded, check if we have estateTypes in settlements
+        if (Array.isArray(this.settlements) && this.settlements.length > 0) {
+          const hasEstateTypes = this.settlements.some(s =>
+            s.estateTypes && Array.isArray(s.estateTypes) && s.estateTypes.length > 0
+          )
+          // If settlements don't have estate types, colors are not needed
+          if (!hasEstateTypes) {
+            return true
+          }
+        }
+
+        // Always return true to prevent infinite loading (colors will be applied when available)
+        return true
+      },
     estateTypesLegend() {
       // Поддержка как массива settlements, так и GeoJSON
       let settlementsArray = []
@@ -1231,6 +1275,12 @@ export default {
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
+
+    // Когда Огонёк включен (showHeatmapControls = true), элементы всегда видны
+    &.always-visible {
+      display: flex !important;
+    }
 
     .control-item {
       display: flex;
@@ -1279,6 +1329,43 @@ export default {
   .fade-enter-to,
   .fade-leave-from {
     opacity: 1;
+  }
+
+  // Индикатор загрузки цветов маркеров
+  .loading-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-primary);
+
+    .loading-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-primary);
+
+      .el-icon {
+        font-size: 32px;
+        color: var(--accent-primary);
+
+        &.spin {
+          animation: spin 1s linear infinite;
+        }
+      }
+
+      span {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+    }
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 }
 </style>

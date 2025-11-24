@@ -518,12 +518,9 @@ export default {
           this.applyFiltersAndLoad(this.filters)
         }
       } else {
-        console.log('=== NO ACTIVE FILTERS - LOADING DEFAULT DATA ===')
-        // Загружаем минимальный набор данных по умолчанию для тестирования карт
-        this.currentFilters = {
-          revision: [6] // рев. №6 по умолчанию
-        }
-        this.loadData()
+        console.log('=== NO ACTIVE FILTERS - NOT LOADING ANY DATA ===')
+        // Ничего не загружаем при отсутствии фильтров
+        // Данные будут загружены только при нажатии "Применить"
       }
     } catch (error) {
       console.error('Error in mounted:', error)

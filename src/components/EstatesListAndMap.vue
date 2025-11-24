@@ -1708,6 +1708,29 @@ export default {
       // console.log('Column resized:', column.label, 'New width:', newWidth)
     },
 
+    // Проверяет, есть ли активные фильтры (не только пустые массивы по умолчанию)
+    hasActiveFilters() {
+      if (!this.currentFilters) return false
+
+      return (
+        (this.currentFilters.revision && this.currentFilters.revision.length > 0) ||
+        (this.currentFilters.districts && this.currentFilters.districts.length > 0) ||
+        (this.currentFilters.settlementNamesOld && this.currentFilters.settlementNamesOld.length > 0) ||
+        (this.currentFilters.settlementNamesModern && this.currentFilters.settlementNamesModern.length > 0) ||
+        (this.currentFilters.typeEstates && this.currentFilters.typeEstates.length > 0) ||
+        (this.currentFilters.subtypeEstates && this.currentFilters.subtypeEstates.length > 0) ||
+        (this.currentFilters.religions && this.currentFilters.religions.length > 0) ||
+        (this.currentFilters.affiliations && this.currentFilters.affiliations.length > 0) ||
+        (this.currentFilters.volosts && this.currentFilters.volosts.length > 0) ||
+        (this.currentFilters.landowners && this.currentFilters.landowners.length > 0) ||
+        (this.currentFilters.militaryUnits && this.currentFilters.militaryUnits.length > 0) ||
+        this.currentFilters.maleEnabled ||
+        this.currentFilters.femaleEnabled ||
+        this.currentFilters.populationEnabled ||
+        this.currentFilters.estatesCountEnabled
+      )
+    },
+
     initColumnDragDrop() {
       // Небольшая задержка для полной отрисовки таблицы
       setTimeout(() => {
@@ -1762,7 +1785,7 @@ export default {
     setFilterOptions(options) {
       console.log('=== setFilterOptions called ===')
       console.log('Options received:', options)
-      
+
       this.allDistricts = options.districts || []
       this.allSettlements = options.settlements || []
       this.allTypeEstates = options.typeEstates || []
@@ -1771,7 +1794,7 @@ export default {
       this.allAffiliations = options.affiliations || []
       this.allVolosts = options.volosts || []
       this.allRevisions = options.revisions || []
-      
+
       console.log('Reference data loaded:', {
         districts: this.allDistricts.length,
         settlements: this.allSettlements.length,
@@ -1782,12 +1805,13 @@ export default {
         volosts: this.allVolosts.length,
         revisions: this.allRevisions.length
       })
-      
+
       // ТЕПЕРЬ применяем фильтры из URL, т.к. справочники загружены
-      const hasFilters = this.currentFilters && Object.keys(this.currentFilters).length > 0
-      console.log('hasFilters check after reference data loaded:', hasFilters)
-      
-      if (hasFilters) {
+      // Проверяем на наличие активных фильтров (не только пустые массивы по умолчанию)
+      const hasActiveFilters = this.hasActiveFilters()
+      console.log('hasActiveFilters check after reference data loaded:', hasActiveFilters)
+
+      if (hasActiveFilters) {
         console.log('=== APPLYING FILTERS FROM URL (after reference data loaded) ===')
         this.applyFiltersAndLoad(this.currentFilters)
       }

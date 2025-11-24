@@ -64,13 +64,8 @@ export default {
     // Загружаем фильтры из URL при инициализации
     this.loadFiltersFromURL()
 
-    // Если есть сохраненные фильтры - применяем их
-    this.$nextTick(() => {
-      if (this.currentFilters && Object.keys(this.currentFilters).length > 0) {
-        console.log('Applying loaded URL filters to child components:', this.currentFilters)
-        this.applyFiltersAndLoad(this.currentFilters)
-      }
-    })
+    // НЕ применяем фильтры автоматически даже если они есть в URL
+    // Данные будут загружены только при нажатии "Применить"
   },
   methods: {
     setFilterOptions(options) {
