@@ -525,10 +525,10 @@ export default {
 
     toggleOsmLayer(visible) {
       if (!this.mapInstance) return
-      
+
       // Находим OSM слой
       this.mapInstance.eachLayer((layer) => {
-        if (layer instanceof L.TileLayer && layer.options.attribution && 
+        if (layer instanceof L.TileLayer && layer.options.attribution &&
             layer.options.attribution.includes('OpenStreetMap')) {
           if (visible) {
             if (!this.mapInstance.hasLayer(layer)) {
@@ -541,10 +541,32 @@ export default {
       })
     },
 
+    toggleHeatmapLayer(visible) {
+      console.log('LeafletMap: toggle heatmap visibility to', visible)
+
+      if (!this.mapInstance) return
+
+      // Для демонстрации просто логируем, реальная реализация тепловой карты
+      // потребует реализации на основе данных поселений
+      if (visible) {
+        // Создать/показать тепловую карту поселений
+        console.log('Показать тепловую карту поселений в Leaflet')
+      } else {
+        // Скрыть тепловую карту
+        console.log('Скрыть тепловую карту поселений в Leaflet')
+      }
+    },
+
     toggleLayerVisibility(layerId, visible) {
       // Специальная обработка для OSM
       if (layerId === 'osm') {
         this.toggleOsmLayer(visible)
+        return
+      }
+
+      // Специальная обработка для тепловой карты
+      if (layerId === 'heatmap') {
+        this.toggleHeatmapLayer(visible)
         return
       }
 

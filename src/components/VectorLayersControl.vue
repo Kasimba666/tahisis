@@ -52,23 +52,34 @@ export default {
   computed: {
     layersList() {
       const layers = []
-      
+
       // Добавляем виртуальный слой "OpenStreetMap"
-      const osmVisible = this.layersState.has('osm') 
-        ? this.layersState.get('osm') 
+      const osmVisible = this.layersState.has('osm')
+        ? this.layersState.get('osm')
         : true // По умолчанию включена
-        
+
       layers.push({
         id: 'osm',
         name: '🗺️ OpenStreetMap',
         visible: osmVisible
       })
 
+      // Добавляем виртуальный слой "Тепловая карта"
+      const heatmapVisible = this.layersState.has('heatmap')
+        ? this.layersState.get('heatmap')
+        : false // По умолчанию отключена
+
+      layers.push({
+        id: 'heatmap',
+        name: '🔥 Тепловая карта',
+        visible: heatmapVisible
+      })
+
       // Добавляем обычные векторные слои
       if (this.vectorLayers && this.vectorLayers.length > 0) {
         const vectorLayersList = this.vectorLayers.map(layer => {
-          const visible = this.layersState.has(layer.id) 
-            ? this.layersState.get(layer.id) 
+          const visible = this.layersState.has(layer.id)
+            ? this.layersState.get(layer.id)
             : (layer.visible !== false)
 
           return {
@@ -77,7 +88,7 @@ export default {
             visible
           }
         }).sort((a, b) => a.name.localeCompare(b.name))
-        
+
         layers.push(...vectorLayersList)
       }
 

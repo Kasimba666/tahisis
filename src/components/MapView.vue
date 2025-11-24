@@ -352,12 +352,24 @@ export default {
     handleLayerVisibilityChange(event) {
       const { layerId, visible } = event
 
-      if (this.$refs.leafletMap && typeof this.$refs.leafletMap.toggleLayerVisibility === 'function') {
+      if (this.mapProvider === 'leaflet' && this.$refs.leafletMap) {
         this.$refs.leafletMap.toggleLayerVisibility(layerId, visible)
       }
 
-      if (this.$refs.olMap && typeof this.$refs.olMap.toggleLayerVisibility === 'function') {
+      if (this.mapProvider === 'openlayers' && this.$refs.olMap) {
         this.$refs.olMap.toggleLayerVisibility(layerId, visible)
+      }
+    },
+
+    toggleHeatmapLayer(layerId, visible) {
+      // Обработка тепловой карты - передаем на активную карту
+      if (layerId === 'heatmap') {
+        if (this.mapProvider === 'leaflet' && this.$refs.leafletMap && typeof this.$refs.leafletMap.toggleHeatmapLayer === 'function') {
+          this.$refs.leafletMap.toggleHeatmapLayer(visible)
+        }
+        if (this.mapProvider === 'openlayers' && this.$refs.olMap && typeof this.$refs.olMap.toggleHeatmapLayer === 'function') {
+          this.$refs.olMap.toggleHeatmapLayer(visible)
+        }
       }
     },
 

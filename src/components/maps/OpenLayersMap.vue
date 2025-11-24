@@ -774,13 +774,29 @@ export default {
 
     toggleOsmLayer(visible) {
       if (!this.mapInstance) return
-      
+
       // Находим OSM слой (TileLayer с OSM source)
       const layers = this.mapInstance.getLayers().getArray()
       const osmLayer = layers.find(layer => layer instanceof TileLayer && layer.getSource() instanceof OSM)
-      
+
       if (osmLayer) {
         osmLayer.setVisible(visible)
+      }
+    },
+
+    toggleHeatmapLayer(visible) {
+      console.log('OpenLayersMap: toggle heatmap visibility to', visible)
+
+      if (!this.mapInstance) return
+
+      // Для демонстрации просто логируем, реальная реализация тепловой карты
+      // потребует реализации на основе данных поселений
+      if (visible) {
+        // Создать/показать тепловую карту поселений
+        console.log('Показать тепловую карту поселений в OpenLayers')
+      } else {
+        // Скрыть тепловую карту
+        console.log('Скрыть тепловую карту поселений в OpenLayers')
       }
     },
 
@@ -788,6 +804,12 @@ export default {
       // Специальная обработка для OSM
       if (layerId === 'osm') {
         this.toggleOsmLayer(visible)
+        return
+      }
+
+      // Специальная обработка для тепловой карты
+      if (layerId === 'heatmap') {
+        this.toggleHeatmapLayer(visible)
         return
       }
 
