@@ -347,9 +347,9 @@ export default {
 
       // Настройки тепловой карты
       heatmapSettings: {
-        radius: 12,
-        blur: 20,
-        intensity: 1.0,
+        radius: 36,
+        blur: 75,
+        intensity: 1.5,
         colorPalette: 'red-yellow'
       },
 

@@ -21,6 +21,7 @@ import { fromLonLat, transform } from 'ol/proj'
 import Overlay from 'ol/Overlay'
 import Control from 'ol/control/Control'
 import FullScreen from 'ol/control/FullScreen'
+import ScaleLine from 'ol/control/ScaleLine'
 import { useMapMarkers } from '@/composables/useMapMarkers.js'
 import { HomeFilled } from '@element-plus/icons-vue'
 import { h, render } from 'vue'
@@ -137,7 +138,14 @@ export default {
           tipLabel: 'Полноэкранный режим'
         })
         this.mapInstance.addControl(fullScreenControl)
-        
+
+        // Добавляем ScaleLine контрол в левый нижний угол
+        const scaleLineControl = new ScaleLine({
+          target: null,
+          units: 'metric'
+        })
+        this.mapInstance.addControl(scaleLineControl)
+
         this.createPopupOverlays()
         this.setupEventHandlers()
 
