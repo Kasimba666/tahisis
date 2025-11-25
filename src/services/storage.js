@@ -9,7 +9,8 @@ const STORAGE_KEYS = {
   ACTIVE_REVISION: 'tahisis_active_revision',
   ACTIVE_ESTATE_TYPE: 'tahisis_active_estate_type',
   MAP_SETTINGS: 'tahisis_map_settings',
-  TABLE_SETTINGS: 'tahisis_table_settings'
+  TABLE_SETTINGS: 'tahisis_table_settings',
+  HEATMAP_SETTINGS: 'tahisis_heatmap_settings'
 }
 
 class StorageService {
@@ -134,6 +135,20 @@ class StorageService {
     return this.load(STORAGE_KEYS.TABLE_SETTINGS, {
       pageSize: 50,
       currentPage: 1
+    })
+  }
+
+  // Методы для работы с настройками тепловой карты
+  saveHeatmapSettings(settings) {
+    return this.save(STORAGE_KEYS.HEATMAP_SETTINGS, settings)
+  }
+
+  loadHeatmapSettings() {
+    return this.load(STORAGE_KEYS.HEATMAP_SETTINGS, {
+      radius: 36,
+      blur: 75,
+      intensity: 1.5,
+      colorPalette: 'red-yellow'
     })
   }
 

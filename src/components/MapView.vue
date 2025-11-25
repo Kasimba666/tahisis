@@ -289,6 +289,7 @@ import LeafletMap from './maps/LeafletMap.vue'
 import OpenLayersMap from './maps/OpenLayersMap.vue'
 import VectorLayersControl from './VectorLayersControl.vue'
 import { vectorLayerService } from '@/services/vectorLayers.js'
+import { storageService } from '@/services/storage.js'
 import {
   Setting,
   MapLocation,
@@ -476,6 +477,9 @@ export default {
       }, 1000)
     })
 
+    // Загружаем настройки тепловой карты из localStorage
+    this.loadHeatmapSettings()
+
     // Обработчик события "Показать на карте"
     window.addEventListener('show-settlement-on-map', this.handleShowOnMap)
     window.addEventListener('clear-settlement-highlight', this.handleClearHighlight)
@@ -568,6 +572,13 @@ export default {
       // Обработка тепловой карты
       if (layerId === 'heatmap') {
         this.isHeatmapVisible = visible
+
+        // При включении тепловой карты сразу применяем настройки
+        if (visible && this.mapProvider === 'openlayers' && this.$refs.olMap) {
+          setTimeout(() => {
+            this.$refs.olMap.toggleHeatmapLayer(true, this.heatmapSettings)
+          }, 100)
+        }
       }
 
       if (this.mapProvider === 'leaflet' && this.$refs.leafletMap) {
@@ -595,9 +606,21 @@ export default {
       this.isFullscreen = isFullscreen
     },
 
+    // Загружаем настройки тепловой карты из localStorage
+    loadHeatmapSettings() {
+      const savedSettings = storageService.loadHeatmapSettings()
+      if (savedSettings) {
+        this.heatmapSettings = { ...this.heatmapSettings, ...savedSettings }
+        console.log('Loaded heatmap settings:', this.heatmapSettings)
+      }
+    },
+
     updateHeatmapSettings() {
       console.log('=== MapView updateHeatmapSettings ===')
       console.log('New settings:', this.heatmapSettings)
+
+      // Сохраняем настройки в localStorage
+      storageService.saveHeatmapSettings(this.heatmapSettings)
 
       // Только для OpenLayers карты
       if (this.mapProvider === 'openlayers' && this.$refs.olMap && this.isHeatmapVisible) {
@@ -615,9 +638,8 @@ export default {
       // Если открываем элементы управления - автоматически включаем heatmap слой, если он еще не включен
       if (this.showHeatmapControls && !this.isHeatmapVisible) {
         console.log('Opening heatmap controls - auto-enabling heatmap layer')
-        this.isHeatmapVisible = true
-        // Эмитируем событие изменения видимости слоя
-        this.$emit('layer-visibility-changed', {
+        // Используем handleLayerVisibilityChange для корректной логики
+        this.handleLayerVisibilityChange({
           layerId: 'heatmap',
           visible: true
         })
