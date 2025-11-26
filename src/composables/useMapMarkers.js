@@ -1,3 +1,5 @@
+import { estateTypesService } from '@/services/estateTypes.js'
+
 // Composable для работы с маркерами карты
 export function useMapMarkers() {
   // Создание маркера в виде концентрических кругов для Leaflet
@@ -28,7 +30,8 @@ export function useMapMarkers() {
     const scaledRadius = radius * (markerSize?.scaleFactor || 1)
 
     if (estateTypes.length === 1) {
-      return `<div class="pie-marker"><svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}"><circle cx="${center}" cy="${center}" r="${radius}" fill="transparent" stroke="${estateTypes[0].color}" stroke-width="${strokeWidth}"/></svg></div>`
+      const color = estateTypesService.getColorById(estateTypes[0].id) || 'hsl(0, 0%, 60%)'
+      return `<div class="pie-marker"><svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}"><circle cx="${center}" cy="${center}" r="${radius}" fill="transparent" stroke="${color}" stroke-width="${strokeWidth}"/></svg></div>`
     }
 
     let svg = `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">`
@@ -37,6 +40,7 @@ export function useMapMarkers() {
     let currentAngle = -90
 
     estateTypes.forEach((type) => {
+      const color = estateTypesService.getColorById(type.id) || 'hsl(0, 0%, 60%)'
       const endAngle = currentAngle + segmentAngle
       const startRad = (currentAngle * Math.PI) / 180
       const endRad = (endAngle * Math.PI) / 180
@@ -46,7 +50,7 @@ export function useMapMarkers() {
       const y2 = center + radius * Math.sin(endRad)
       const largeArcFlag = segmentAngle > 180 ? 1 : 0
       const pathData = `M ${x1} ${y1} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`
-      svg += `<path d="${pathData}" fill="none" stroke="${type.color}" stroke-width="${strokeWidth}" stroke-linecap="butt"/>`
+      svg += `<path d="${pathData}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="butt"/>`
       currentAngle = endAngle
     })
 

@@ -11,6 +11,7 @@ import 'ol/ol.css'
 import 'leaflet.fullscreen'
 import 'leaflet.fullscreen/Control.FullScreen.css'
 
+import { estateTypesService } from '@/services/estateTypes.js'
 // Импортируем сервисы
 import { initializeVectorLayerService } from '@/services/vectorLayers.js'
 
@@ -28,5 +29,13 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 
 // Инициализируем сервисы
 initializeVectorLayerService()
+
+// Загружаем цвета типов собственности
+console.log('🚀 Loading estate type colors...')
+estateTypesService.loadEstateTypeColors().then(colors => {
+  console.log(`✅ Estate type colors loaded: ${Object.keys(colors).length} colors ready`)
+}).catch(error => {
+  console.error('❌ Failed to load estate type colors:', error)
+})
 
 app.mount('#app')

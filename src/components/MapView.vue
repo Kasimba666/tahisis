@@ -273,7 +273,6 @@
           :initial-zoom="effectiveZoom"
           :marker="marker"
           :settlement-name-mode="settlementNameMode"
-          :settlement-subtype-colors="settlementSubtypeColors"
           :is-active="mapProvider === 'openlayers'"
           @view-change="onOLViewChange"
           @fullscreen-change="onFullscreenChange"
@@ -290,6 +289,7 @@ import OpenLayersMap from './maps/OpenLayersMap.vue'
 import VectorLayersControl from './VectorLayersControl.vue'
 import { vectorLayerService } from '@/services/vectorLayers.js'
 import { storageService } from '@/services/storage.js'
+import { estateTypesService } from '@/services/estateTypes.js'
 import {
   Setting,
   MapLocation,
@@ -381,41 +381,44 @@ export default {
     },
 
     // Признак того, что цвета загружены
-      areColorsLoaded() {
-        // If there are no settlements to display, colors are considered loaded (no waiting needed)
-        if (!this.settlements || (Array.isArray(this.settlements) && this.settlements.length === 0)) {
-          return true
-        }
-
-        // If settlements are GeoJSON, check if features exist
-        if (this.settlements && this.settlements.type === 'FeatureCollection') {
-          const features = this.settlements.features || []
-          if (features.length === 0) return true
-
-          const hasEstateTypes = features.some(f =>
-            f.properties && f.properties.estateTypes && Array.isArray(f.properties.estateTypes) && f.properties.estateTypes.length > 0
-          )
-
-          // If features don't have estate types, colors are not needed
-          if (!hasEstateTypes) {
-            return true
-          }
-        }
-
-        // If there are settlements but no subtype colors loaded, check if we have estateTypes in settlements
-        if (Array.isArray(this.settlements) && this.settlements.length > 0) {
-          const hasEstateTypes = this.settlements.some(s =>
-            s.estateTypes && Array.isArray(s.estateTypes) && s.estateTypes.length > 0
-          )
-          // If settlements don't have estate types, colors are not needed
-          if (!hasEstateTypes) {
-            return true
-          }
-        }
-
-        // Always return true to prevent infinite loading (colors will be applied when available)
+    areColorsLoaded() {
+      // Если нет поселений, цвета считаются загруженными
+      if (!this.settlements || (Array.isArray(this.settlements) && this.settlements.length === 0)) {
         return true
-      },
+      }
+
+      // Если settlements в формате GeoJSON
+      if (this.settlements && this.settlements.type === 'FeatureCollection') {
+        const features = this.settlements.features || []
+        if (features.length === 0) return true
+
+        // Проверяем, есть ли features с estateTypes
+        const hasEstateTypes = features.some(f =>
+          f.properties && f.properties.estateTypes && Array.isArray(f.properties.estateTypes) && f.properties.estateTypes.length > 0
+        )
+
+        // Если нет estateTypes - цвета не нужны
+        if (!hasEstateTypes) return true
+
+        // Есть estateTypes, проверяем загрузку цветов через новый сервис
+        return estateTypesService.isLoaded()
+      }
+
+      // Если settlements в виде массива
+      if (Array.isArray(this.settlements) && this.settlements.length > 0) {
+        const hasEstateTypes = this.settlements.some(s =>
+          s.estateTypes && Array.isArray(s.estateTypes) && s.estateTypes.length > 0
+        )
+
+        // Если нет estateTypes - цвета не нужны
+        if (!hasEstateTypes) return true
+
+        // Есть estateTypes, проверяем загрузку цветов через новый сервис
+        return estateTypesService.isLoaded()
+      }
+
+      return true
+    },
     estateTypesLegend() {
       // Поддержка как массива settlements, так и GeoJSON
       let settlementsArray = []

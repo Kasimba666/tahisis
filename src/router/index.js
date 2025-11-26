@@ -9,6 +9,7 @@ import PgSettlements from '@/pages/PgSettlements.vue'
 import PgSettings from '@/pages/PgSettings.vue'
 import PgVectorLayerTypes from '@/pages/PgVectorLayerTypes.vue'
 import PgVectorLayers from '@/pages/PgVectorLayers.vue'
+import PgAdministrativeDivision from '@/pages/PgAdministrativeDivision.vue'
 
 // Вспомогательная функция для работы с URL параметрами фильтров
 const getFiltersFromURL = () => {
@@ -181,6 +182,14 @@ const routes = [
     path: '/vector-layers',
     name: 'VectorLayers',
     component: PgVectorLayers,
+    meta: {
+      requireAuth: true
+    }
+  },
+  {
+    path: '/administrative-division',
+    name: 'AdministrativeDivision',
+    component: PgAdministrativeDivision,
     meta: {
       requireAuth: true
     }

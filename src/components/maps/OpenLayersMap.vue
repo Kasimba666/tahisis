@@ -23,6 +23,7 @@ import Control from 'ol/control/Control'
 import FullScreen from 'ol/control/FullScreen'
 import ScaleLine from 'ol/control/ScaleLine'
 import { useMapMarkers } from '@/composables/useMapMarkers.js'
+import { estateTypesService } from '@/services/estateTypes.js'
 import { HomeFilled } from '@element-plus/icons-vue'
 import { h, render } from 'vue'
 
@@ -53,10 +54,7 @@ export default {
       type: String,
       default: 'none'
     },
-    settlementSubtypeColors: {
-      type: Object,
-      default: () => ({})
-    },
+
     isActive: {
       type: Boolean,
       default: true
@@ -389,23 +387,6 @@ export default {
         return
       }
 
-      // ЗАДЕРЖКА: Ждем полной загрузки данных субтипов сословий с цветами
-      // Это критично для правильного окрашивания маркеров
-      if (!this.settlementSubtypeColors || Object.keys(this.settlementSubtypeColors).length === 0) {
-        console.log('Waiting for settlement subtype colors to load...')
-        // Попробуем еще раз через небольшую задержку
-        setTimeout(() => {
-          if (!this.settlementSubtypeColors || Object.keys(this.settlementSubtypeColors).length === 0) {
-            console.log('Still waiting for subtype colors...')
-            // Если данные все равно не загружены, создадим маркеры с default стилями
-            this.createMarkersWithDefaultStyle()
-          } else {
-            this.updateMarkers()
-          }
-        }, 100)
-        return
-      }
-
       const source = this.vectorLayer.getSource()
       source.clear()
 
@@ -606,10 +587,10 @@ export default {
         })
       }
 
-      // Проверяем что у каждого типа есть цвет из settlementSubtypeColors
+      // Проверяем что у каждого типа есть цвет через сервис
       const estateTypesWithValidColors = estateTypes.filter(type => {
         if (!type.id) return false
-        return this.settlementSubtypeColors[type.id] !== undefined
+        return estateTypesService.getColorById(type.id) !== null
       })
 
       // Если нет типов с валидными цветами, создаем серый маркер
@@ -631,7 +612,7 @@ export default {
       const radius = minRadius + (maxRadius - minRadius) * normalizedPopulation
 
       if (estateTypesWithValidColors.length === 1) {
-        const color = this.settlementSubtypeColors[estateTypesWithValidColors[0].id] || 'hsl(0, 0%, 60%)'
+        const color = estateTypesService.getColorById(estateTypesWithValidColors[0].id) || 'hsl(0, 0%, 60%)'
         return new Style({
           image: new Circle({
             radius,
@@ -653,7 +634,7 @@ export default {
           const segmentAngle = (2 * Math.PI) / estateTypesWithValidColors.length
 
           estateTypesWithValidColors.forEach((type, index) => {
-            const color = this.settlementSubtypeColors[type.id] || 'hsl(0, 0%, 60%)'
+            const color = estateTypesService.getColorById(type.id) || 'hsl(0, 0%, 60%)'
             const startAngle = -Math.PI / 2 + (index * segmentAngle)
             const endAngle = -Math.PI / 2 + ((index + 1) * segmentAngle)
 
@@ -1237,19 +1218,7 @@ export default {
       },
       deep: true
     },
-    settlementSubtypeColors: {
-      handler(newVal, oldVal) {
-        console.log('=== OpenLayersMap settlementSubtypeColors changed ===')
-        console.log('New colors:', Object.keys(newVal).length, 'Old colors:', Object.keys(oldVal).length)
 
-        // Если цвета загрузились - пересоздаем маркеры
-        if (newVal && Object.keys(newVal).length > 0) {
-          console.log('Colors loaded, updating markers...')
-          this.updateMarkers()
-        }
-      },
-      deep: true
-    },
 
     settlementNameMode: {
       handler() {
