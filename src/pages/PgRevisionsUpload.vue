@@ -3,44 +3,106 @@
     <h3>Ревизии</h3>
     <ExcelRevisionsUpload @dataProcessed="handleDataProcessed" />
 
-    <div class="filters-container">
-      <el-select
-        v-model="selectedRevision"
-        placeholder="Выберите ревизию"
-        clearable
-        @change="handleRevisionFilter"
-        class="revision-filter"
-      >
-        <el-option
-          v-for="revision in availableRevisions"
-          :key="revision.number"
-          :label="`Ревизия ${revision.number} (${revision.year})`"
-          :value="revision.number"
-        />
-      </el-select>
-      <el-button
-        type="danger"
-        @click="handleDeleteSelectedRevision"
-        :disabled="!selectedRevision"
-        class="delete-revision-button"
-      >
-        Удалить ревизию
-      </el-button>
+    <div class="table-controls">
+      <div class="control-row">
+        <el-select
+          v-model="selectedRevision"
+          placeholder="Выберите ревизию"
+          clearable
+          @change="handleRevisionFilter"
+          class="revision-select"
+          style="max-width: 250px"
+        >
+          <el-option
+            v-for="revision in availableRevisions"
+            :key="revision.number"
+            :label="`Ревизия ${revision.number} (${revision.year})`"
+            :value="revision.number"
+          />
+        </el-select>
+        <el-button
+          type="danger"
+          @click="handleDeleteSelectedRevision"
+          :disabled="!selectedRevision"
+          size="small"
+        >
+          Удалить ревизию
+        </el-button>
+      </div>
+
+      <div class="column-filters">
+        <div class="filter-row">
+          <span class="filters-label">Фильтры:</span>
+          <el-input
+            v-model="filterId"
+            placeholder="ID"
+            size="small"
+            clearable
+            style="width: 80px"
+          />
+          <el-input
+            v-model="filterCode"
+            placeholder="Код"
+            size="small"
+            clearable
+            style="width: 100px"
+          />
+          <el-input
+            v-model="filterSettlementNameOld"
+            placeholder="Нас.пункт (старый)"
+            size="small"
+            clearable
+          />
+          <el-input
+            v-model="filterSettlementNameOldAlt"
+            placeholder="Нас. пункт (альт)"
+            size="small"
+            clearable
+            style="width: 180px"
+          />
+          <el-input
+            v-model="filterSettlementNameModern"
+            placeholder="Нас. пункт (совр)"
+            size="small"
+            clearable
+            style="width: 180px"
+          />
+          <el-input
+            v-model="filterDistrictName"
+            placeholder="Район"
+            size="small"
+            clearable
+            style="width: 140px"
+          />
+          <el-input
+            v-model="filterPopulationAll"
+            placeholder="Всего"
+            size="small"
+            clearable
+            style="width: 140px"
+          />
+          <el-input
+            v-model="filterMale"
+            placeholder="Мужчины"
+            size="small"
+            clearable
+            style="width: 100px"
+          />
+          <el-input
+            v-model="filterFemale"
+            placeholder="Женщины"
+            size="small"
+            clearable
+            style="width: 100px"
+          />
+          <el-button @click="clearFilters" type="info" size="small" style="margin-left: auto;">
+            Очистить фильтры
+          </el-button>
+        </div>
+      </div>
     </div>
 
-    <div class="table-info">
-      <el-alert
-          type="info"
-          :closable="false"
-          show-icon
-      >
-        <template #title>
-          Всего записей: {{ totalRecords }}
-        </template>
-      </el-alert>
-    </div>
-
-    <el-table :data="tableData" style="width: 100%" border stripe>
+    <el-table :data="filteredTableData" style="width: 100%" border stripe>
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="code" label="Код" width="100">
         <template #default="{ row }">
@@ -53,21 +115,21 @@
       <el-table-column label="Нас.пункт (старый)">
         <template #default="{ row }">
           <div v-if="editRecordId === row.id">
-        <el-select
-          v-model="editRecord.id_settlment"
-          placeholder="Выберите населённый пункт"
-          filterable
-          size="small"
-          style="width: 100%"
-          @change="onSettlementChange"
-        >
-          <el-option
-            v-for="settlement in filteredSettlementsForEdit"
-            :key="settlement.id"
-            :label="settlement.name_old || settlement.name_modern"
-            :value="settlement.id"
-          />
-        </el-select>
+            <el-select
+              v-model="editRecord.id_settlment"
+              placeholder="Выберите населённый пункт"
+              filterable
+              size="small"
+              style="width: 100%"
+              @change="onSettlementChange"
+            >
+              <el-option
+                v-for="settlement in filteredSettlementsForEdit"
+                :key="settlement.id"
+                :label="settlement.name_old || settlement.name_modern"
+                :value="settlement.id"
+              />
+            </el-select>
           </div>
           <div v-else>{{ row.settlement_name_old }}</div>
         </template>
@@ -97,6 +159,7 @@
               filterable
               size="small"
               style="width: 100%"
+              @change="onDistrictChange"
             >
               <el-option
                 v-for="district in availableDistricts"
@@ -153,11 +216,10 @@
 import { supabase } from '@/services/supabase'
 import ExcelRevisionsUpload from '@/components/ExcelRevisionsUpload.vue'
 
-
 export default {
   name: 'PgRevisionsUpload',
   components: { ExcelRevisionsUpload },
-      data() {
+  data() {
     return {
       tableData: [],
       selectedRevision: null,
@@ -166,7 +228,17 @@ export default {
       editRecord: {},
       loading: false,
       availableSettlements: [],
-      availableDistricts: []
+      availableDistricts: [],
+      // Фильтры по столбцам
+      filterId: '',
+      filterCode: '',
+      filterSettlementNameOld: '',
+      filterSettlementNameOldAlt: '',
+      filterSettlementNameModern: '',
+      filterDistrictName: '',
+      filterPopulationAll: '',
+      filterMale: '',
+      filterFemale: ''
     }
   },
   computed: {
@@ -174,9 +246,31 @@ export default {
       return this.tableData.length
     },
 
-    // Всегда показываем все поселения для выбора
+    // Фильтруем поселения по выбранному району при редактировании
     filteredSettlementsForEdit() {
-      return this.availableSettlements
+      if (!this.editRecord.id_district) {
+        // Если район не выбран - показываем все поселения
+        return this.availableSettlements
+      }
+      // Показываем только поселения выбранного района
+      return this.availableSettlements.filter(settlement =>
+        settlement.id_district === this.editRecord.id_district
+      )
+    },
+
+    // Фильтрованная таблица данных
+    filteredTableData() {
+      return this.tableData.filter(row => {
+        return (!this.filterId || String(row.id).includes(this.filterId)) &&
+               (!this.filterCode || String(row.code).includes(this.filterCode)) &&
+               (!this.filterSettlementNameOld || String(row.settlement_name_old).toLowerCase().includes(this.filterSettlementNameOld.toLowerCase())) &&
+               (!this.filterSettlementNameOldAlt || String(row.settlement_name_old_alt).toLowerCase().includes(this.filterSettlementNameOldAlt.toLowerCase())) &&
+               (!this.filterSettlementNameModern || String(row.settlement_name_modern).toLowerCase().includes(this.filterSettlementNameModern.toLowerCase())) &&
+               (!this.filterDistrictName || String(row.district_name).toLowerCase().includes(this.filterDistrictName.toLowerCase())) &&
+               (!this.filterPopulationAll || String(row.population_all).includes(this.filterPopulationAll)) &&
+               (!this.filterMale || String(row.male).includes(this.filterMale)) &&
+               (!this.filterFemale || String(row.female).includes(this.filterFemale))
+      })
     }
   },
   methods: {
@@ -221,7 +315,7 @@ export default {
 
       // Получаем все Estate записи для этих Report_record
       const reportIds = (reportRecords || []).map(r => r.id)
-      
+
       let estatesData = []
       if (reportIds.length > 0) {
         const { data: estates, error: estatesError } = await supabase
@@ -253,11 +347,11 @@ export default {
       // Формируем данные для таблицы
       this.tableData = (reportRecords || []).map(record => {
         const estates = estatesByReport[record.id] || []
-        
+
         // Суммируем мужчин и женщин
         const totalMale = estates.reduce((sum, e) => sum + (Number(e.male) || 0), 0)
         const totalFemale = estates.reduce((sum, e) => sum + (Number(e.female) || 0), 0)
-        
+
         // Собираем уникальные волости, помещиков и воинские части
         const volosts = [...new Set(estates.map(e => e.Volost?.name).filter(Boolean))]
         const landowners = [...new Set(estates.map(e => e.Landowner?.description).filter(Boolean))]
@@ -427,6 +521,26 @@ export default {
       }
     },
 
+    async onDistrictChange(newDistrictId) {
+      // При изменении района очищаем выбранное поселение, если оно не принадлежит новому району
+      // Сначала проверяем, принадлежит ли текущий выбранный посёлок новому району
+      if (this.editRecord.id_settlment && newDistrictId) {
+        const currentSettlement = this.availableSettlements.find(s => s.id === this.editRecord.id_settlment)
+        if (!currentSettlement || currentSettlement.id_district !== newDistrictId) {
+          // Посёлок не принадлежит новому району - очищаем выбор
+          this.editRecord.id_settlment = null
+          this.editRecord.settlement_name_old_alt = ''
+          this.editRecord.settlement_name_modern = ''
+        }
+      } else if (!newDistrictId) {
+        // Район сброшен - очищаем посёлок
+        this.editRecord.id_settlment = null
+        this.editRecord.settlement_name_old_alt = ''
+        this.editRecord.settlement_name_modern = ''
+      }
+      // computed filteredSettlementsForEdit автоматически обновится
+    },
+
     cancelEdit() {
       this.editRecordId = null
       this.editRecord = {}
@@ -491,6 +605,19 @@ export default {
         console.error('Ошибка удаления записи:', error)
         this.$message.error('Ошибка при удалении записи')
       }
+    },
+
+    // Метод очистки фильтров
+    clearFilters() {
+      this.filterId = ''
+      this.filterCode = ''
+      this.filterSettlementNameOld = ''
+      this.filterSettlementNameOldAlt = ''
+      this.filterSettlementNameModern = ''
+      this.filterDistrictName = ''
+      this.filterPopulationAll = ''
+      this.filterMale = ''
+      this.filterFemale = ''
     }
   },
   async mounted() {
@@ -504,7 +631,7 @@ export default {
 .pg-revisions-upload {
   padding: 0.5rem;
 
-  h1 {
+  h3 {
     font-size: 2rem;
     font-weight: 700;
     color: var(--text-primary);
@@ -515,40 +642,57 @@ export default {
     background-clip: text;
   }
 
-  .filters-container {
-    margin-bottom: 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
+  .table-controls {
+    margin-bottom: 1rem;
+
+    .control-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 0.5rem;
+      background-color: var(--bg-primary);
+    }
   }
 
-  .revision-filter {
-    width: 200px;
+  .filters-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-right: 0.5rem;
+    white-space: nowrap;
   }
 
-  /* Кастомизация кнопки сброса внутри el-select */
-  :deep(.revision-filter .el-select__suffix .el-select__suffix-inner) {
-    width: 18px !important;
-    height: 18px !important;
-    border-radius: 50% !important;
-    background-color: hsl(0, 84%, 60%) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
+  .column-filters {
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.5rem;
+    background-color: var(--bg-primary);
 
-  :deep(.revision-filter .el-select__suffix .el-select__suffix-inner:hover) {
-    background-color: hsl(0, 84%, 50%) !important;
-  }
+    .filter-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
 
-  :deep(.revision-filter .el-select__suffix .el-select__suffix-inner .el-icon) {
-    color: white !important;
-    font-size: 12px !important;
-  }
+      .el-input {
+        flex: 1;
+        min-width: 120px;
+      }
 
-  .table-info {
-    margin-bottom: 1.5rem;
+      .el-input:nth-child(1) {
+        width: 80px !important;
+        min-width: 80px;
+        flex: none;
+      }
+
+      .el-input:nth-child(2) {
+        width: 100px !important;
+        min-width: 100px;
+        flex: none;
+      }
+    }
   }
 
   :deep(.el-table td),
@@ -559,7 +703,5 @@ export default {
   :deep(.el-table .cell) {
     padding: 3px;
   }
-
-
 }
 </style>
