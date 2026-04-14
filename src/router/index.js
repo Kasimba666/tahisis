@@ -10,6 +10,7 @@ import PgSettings from '@/pages/PgSettings.vue'
 import PgVectorLayerTypes from '@/pages/PgVectorLayerTypes.vue'
 import PgVectorLayers from '@/pages/PgVectorLayers.vue'
 import PgAdministrativeDivision from '@/pages/PgAdministrativeDivision.vue'
+import PgHelp from '@/pages/PgHelp.vue'
 
 // Вспомогательная функция для работы с URL параметрами фильтров
 const getFiltersFromURL = () => {
@@ -193,6 +194,11 @@ const routes = [
     meta: {
       requireAuth: true
     }
+  },
+  {
+    path: '/help',
+    name: 'Help',
+    component: PgHelp
   }
 ]
 

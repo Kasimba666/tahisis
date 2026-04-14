@@ -33,6 +33,9 @@
             <router-link to="/settings" class="nav-item" :class="{ active: isActive('/settings') }">
               Настройки
             </router-link>
+            <router-link to="/help" class="nav-item" :class="{ active: isActive('/help') }">
+              Помощь
+            </router-link>
             <div v-if="authState.user" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
               <span class="submenu-trigger">Управление данными</span>
               <div class="submenu" :class="{ 'is-open': openSubmenu === 'dataMenu' }">
