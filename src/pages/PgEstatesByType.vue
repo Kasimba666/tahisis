@@ -328,6 +328,11 @@ export default {
       this.currentFilters = filters
       this.filtersApplied = true
       setFiltersInURL(filters)
+      
+      // Загружаем данные если они ещё не были загружены
+      if (this.estates.length === 0) {
+        this.loadData()
+      }
     },
 
     applyFilters(filters) {
