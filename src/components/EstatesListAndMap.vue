@@ -709,7 +709,7 @@ export default {
                 District(name)
               )
             ),
-            Subtype_estate!Estate_id_subtype_estate_fkey(
+            Subtype_estate!Estate_id_subtype_estate_fkey!inner(
               name,
               id_type_estate,
               id_type_religion,
@@ -814,8 +814,10 @@ export default {
 
         if (subtypeIds.length > 0) {
           query = query.in('id_subtype_estate', subtypeIds)
-        } else {
-          // Если нет подтипов для выбранных типов сословий, возвращаем пустой результат
+        }
+        // ✅ ТОЛЬКО если справочник уже загружен и нет подтипов - возвращаем пустой результат
+        // ✅ Если справочник еще не загружен - пропускаем фильтр, клиентская фильтрация потом исправит
+        else if (this.allSubtypeEstates?.length > 0) {
           query = query.eq('id', -1)
         }
       }
@@ -833,8 +835,10 @@ export default {
 
         if (subtypeIds.length > 0) {
           query = query.in('id_subtype_estate', subtypeIds)
-        } else {
-          // Если нет подтипов для выбранных религий, возвращаем пустой результат
+        }
+        // ✅ ТОЛЬКО если справочник уже загружен и нет подтипов - возвращаем пустой результат
+        // ✅ Если справочник еще не загружен - пропускаем фильтр, клиентская фильтрация потом исправит
+        else if (this.allSubtypeEstates?.length > 0) {
           query = query.eq('id', -1)
         }
       }
@@ -847,8 +851,10 @@ export default {
 
         if (subtypeIds.length > 0) {
           query = query.in('id_subtype_estate', subtypeIds)
-        } else {
-          // Если нет подтипов для выбранных принадлежностей, возвращаем пустой результат
+        }
+        // ✅ ТОЛЬКО если справочник уже загружен и нет подтипов - возвращаем пустой результат
+        // ✅ Если справочник еще не загружен - пропускаем фильтр, клиентская фильтрация потом исправит
+        else if (this.allSubtypeEstates?.length > 0) {
           query = query.eq('id', -1)
         }
       }
