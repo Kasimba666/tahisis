@@ -11,6 +11,7 @@ import PgVectorLayerTypes from '@/pages/PgVectorLayerTypes.vue'
 import PgVectorLayers from '@/pages/PgVectorLayers.vue'
 import PgAdministrativeDivision from '@/pages/PgAdministrativeDivision.vue'
 import PgHelp from '@/pages/PgHelp.vue'
+import PgUserGuide from '@/pages/PgUserGuide.vue'
 
 // Вспомогательная функция для работы с URL параметрами фильтров
 const getFiltersFromURL = () => {
@@ -199,6 +200,11 @@ const routes = [
     path: '/help',
     name: 'Help',
     component: PgHelp
+  },
+  {
+    path: '/user-guide',
+    name: 'UserGuide',
+    component: PgUserGuide
   }
 ]
 
