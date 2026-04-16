@@ -224,9 +224,9 @@ export default {
           landowner: Array.from(settlement.landowners).join(', ') || null,
           militaryUnit: Array.from(settlement.militaryUnits).join(', ') || null,
           estateTypes: [{
-            id: this.subtypeData.typeId,
-            name: this.subtypeData.typeName,
-            color: this.subtypeData.typeColor,
+            id: this.subtypeData.subtypeId,
+            name: this.subtypeData.subtypeName,
+            color: this.subtypeData.subtypeColor,
             population: settlement.male + settlement.female
           }],
           maleCount: settlement.male,
