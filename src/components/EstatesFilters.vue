@@ -1660,12 +1660,15 @@ export default {
       color: white !important;
       border: none !important;
       font-size: 11px;
-      max-width: 200px;
+      height: auto;
+      min-height: 22px;
+      line-height: 1.3;
+      padding: 2px 6px;
 
       :deep(.el-tag__content) {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        white-space: normal;
+        word-wrap: break-word;
+        word-break: break-word;
       }
 
       :deep(.el-tag__close) {
