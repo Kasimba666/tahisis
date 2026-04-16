@@ -2,7 +2,13 @@
   <div class="user-guide-page">
     <el-card class="guide-container">
       <template #header>
-        <h1>Руководство пользователя</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h1>Руководство пользователя</h1>
+          <el-button type="primary" size="small" @click="downloadGuide">
+            <el-icon><Download /></el-icon>
+            Скачать руководство
+          </el-button>
+        </div>
       </template>
 
       <div class="guide-content">
@@ -120,8 +126,21 @@
 </template>
 
 <script>
+import { Download } from '@element-plus/icons-vue'
+
 export default {
-  name: 'PgUserGuide'
+  name: 'PgUserGuide',
+  components: { Download },
+  methods: {
+    downloadGuide() {
+      const link = document.createElement('a')
+      link.href = '/src/assets/user-guide/Руководство пользователя системы TarihGIS.pdf'
+      link.download = 'Руководство пользователя системы TarihGIS.pdf'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  }
 }
 </script>
 
