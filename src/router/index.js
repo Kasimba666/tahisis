@@ -6,11 +6,11 @@ import PgRevisionsUpload from '@/pages/PgRevisionsUpload.vue'
 import PgEstatesList from '@/pages/PgEstatesList.vue'
 import PgEstatesByType from '@/pages/PgEstatesByType.vue'
 import PgSettlements from '@/pages/PgSettlements.vue'
-import PgSettings from '@/pages/PgSettings.vue'
+// import PgSettings from '@/pages/PgSettings.vue'
 import PgVectorLayerTypes from '@/pages/PgVectorLayerTypes.vue'
 import PgVectorLayers from '@/pages/PgVectorLayers.vue'
 import PgAdministrativeDivision from '@/pages/PgAdministrativeDivision.vue'
-import PgHelp from '@/pages/PgHelp.vue'
+// import PgHelp from '@/pages/PgHelp.vue'
 import PgUserGuide from '@/pages/PgUserGuide.vue'
 
 // Вспомогательная функция для работы с URL параметрами фильтров
@@ -167,11 +167,11 @@ const routes = [
     name: 'Settlements',
     component: PgSettlements
   },
-  {
-    path: '/settings',
-    name: 'Settings',
-    component: PgSettings
-  },
+  // {
+  //   path: '/settings',
+  //   name: 'Settings',
+  //   component: PgSettings
+  // },
   {
     path: '/vector-layer-types',
     name: 'VectorLayerTypes',
@@ -196,11 +196,11 @@ const routes = [
       requireAuth: true
     }
   },
-  {
-    path: '/help',
-    name: 'Help',
-    component: PgHelp
-  },
+  // {
+  //   path: '/help',
+  //   name: 'Help',
+  //   component: PgHelp
+  // },
   {
     path: '/user-guide',
     name: 'UserGuide',
