@@ -612,7 +612,10 @@ export default {
       const radius = minRadius + (maxRadius - minRadius) * normalizedPopulation
 
       if (estateTypesWithValidColors.length === 1) {
-        const color = estateTypesService.getColorById(estateTypesWithValidColors[0].id) || 'hsl(0, 0%, 60%)'
+        // ✅ Если в объекте уже есть цвет - используем его! Не лезем в сервис за типом!
+        const type = estateTypesWithValidColors[0]
+        const color = type.color || estateTypesService.getColorById(type.id) || 'hsl(0, 0%, 60%)'
+        
         return new Style({
           image: new Circle({
             radius,
@@ -634,7 +637,9 @@ export default {
           const segmentAngle = (2 * Math.PI) / estateTypesWithValidColors.length
 
           estateTypesWithValidColors.forEach((type, index) => {
-            const color = estateTypesService.getColorById(type.id) || 'hsl(0, 0%, 60%)'
+            // ✅ Если в объекте уже есть цвет - используем его! Не лезем в сервис за типом!
+            const color = type.color || estateTypesService.getColorById(type.id) || 'hsl(0, 0%, 60%)'
+            
             const startAngle = -Math.PI / 2 + (index * segmentAngle)
             const endAngle = -Math.PI / 2 + ((index + 1) * segmentAngle)
 
