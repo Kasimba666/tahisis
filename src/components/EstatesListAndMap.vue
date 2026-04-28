@@ -1143,6 +1143,17 @@ export default {
         }
       }
 
+      // Умный поиск по населенным пунктам (по всем трем полям)
+      if (this.currentFilters.settlementSmartSearch && this.currentFilters.settlementSmartSearch.length >= 3) {
+        const searchTerm = this.currentFilters.settlementSmartSearch.toLowerCase().trim()
+        filtered = filtered.filter(item => {
+          return (
+            (item.settlement_name_old && item.settlement_name_old.toLowerCase().includes(searchTerm)) ||
+            (item.settlement_name_modern && item.settlement_name_modern.toLowerCase().includes(searchTerm))
+          )
+        })
+      }
+
       return filtered
     },
 
@@ -1158,6 +1169,18 @@ export default {
           // Находим район по имени
           const district = this.allDistricts?.find(d => d.name === item.district_name)
           return district && this.currentFilters.districts.includes(district.id)
+        })
+      }
+
+      // Умный поиск по населенным пунктам (по всем трем полям)
+      if (this.currentFilters.settlementSmartSearch && this.currentFilters.settlementSmartSearch.length >= 3) {
+        const searchTerm = this.currentFilters.settlementSmartSearch.toLowerCase().trim()
+        filtered = filtered.filter(item => {
+          return (
+            (item.settlement_name_old && item.settlement_name_old.toLowerCase().includes(searchTerm)) ||
+            (item.settlement_name_old_alt && item.settlement_name_old_alt.toLowerCase().includes(searchTerm)) ||
+            (item.settlement_name_modern && item.settlement_name_modern.toLowerCase().includes(searchTerm))
+          )
         })
       }
 

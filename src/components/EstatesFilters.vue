@@ -53,7 +53,7 @@
       <!-- Dropdown фильтры -->
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
         <el-button size="large">
-          Район ({{ filters.districts.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
+          Населённый пункт ({{ filters.settlementNamesOld.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
         </el-button>
         <template #dropdown>
           <el-dropdown-menu class="filter-dropdown-menu">
@@ -63,22 +63,76 @@
               </el-button>
             </div>
             <div class="filter-search">
-              <el-input v-model="searchDistrict" placeholder="Поиск..." size="small" clearable />
+              <el-input v-model="searchSettlement" placeholder="Поиск..." size="small" clearable />
             </div>
             <div class="filter-options">
-              <el-checkbox-group v-model="filters.districts">
-                <el-checkbox 
-                  v-for="district in filteredDistrictsSearch" 
-                  :key="district.id" 
-                  :label="district.id"
+              <el-checkbox-group v-model="filters.settlementNamesOld">
+                <el-checkbox
+                  v-for="settlement in filteredSettlementsSearch"
+                  :key="settlement.id"
+                  :label="settlement.id"
                 >
-                  {{ district.name }}
+                  {{ settlement.name_old }}
                 </el-checkbox>
               </el-checkbox-group>
             </div>
             <div class="filter-actions-dropdown">
-              <el-button link size="small" @click="selectAllDistricts">Выбрать все</el-button>
-              <el-button link size="small" type="danger" @click="filters.districts = []">Сбросить</el-button>
+              <el-button link size="small" @click="selectAllSettlements">Выбрать все</el-button>
+              <el-button link size="small" type="danger" @click="filters.settlementNamesOld = []">Сбросить</el-button>
+            </div>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
+      <!-- Умный поиск населённых пунктов по всем полям -->
+      <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
+        <el-button size="large" :class="{ 'has-active-filters': filters.settlementSmartSearch.length > 0 }">
+          🔍 Быстрый поиск НП ({{ filters.settlementSmartSearch.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu class="filter-dropdown-menu wide-dropdown">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
+            <div class="filter-search">
+              <el-input 
+                v-model="smartSettlementSearch" 
+                placeholder="Введите минимум 3 символа для поиска..." 
+                size="small" 
+                clearable
+                @input="onSmartSettlementInput"
+              />
+              <div v-if="smartSearchLoading" class="search-loading">
+                <el-icon class="is-loading"><Loading /></el-icon> Идёт поиск...
+              </div>
+              <div v-else-if="smartSettlementSearch.length >= 3 && smartSettlementResults.length === 0 && !smartSearchLoading" class="search-no-results">
+                Ничего не найдено
+              </div>
+            </div>
+            <div class="filter-options">
+              <el-checkbox-group v-model="filters.settlementSmartSearch">
+                <el-checkbox
+                  v-for="settlement in smartSettlementResults"
+                  :key="settlement.id"
+                  :label="settlement.id"
+                >
+                  <div class="smart-search-item">
+                    <div class="settlement-name">{{ settlement.name_old }}</div>
+                    <div class="settlement-details">
+                      <span v-if="settlement.name_modern" class="modern-name">совр.: {{ settlement.name_modern }}</span>
+                      <span v-if="settlement.name_old_alt" class="alt-name"> / {{ settlement.name_old_alt }}</span>
+                    </div>
+                    <div class="settlement-district">
+                      📍 {{ getDistrictName(settlement.id_district) }}
+                    </div>
+                  </div>
+                </el-checkbox>
+              </el-checkbox-group>
+            </div>
+            <div class="filter-actions-dropdown">
+              <el-button link size="small" type="danger" @click="filters.settlementSmartSearch = []; smartSettlementSearch = ''; smartSettlementResults = []">Сбросить</el-button>
             </div>
           </el-dropdown-menu>
         </template>
@@ -535,6 +589,7 @@ export default {
         femaleEnabled: false,
         populationEnabled: false,
         estatesCountEnabled: false,
+        settlementSmartSearch: [],
         maleMin: null,
         maleMax: null,
         femaleMin: null,
@@ -580,6 +635,11 @@ export default {
       searchSettlementModern: '',
       searchLandowner: '',
       searchMilitaryUnit: '',
+      // Умный поиск населенных пунктов
+      smartSettlementSearch: '',
+      smartSettlementResults: [],
+      smartSearchLoading: false,
+      smartSearchTimeout: null,
       // Отслеживание изменений
       hasChanges: false,
       appliedFilters: null
@@ -765,6 +825,23 @@ export default {
         })
       }
 
+      // Умный поиск населенных пунктов
+      if (this.filters.settlementSmartSearch?.length > 0) {
+        const settlementNames = this.filters.settlementSmartSearch.map(id => {
+          const settlement = this.allSettlements.find(s => s.id === id)
+          if (settlement) {
+            const district = this.allDistricts.find(d => d.id === settlement.id_district)
+            return `${settlement.name_old} (${district ? district.name : '?'})`
+          }
+          return `ID:${id}`
+        })
+        activeFilters.push({
+          type: 'settlementSmartSearch',
+          label: `Поиск НП: ${settlementNames.join(', ')}`,
+          value: this.filters.settlementSmartSearch
+        })
+      }
+
       // Типы сословий
       if (this.filters.typeEstates?.length > 0) {
         const typeNames = this.filters.typeEstates.map(id => {
@@ -932,6 +1009,13 @@ export default {
         // Данные будут сброшены только при нажатии кнопки "Применить"
       },
       deep: true
+    },
+    'filters.settlementSmartSearch': {
+      handler() {
+        // Автоматически применяем фильтры при выборе населенного пункта в умном поиске
+        this.applyFilters()
+      },
+      deep: true
     }
   },
   methods: {
@@ -985,8 +1069,8 @@ export default {
     loadSettlements() {
       return supabase
         .from('Settlement')
-        .select('id, name_modern, name_old, id_district')
-        .order('name_modern', { ascending: true })
+        .select('id, name_modern, name_old, name_old_alt, id_district')
+        .order('name_old', { ascending: true })
         .then(({ data, error }) => {
           if (error) throw error
           this.allSettlements = (data || []).map(s => ({
@@ -1205,7 +1289,8 @@ export default {
               'volosts', 'landowners', 'militaryUnits',
               'maleEnabled', 'femaleEnabled', 'populationEnabled', 'estatesCountEnabled',
               'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
-              'populationMin', 'populationMax', 'estatesCountMin', 'estatesCountMax'
+              'populationMin', 'populationMax', 'estatesCountMin', 'estatesCountMax',
+              'settlementSmartSearch'
             ]
 
             const cleanedFilters = {}
@@ -1305,6 +1390,48 @@ export default {
       document.body.click()
     },
 
+    // Умный поиск населенных пунктов
+    onSmartSettlementInput() {
+      // Очищаем предыдущий таймаут
+      if (this.smartSearchTimeout) {
+        clearTimeout(this.smartSearchTimeout)
+      }
+
+      // Сбрасываем результаты если меньше 3 символов
+      if (this.smartSettlementSearch.length < 3) {
+        this.smartSettlementResults = []
+        this.smartSearchLoading = false
+        return
+      }
+
+      this.smartSearchLoading = true
+
+      // Debounce 1 секунда
+      this.smartSearchTimeout = setTimeout(() => {
+        this.performSmartSettlementSearch()
+      }, 1000)
+    },
+
+    performSmartSettlementSearch() {
+      const searchTerm = this.smartSettlementSearch.toLowerCase().trim()
+      
+      // Ищем по всем трем полям сразу
+      this.smartSettlementResults = this.allSettlements.filter(settlement => {
+        return (
+          settlement.name_old?.toLowerCase().includes(searchTerm) ||
+          settlement.name_modern?.toLowerCase().includes(searchTerm) ||
+          settlement.name_old_alt?.toLowerCase().includes(searchTerm)
+        )
+      }).slice(0, 50) // Ограничиваем до 50 результатов
+
+      this.smartSearchLoading = false
+    },
+
+    getDistrictName(districtId) {
+      const district = this.allDistricts.find(d => d.id === districtId)
+      return district ? district.name : `Район ${districtId}`
+    },
+
     removeFilter(filter) {
       switch (filter.type) {
         case 'revision':
@@ -1360,6 +1487,9 @@ export default {
           this.filters.estatesCountEnabled = false
           this.filters.estatesCountMin = null
           this.filters.estatesCountMax = null
+          break
+        case 'settlementSmartSearch':
+          this.filters.settlementSmartSearch = []
           break
       }
     }
@@ -1780,6 +1910,62 @@ export default {
       }
     }
   }
+}
+
+// Стили для умного поиска населенных пунктов
+.wide-dropdown {
+  min-width: 380px !important;
+  max-width: 450px !important;
+}
+
+.smart-search-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
+
+  .settlement-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .settlement-details {
+    font-size: 11px;
+    color: var(--text-secondary);
+
+    .modern-name {
+      color: var(--text-secondary);
+    }
+
+    .alt-name {
+      color: var(--text-tertiary);
+      font-style: italic;
+    }
+  }
+
+  .settlement-district {
+    font-size: 10px;
+    color: var(--text-tertiary);
+    opacity: 0.8;
+  }
+}
+
+.search-loading {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-no-results {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  padding: 8px;
+  text-align: center;
+  font-style: italic;
 }
 
 // Дополнительная контрастность для светлой темы
