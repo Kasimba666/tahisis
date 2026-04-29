@@ -59,6 +59,7 @@ name_old_alt character varying,
 lat numeric,
 lon numeric,
 id_district bigint NOT NULL,
+vanished boolean DEFAULT false,
 CONSTRAINT Settlement_pkey PRIMARY KEY (id),
 CONSTRAINT Settlement_id_district_fkey FOREIGN KEY (id_district) REFERENCES public.District(id)
 );
@@ -105,17 +106,13 @@ CONSTRAINT Type_vector_layer_pkey PRIMARY KEY (id)
 CREATE TABLE public.Vector_layer (
 id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
 name character varying NOT NULL,
-file_path character varying NOT NULL,
-file_url character varying,
-mime_type character varying,
-size bigint,
-feature_count bigint,
 crs character varying DEFAULT 'EPSG:4326'::character varying,
 bbox jsonb,
-tags jsonb,
 id_type_vector_layer bigint,
 style json,
 visible boolean NOT NULL DEFAULT true,
+file_path character varying,
+file_url character varying,
 CONSTRAINT Vector_layer_pkey PRIMARY KEY (id),
 CONSTRAINT Vector_layer_id_type_vector_layer_fkey FOREIGN KEY (id_type_vector_layer) REFERENCES public.Type_vector_layer(id)
 );

@@ -1,5 +1,8 @@
 Use Vue 3 with Options API, SCSS, Element Plus, and Yarn. Code must be consistent: camelCase for JS, kebab-case for CSS and components, component filenames with capital letters. Write async calls only with .then().catch. Project structure includes assets, components, composables, layout, pages, store, services, styles, and router. Components are ordered as template, script (name, props, data, computed, methods, watch), and scoped style, with imports always above export default. Styles are split into variables.scss for variables, themes.scss for light/dark themes using CSS variables switched via data-theme on html/body, and main.scss as the entry point and global rules. All CSS colors must be in hsl. Use Element Plus components by default, applying the current color scheme and rules, overriding native styles in main.scss. The interface must be very compact with minimal paddings.
 Database schema:
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
 CREATE TABLE public.District (
 id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
 name character varying NOT NULL,
@@ -59,6 +62,7 @@ name_old_alt character varying,
 lat numeric,
 lon numeric,
 id_district bigint NOT NULL,
+vanished boolean DEFAULT false,
 CONSTRAINT Settlement_pkey PRIMARY KEY (id),
 CONSTRAINT Settlement_id_district_fkey FOREIGN KEY (id_district) REFERENCES public.District(id)
 );
@@ -105,17 +109,13 @@ CONSTRAINT Type_vector_layer_pkey PRIMARY KEY (id)
 CREATE TABLE public.Vector_layer (
 id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
 name character varying NOT NULL,
-file_path character varying NOT NULL,
-file_url character varying,
-mime_type character varying,
-size bigint,
-feature_count bigint,
 crs character varying DEFAULT 'EPSG:4326'::character varying,
 bbox jsonb,
-tags jsonb,
 id_type_vector_layer bigint,
 style json,
 visible boolean NOT NULL DEFAULT true,
+file_path character varying,
+file_url character varying,
 CONSTRAINT Vector_layer_pkey PRIMARY KEY (id),
 CONSTRAINT Vector_layer_id_type_vector_layer_fkey FOREIGN KEY (id_type_vector_layer) REFERENCES public.Type_vector_layer(id)
 );
