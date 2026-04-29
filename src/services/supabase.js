@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rqairzjmldhczzxbmbse.supabase.co'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_KEY
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY
 
-// Создаем обычный клиент для аутентификации пользователей
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_KEY must be set in .env')
+}
+
+// Единый клиент для всех операций (использует анонимный ключ — безопасен для фронтенда)
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
@@ -12,9 +15,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     detectSessionInUrl: true
   }
 })
-
-// Создаем административный клиент для операций с данными (обходит RLS)
-export const supabaseAdmin = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : supabase
 
 /**
  * Выполняет Supabase-запрос с автоматическими повторными попытками при сетевых ошибках.

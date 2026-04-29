@@ -487,7 +487,6 @@
 </template>
 
 <script>
-import { supabase } from '@/services/supabase'
 import { ElMessage } from 'element-plus'
 import { ArrowDown, Close } from '@element-plus/icons-vue'
 import { useEstatesFilters } from '@/composables/useStorage.js'
@@ -936,147 +935,36 @@ export default {
   },
   methods: {
     loadFilterOptions() {
+      const store = this.$store
       Promise.all([
-        this.loadRevisions(),
-        this.loadDistricts(),
-        this.loadSettlements(),
-        this.loadTypeEstates(),
-        this.loadSubtypeEstates(),
-        this.loadReligions(),
-        this.loadAffiliations(),
-        this.loadVolosts(),
-        this.loadLandowners(),
-        this.loadMilitaryUnits()
-      ]).catch(error => {
-        console.error('Error loading filter options:', error)
-        ElMessage.error('Ошибка загрузки опций фильтров')
-      })
-    },
-    
-    loadRevisions() {
-      return supabase
-        .from('Revision_report')
-        .select('id, year, number')
-        .order('year', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
+        store.dispatch('reference/loadRevisions').then(data => {
           this.allRevisions = data || []
-          // normalize stored revision filters (convert possible IDs to numbers)
           if (this.filters && Array.isArray(this.filters.revision) && Array.isArray(this.allRevisions)) {
             const byId = new Map(this.allRevisions.map(r => [r.id, r.number]))
             const byNumber = new Set(this.allRevisions.map(r => r.number))
             const converted = this.filters.revision.map(v => byId.has(v) ? byId.get(v) : v)
             this.filters.revision = converted.filter(v => byNumber.has(v))
           }
+        }),
+        store.dispatch('reference/loadDistricts').then(data => { this.allDistricts = data || [] }),
+        store.dispatch('reference/loadSettlements').then(data => {
+          this.allSettlements = (data || []).map(s => ({ ...s, name: s.name_modern || s.name_old }))
+        }),
+        store.dispatch('reference/loadTypeEstates').then(data => { this.allTypeEstates = data || [] }),
+        store.dispatch('reference/loadSubtypeEstates').then(data => { this.allSubtypeEstates = data || [] }),
+        store.dispatch('reference/loadTypeReligions').then(data => { this.allReligions = data || [] }),
+        store.dispatch('reference/loadTypeAffiliations').then(data => { this.allAffiliations = data || [] }),
+        store.dispatch('reference/loadVolosts').then(data => { this.allVolosts = data || [] }),
+        store.dispatch('reference/loadLandowners').then(data => {
+          this.allLandowners = (data || []).map(l => ({ ...l, name: l.description || l.person || 'Без названия' }))
+        }),
+        store.dispatch('reference/loadMilitaryUnits').then(data => {
+          this.allMilitaryUnits = (data || []).map(m => ({ ...m, name: m.description || m.person || 'Без названия' }))
         })
-    },
-    
-    loadDistricts() {
-      return supabase
-        .from('District')
-        .select('id, name')
-        .order('name', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allDistricts = data || []
-        })
-    },
-    
-    loadSettlements() {
-      return supabase
-        .from('Settlement')
-        .select('id, name_modern, name_old, id_district')
-        .order('name_modern', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allSettlements = (data || []).map(s => ({
-            ...s,
-            name: s.name_modern || s.name_old
-          }))
-        })
-    },
-    
-    loadTypeEstates() {
-      return supabase
-        .from('Type_estate')
-        .select('id, name')
-        .order('name', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allTypeEstates = data || []
-        })
-    },
-    
-    loadSubtypeEstates() {
-      return supabase
-        .from('Subtype_estate')
-        .select('id, name, id_type_estate, id_type_religion, id_type_affiliation')
-        .order('name', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allSubtypeEstates = data || []
-        })
-    },
-    
-    loadReligions() {
-      return supabase
-        .from('Type_religion')
-        .select('id, name')
-        .order('name', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allReligions = data || []
-        })
-    },
-    
-    loadAffiliations() {
-      return supabase
-        .from('Type_affiliation')
-        .select('id, name')
-        .order('name', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allAffiliations = data || []
-        })
-    },
-    
-    loadVolosts() {
-      return supabase
-        .from('Volost')
-        .select('id, name')
-        .order('name', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allVolosts = data || []
-        })
-    },
-    
-    loadLandowners() {
-      return supabase
-        .from('Landowner')
-        .select('id, description, person')
-        .order('description', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allLandowners = (data || []).map(l => ({
-            ...l,
-            name: l.description || l.person || 'Без названия'
-          }))
-        })
-    },
-    
-    loadMilitaryUnits() {
-      return supabase
-        .from('Military_unit')
-        .select('id, description, person')
-        .order('description', { ascending: true })
-        .then(({ data, error }) => {
-          if (error) throw error
-          this.allMilitaryUnits = (data || []).map(m => ({
-            ...m,
-            name: m.description || m.person || 'Без названия'
-          }))
-        })
+      ]).catch(error => {
+        console.error('Error loading filter options:', error)
+        ElMessage.error('Ошибка загрузки опций фильтров')
+      })
     },
     
     

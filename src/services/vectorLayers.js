@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from './supabase.js'
+import { supabase } from './supabase.js'
 
 // Сервис для работы с векторными слоями
 
@@ -144,7 +144,7 @@ export class VectorLayerService {
 
   // CRUD операции для Type_vector_layer
   getLayerTypes() {
-    return supabaseAdmin
+    return supabase
       .from('Type_vector_layer')
       .select('*')
       .order('name')
@@ -158,7 +158,7 @@ export class VectorLayerService {
   }
 
   createLayerType(name) {
-    return supabaseAdmin
+    return supabase
       .from('Type_vector_layer')
       .insert([{ name }])
       .select()
@@ -172,7 +172,7 @@ export class VectorLayerService {
   }
 
   updateLayerType(id, name) {
-    return supabaseAdmin
+    return supabase
       .from('Type_vector_layer')
       .update({ name })
       .eq('id', id)
@@ -187,7 +187,7 @@ export class VectorLayerService {
   }
 
   deleteLayerType(id) {
-    return supabaseAdmin
+    return supabase
       .from('Type_vector_layer')
       .delete()
       .eq('id', id)
