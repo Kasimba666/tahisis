@@ -945,7 +945,7 @@ export default {
                 id_settlment,
                 id_revision_report,
                 Revision_report!Report_record_id_revision_report_fkey(id, year, number),
-                Settlement!Report_record_id_settlment_fkey(name_old, name_modern, lat, lon, id_district, District(name))
+                Settlement!Report_record_id_settlment_fkey(name_old, name_modern, lat, lon, id_district, vanished, District(name))
               `)
               .not('id_settlment', 'is', null)
 
@@ -1051,6 +1051,7 @@ export default {
                 settlement_name_modern: s.name_modern || '',
                 district_name: s.District?.name || '',
                 district_id: s.id_district || null,
+                vanished: s.vanished || false,
                 lat: s.lat || null,
                 lon: s.lon || null,
                 revision_count: 0,
@@ -1263,6 +1264,15 @@ export default {
         if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
           filtered = filtered.filter(item => item.total <= this.currentFilters.populationMax)
         }
+      }
+
+      // Фильтр по статусу населённого пункта (исчезнувшие/существующие)
+      if (Array.isArray(this.currentFilters.vanishedFilter) && this.currentFilters.vanishedFilter.length === 1) {
+        const showVanished = this.currentFilters.vanishedFilter.includes('vanished')
+        filtered = filtered.filter(item => {
+          const isVanished = item.vanished === true
+          return showVanished ? isVanished : !isVanished
+        })
       }
 
       return filtered

@@ -441,7 +441,7 @@ export default {
             estates: settlement.estates || []
           })
 
-          const styles = this.createMarkerStyle(estateTypes)
+          const styles = this.createMarkerStyle(estateTypes, settlement.vanished)
           feature.setStyle(styles)
           source.addFeature(feature)
 
@@ -576,15 +576,27 @@ export default {
       }
     },
 
-    createMarkerStyle(estateTypes) {
+    createMarkerStyle(estateTypes, vanished) {
       if (!estateTypes || estateTypes.length === 0) {
-        return new Style({
-          image: new Circle({
-            radius: 8,
-            fill: new Fill({ color: 'transparent' }),
-            stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 3 })
+        const styles = [
+          new Style({
+            image: new Circle({
+              radius: 8,
+              fill: new Fill({ color: 'transparent' }),
+              stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 3 })
+            })
           })
-        })
+        ]
+        if (vanished) {
+          styles.push(new Style({
+            image: new Circle({
+              radius: 2,
+              fill: new Fill({ color: 'hsl(0, 0%, 10%)' }),
+              stroke: new Stroke({ color: 'transparent', width: 0 })
+            })
+          }))
+        }
+        return styles
       }
 
       // Проверяем что у каждого типа есть цвет через сервис
@@ -596,13 +608,25 @@ export default {
       // Если нет типов с валидными цветами, создаем серый маркер
       if (estateTypesWithValidColors.length === 0) {
         console.warn('No valid colors found for settlement estate types:', estateTypes)
-        return new Style({
-          image: new Circle({
-            radius: 8,
-            fill: new Fill({ color: 'transparent' }),
-            stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 3 })
+        const styles = [
+          new Style({
+            image: new Circle({
+              radius: 8,
+              fill: new Fill({ color: 'transparent' }),
+              stroke: new Stroke({ color: 'hsl(0, 0%, 60%)', width: 3 })
+            })
           })
-        })
+        ]
+        if (vanished) {
+          styles.push(new Style({
+            image: new Circle({
+              radius: 2,
+              fill: new Fill({ color: 'hsl(0, 0%, 10%)' }),
+              stroke: new Stroke({ color: 'transparent', width: 0 })
+            })
+          }))
+        }
+        return styles
       }
 
       const totalPopulation = estateTypesWithValidColors.reduce((sum, type) => sum + type.population, 0)
@@ -616,44 +640,67 @@ export default {
         const type = estateTypesWithValidColors[0]
         const color = type.color || estateTypesService.getColorById(type.id) || 'hsl(0, 0%, 60%)'
         
-        return new Style({
-          image: new Circle({
-            radius,
-            fill: new Fill({ color: 'transparent' }),
-            stroke: new Stroke({ color: color, width: 3 })
+        const styles = [
+          new Style({
+            image: new Circle({
+              radius,
+              fill: new Fill({ color: 'transparent' }),
+              stroke: new Stroke({ color: color, width: 3 })
+            })
           })
-        })
+        ]
+        if (vanished) {
+          styles.push(new Style({
+            image: new Circle({
+              radius: 2,
+              fill: new Fill({ color: 'hsl(0, 0%, 10%)' }),
+              stroke: new Stroke({ color: 'transparent', width: 0 })
+            })
+          }))
+        }
+        return styles
       }
 
-      return new Style({
-        renderer: (coordinates, state) => {
-          const ctx = state.context
-          const x = coordinates[0]
-          const y = coordinates[1]
+      const styles = [
+        new Style({
+          renderer: (coordinates, state) => {
+            const ctx = state.context
+            const x = coordinates[0]
+            const y = coordinates[1]
 
-          ctx.save()
-          ctx.translate(x, y)
+            ctx.save()
+            ctx.translate(x, y)
 
-          const segmentAngle = (2 * Math.PI) / estateTypesWithValidColors.length
+            const segmentAngle = (2 * Math.PI) / estateTypesWithValidColors.length
 
-          estateTypesWithValidColors.forEach((type, index) => {
-            // ✅ Если в объекте уже есть цвет - используем его! Не лезем в сервис за типом!
-            const color = type.color || estateTypesService.getColorById(type.id) || 'hsl(0, 0%, 60%)'
-            
-            const startAngle = -Math.PI / 2 + (index * segmentAngle)
-            const endAngle = -Math.PI / 2 + ((index + 1) * segmentAngle)
+            estateTypesWithValidColors.forEach((type, index) => {
+              // ✅ Если в объекте уже есть цвет - используем его! Не лезем в сервис за типом!
+              const color = type.color || estateTypesService.getColorById(type.id) || 'hsl(0, 0%, 60%)'
+              
+              const startAngle = -Math.PI / 2 + (index * segmentAngle)
+              const endAngle = -Math.PI / 2 + ((index + 1) * segmentAngle)
 
-            ctx.beginPath()
-            ctx.arc(0, 0, radius, startAngle, endAngle, false)
-            ctx.strokeStyle = color
-            ctx.lineWidth = 3
-            ctx.lineCap = 'butt'
-            ctx.stroke()
-          })
+              ctx.beginPath()
+              ctx.arc(0, 0, radius, startAngle, endAngle, false)
+              ctx.strokeStyle = color
+              ctx.lineWidth = 3
+              ctx.lineCap = 'butt'
+              ctx.stroke()
+            })
 
-          ctx.restore()
-        }
-      })
+            // Чёрная точка в центре для исчезнувших нас. пунктов
+            if (vanished) {
+              ctx.beginPath()
+              ctx.arc(0, 0, 2, 0, 2 * Math.PI)
+              ctx.fillStyle = 'hsl(0, 0%, 10%)'
+              ctx.fill()
+            }
+
+            ctx.restore()
+          }
+        })
+      ]
+      return styles
     },
 
     loadVectorLayers() {

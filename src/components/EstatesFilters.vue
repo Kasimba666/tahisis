@@ -150,6 +150,32 @@
         </template>
       </el-dropdown>
 
+      <!-- Фильтр по статусу населённого пункта -->
+      <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
+        <el-button size="large">
+          Статус НП ({{ filters.vanishedFilter.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
+        </el-button>
+        <template #dropdown>
+          <el-dropdown-menu class="filter-dropdown-menu">
+            <div class="dropdown-close">
+              <el-button link type="info" size="small" @click="closeDropdown">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
+            <div class="filter-options">
+              <el-checkbox-group v-model="filters.vanishedFilter">
+                <el-checkbox label="existing">Существующие</el-checkbox>
+                <el-checkbox label="vanished">Исчезнувшие</el-checkbox>
+              </el-checkbox-group>
+            </div>
+            <div class="filter-actions-dropdown">
+              <el-button link size="small" @click="selectAllVanished">Выбрать все</el-button>
+              <el-button link size="small" type="danger" @click="filters.vanishedFilter = []">Сбросить</el-button>
+            </div>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
       <el-dropdown trigger="click" :hide-on-click="false" class="filter-dropdown">
         <el-button size="large">
           Сословие ({{ filters.typeEstates.length }}) <el-icon class="el-icon--right"><arrow-down /></el-icon>
@@ -534,6 +560,7 @@ export default {
         femaleEnabled: false,
         populationEnabled: false,
         estatesCountEnabled: false,
+        vanishedFilter: ['existing', 'vanished'],
         maleMin: null,
         maleMax: null,
         femaleMin: null,
@@ -985,7 +1012,8 @@ export default {
         this.filters.maleEnabled ||
         this.filters.femaleEnabled ||
         this.filters.populationEnabled ||
-        this.filters.estatesCountEnabled
+        this.filters.estatesCountEnabled ||
+        (this.filters.vanishedFilter && this.filters.vanishedFilter.length === 1)
 
       if (!hasActiveFilters) {
         this.$confirm(
@@ -1063,6 +1091,10 @@ export default {
       this.filters.revision = this.allRevisions.map(r => r.number)
     },
 
+    selectAllVanished() {
+      this.filters.vanishedFilter = ['existing', 'vanished']
+    },
+
     selectAllSettlementNamesOld() {
       this.filters.settlementNamesOld = this.filteredSettlementNamesOldSearch
     },
@@ -1093,7 +1125,8 @@ export default {
               'volosts', 'landowners', 'militaryUnits',
               'maleEnabled', 'femaleEnabled', 'populationEnabled', 'estatesCountEnabled',
               'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
-              'populationMin', 'populationMax', 'estatesCountMin', 'estatesCountMax'
+              'populationMin', 'populationMax', 'estatesCountMin', 'estatesCountMax',
+              'vanishedFilter'
             ]
 
             const cleanedFilters = {}
@@ -1138,7 +1171,8 @@ export default {
           this.filters.maleEnabled ||
           this.filters.femaleEnabled ||
           this.filters.populationEnabled ||
-          this.filters.estatesCountEnabled
+        this.filters.estatesCountEnabled ||
+        (this.filters.vanishedFilter && this.filters.vanishedFilter.length === 1)
 
         if (hasActiveFilters) {
           const url = new URL(window.location)

@@ -84,6 +84,7 @@ export function useEstatesFilters(defaultFilters = {}) {
     populationMax: null,
     estatesCountMin: null,
     estatesCountMax: null,
+  vanishedFilter: ['existing', 'vanished'],
     ...defaultFilters
   }
 

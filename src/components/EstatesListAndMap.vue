@@ -679,100 +679,6 @@ export default {
       }
     },
 
-    async loadEstateData() {
-      this.loading = true
-
-      try {
-        // Загружаем все данные без фильтров сначала
-        const { data, error } = await supabase
-          .from('Estate')
-          .select(`
-            id,
-            male,
-            female,
-            id_report_record,
-            id_subtype_estate,
-            id_volost,
-            id_landowner,
-            id_military_unit,
-            Report_record!Estate_id_report_record_fkey!inner(
-              id,
-              code,
-              Revision_report!Report_record_id_revision_report_fkey!inner(
-                year,
-                number
-              ),
-              Settlement!Report_record_id_settlment_fkey(
-                name_old,
-                name_modern,
-                id_district,
-                District(name)
-              )
-            ),
-            Subtype_estate!Estate_id_subtype_estate_fkey!inner(
-              name,
-              id_type_estate,
-              id_type_religion,
-              id_type_affiliation,
-              Type_estate(name),
-              Type_religion(name),
-              Type_affiliation(name)
-            ),
-            Volost!Estate_id_volost_fkey(name),
-            Landowner!Estate_id_landowner_fkey(
-              description,
-              person
-            ),
-            Military_unit!Estate_id_military_unit_fkey(
-              description,
-              person
-            )
-          `)
-          .order('id', { ascending: false })
-
-        if (error) throw error
-
-        // Преобразуем данные в формат для таблицы
-        const mappedData = data.map(item => ({
-            id: item.id,
-            revision_year: item.Report_record?.Revision_report?.year || null,
-            revision_number: item.Report_record?.Revision_report?.number || null,
-            settlement_name_old: item.Report_record?.Settlement?.name_old || null,
-            settlement_name_modern: item.Report_record?.Settlement?.name_modern || null,
-            district_name: item.Report_record?.Settlement?.District?.name || null,
-            district_id: item.Report_record?.Settlement?.id_district || null,
-            subtype_estate_name: item.Subtype_estate?.name || null,
-            type_estate_name: item.Subtype_estate?.Type_estate?.name || null,
-            type_religion_name: item.Subtype_estate?.Type_religion?.name || null,
-            type_affiliation_name: item.Subtype_estate?.Type_affiliation?.name || null,
-            type_estate_id: item.Subtype_estate?.id_type_estate || null,
-            type_religion_id: item.Subtype_estate?.id_type_religion || null,
-            type_affiliation_id: item.Subtype_estate?.id_type_affiliation || null,
-            subtype_estate_id: item.id_subtype_estate,
-            male: item.male,
-            female: item.female,
-            total: (item.male || 0) + (item.female || 0),
-            volost_name: item.Volost?.name || null,
-            volost_id: item.id_volost,
-            landowner_description: item.Landowner?.description || item.Landowner?.person || null,
-            landowner_id: item.id_landowner,
-            military_unit_description: item.Military_unit?.description || item.Military_unit?.person || null,
-            military_unit_id: item.id_military_unit
-        }))
-
-        // Сохраняем все данные и применяем фильтры на клиентской стороне
-            this.allEstateData = mappedData
-            this.estateData = this.applyClientSideEstateFiltersImproved(mappedData)
-            // Сбрасываем флаг, так как данные загружены
-            this.dataResetDueToFilters = false
-
-      } catch (error) {
-        ElMessage.error('Ошибка загрузки данных о сословиях: ' + error.message)
-      } finally {
-        this.loading = false
-      }
-    },
-
     applyEstateFiltersToQuery(query) {
       if (!this.currentFilters) return query
 
@@ -924,6 +830,7 @@ export default {
                 name_old,
                 name_modern,
                 id_district,
+                vanished,
                 District(name)
               )
             ),
@@ -958,6 +865,7 @@ export default {
               revision_number: item.Report_record?.Revision_report?.number || null,
               settlement_name_old: item.Report_record?.Settlement?.name_old || null,
               settlement_name_modern: item.Report_record?.Settlement?.name_modern || null,
+              settlement_vanished: item.Report_record?.Settlement?.vanished || false,
               district_name: item.Report_record?.Settlement?.District?.name || null,
               district_id: item.Report_record?.Settlement?.id_district || null,
               subtype_estate_name: item.Subtype_estate?.name || null,
@@ -1055,6 +963,15 @@ export default {
         filtered = filtered.filter(item =>
           item.settlement_name_modern && this.currentFilters.settlementNamesModern.includes(item.settlement_name_modern)
         )
+      }
+
+      // Фильтр по статусу населённого пункта (исчезнувшие/существующие)
+      if (Array.isArray(this.currentFilters.vanishedFilter) && this.currentFilters.vanishedFilter.length === 1) {
+        const showVanished = this.currentFilters.vanishedFilter.includes('vanished')
+        filtered = filtered.filter(item => {
+          const isVanished = item.settlement_vanished === true
+          return showVanished ? isVanished : !isVanished
+        })
       }
 
       // Фильтр по типам сословий
@@ -1175,6 +1092,15 @@ export default {
         )
       }
 
+      // Фильтр по статусу населённого пункта (исчезнувшие/существующие)
+      if (Array.isArray(this.currentFilters.vanishedFilter) && this.currentFilters.vanishedFilter.length === 1) {
+        const showVanished = this.currentFilters.vanishedFilter.includes('vanished')
+        filtered = filtered.filter(item => {
+          const isVanished = item.settlement_vanished === true
+          return showVanished ? isVanished : !isVanished
+        })
+      }
+
       // Фильтр по населению (мин)
       if (this.currentFilters.populationMin !== null && this.currentFilters.populationMin !== undefined) {
         filtered = filtered.filter(item => item.population_all >= this.currentFilters.populationMin)
@@ -1223,6 +1149,15 @@ export default {
         if (this.currentFilters.populationMax !== null && this.currentFilters.populationMax !== undefined) {
           filtered = filtered.filter(item => (item.total_population || 0) <= this.currentFilters.populationMax)
         }
+      }
+
+      // Фильтр по статусу населённого пункта (исчезнувшие/существующие)
+      if (Array.isArray(this.currentFilters.vanishedFilter) && this.currentFilters.vanishedFilter.length === 1) {
+        const showVanished = this.currentFilters.vanishedFilter.includes('vanished')
+        filtered = filtered.filter(item => {
+          const isVanished = item.settlement_vanished === true
+          return showVanished ? isVanished : !isVanished
+        })
       }
 
       return filtered
@@ -1367,6 +1302,7 @@ export default {
               name_modern,
               lat,
               lon,
+              vanished,
               District(name)
             )
           `)
@@ -1433,57 +1369,53 @@ export default {
         const { data: reportRecords, error } = await query
         if (error) throw error
 
-        // Преобразуем данные в формат для таблицы
-        const reportData = reportRecords.map(item => ({
-              id: item.id,
-              code: item.code,
-              revision_year: item.Revision_report?.year || null,
-              revision_number: item.Revision_report?.number || null,
-              settlement_name_old: item.Settlement?.name_old || null,
-              settlement_name_modern: item.Settlement?.name_modern || null,
-              district_name: item.Settlement?.District?.name || null,
-              lat: item.Settlement?.lat || null,
-              lon: item.Settlement?.lon || null,
-              population_all: item.population_all,
-              estates_count: 0,
-              total_male: 0,
-              total_female: 0,
-              total_population: 0
-            }))
+        // Получаем агрегированные данные по Estate для всех Report_record одним запросом
+        const reportIds = reportRecords.map(r => r.id)
 
-            // Теперь для каждой записи считаем количество связанных Estate и суммируем данные
-            const countPromises = reportData.map(async (record) => {
-                try {
-                    // Получаем суммарные данные из связанных Estate
-                    const { data: estates, error: estatesError } = await supabase
-                        .from('Estate')
-                        .select('male, female')
-                        .eq('id_report_record', record.id)
+        // Строим базовое отображение с нулями
+        const reportDataMap = {}
+        reportRecords.forEach(item => {
+          reportDataMap[item.id] = {
+            id: item.id,
+            code: item.code,
+            revision_year: item.Revision_report?.year || null,
+            revision_number: item.Revision_report?.number || null,
+            settlement_name_old: item.Settlement?.name_old || null,
+            settlement_name_modern: item.Settlement?.name_modern || null,
+            settlement_vanished: item.Settlement?.vanished || false,
+            district_name: item.Settlement?.District?.name || null,
+            lat: item.Settlement?.lat || null,
+            lon: item.Settlement?.lon || null,
+            population_all: item.population_all,
+            estates_count: 0,
+            total_male: 0,
+            total_female: 0,
+            total_population: 0
+          }
+        })
 
-                    if (estatesError) throw estatesError
+        // Один агрегирующий запрос вместо N отдельных
+        const { data: aggData, error: aggError } = await supabase
+          .from('Estate')
+          .select('id_report_record, male, female')
+          .in('id_report_record', reportIds)
 
-                    // Суммируем данные
-                    const totalMale = estates?.reduce((sum, estate) => sum + (estate.male || 0), 0) || 0
-                    const totalFemale = estates?.reduce((sum, estate) => sum + (estate.female || 0), 0) || 0
-                    const totalPopulation = totalMale + totalFemale
+        if (!aggError && aggData) {
+          // Группируем данные по id_report_record
+          aggData.forEach(estate => {
+            const record = reportDataMap[estate.id_report_record]
+            if (record) {
+              record.estates_count += 1
+              record.total_male += (estate.male || 0)
+              record.total_female += (estate.female || 0)
+              record.total_population += (estate.male || 0) + (estate.female || 0)
+            }
+          })
+        } else if (aggError) {
+          console.error('Error fetching aggregated Estate data:', aggError)
+        }
 
-                    record.estates_count = estates?.length || 0
-                    record.total_male = totalMale
-                    record.total_female = totalFemale
-                    record.total_population = totalPopulation
-
-                    return record
-                } catch (error) {
-                    console.error('Error calculating totals for record:', record.id, error)
-                    record.estates_count = 0
-                    record.total_male = 0
-                    record.total_female = 0
-                    record.total_population = 0
-                    return record
-                }
-            })
-
-        const reportDataWithCounts = await Promise.all(countPromises)
+        const reportDataWithCounts = Object.values(reportDataMap)
 
         // Сохраняем все данные и применяем клиентские фильтры
         this.allReportData = reportDataWithCounts
@@ -1733,7 +1665,8 @@ export default {
         this.currentFilters.maleEnabled ||
         this.currentFilters.femaleEnabled ||
         this.currentFilters.populationEnabled ||
-        this.currentFilters.estatesCountEnabled
+        this.currentFilters.estatesCountEnabled ||
+        (this.currentFilters.vanishedFilter && this.currentFilters.vanishedFilter.length === 1)
       )
     },
 

@@ -39,7 +39,6 @@ function saveToStorage(key, data) {
  */
 function loadFromStorage(key) {
   try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + 'ts_' + key)
     const tsRaw = localStorage.getItem(STORAGE_PREFIX + 'ts_' + key)
     const dataRaw = localStorage.getItem(STORAGE_PREFIX + key)
 
@@ -121,6 +120,12 @@ export default {
       saveToStorage(key, data)
       saveToStorage('ts_' + key, String(state.lastFetch[key]))
     },
+    setPendingFetch(state, { key, promise }) {
+      state.pendingFetches[key] = promise
+    },
+    removePendingFetch(state, key) {
+      delete state.pendingFetches[key]
+    },
     clearCache(state) {
       state.districts = []
       state.typeEstates = []
@@ -190,11 +195,11 @@ export default {
         })
         .finally(() => {
           // Remove pending fetch reference after completion
-          delete state.pendingFetches[key]
+          commit('removePendingFetch', key)
         })
 
       // Store pending promise for deduplication
-      state.pendingFetches[key] = promise
+      commit('setPendingFetch', { key, promise })
 
       // Если есть устаревшие данные в state — возвращаем их немедленно
       if (hasStaleData) {
@@ -264,7 +269,7 @@ export default {
     loadSettlements({ dispatch }) {
       return dispatch('loadReference', {
         key: 'settlements',
-        queryFn: () => supabase.from('Settlement').select('id, name_modern, name_old, name_old_alt, lat, lon, id_district').order('name_old')
+        queryFn: () => supabase.from('Settlement').select('id, name_modern, name_old, name_old_alt, lat, lon, id_district, vanished').order('name_old')
       })
     },
 
