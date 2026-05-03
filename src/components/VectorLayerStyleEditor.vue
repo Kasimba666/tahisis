@@ -234,11 +234,6 @@ export default {
   },
   methods: {
     async analyzeGeoJSON() {
-      console.log('=== VectorLayerStyleEditor analyzeGeoJSON ===')
-      console.log('Layer prop:', this.layer)
-      console.log('Layer ID:', this.layer?.id)
-      console.log('Layer name:', this.layer?.name)
-      console.log('Layer file_url:', this.layer?.file_url)
       
       if (!this.layer || !this.layer.file_url) {
         this.error = 'Отсутствует URL файла GeoJSON'
@@ -312,12 +307,6 @@ export default {
     },
 
     handleSave() {
-      console.log('=== VectorLayerStyleEditor handleSave ===')
-      console.log('Saving style for layer ID:', this.layer?.id)
-      console.log('Layer name:', this.layer?.name)
-      console.log('Geometry type:', this.geometryType)
-      console.log('Is line geometry:', this.isLineGeometry)
-      console.log('Style JSON:', JSON.stringify(this.styleJSON, null, 2))
 
       this.$emit('save', this.styleJSON)
       this.handleClose()
@@ -328,14 +317,12 @@ export default {
     },
 
     onColorChange(property, color) {
-      console.log('Color change:', property, color)
       // Element Plus color picker возвращает объект с hex значением
       if (color && typeof color === 'object' && color.hex) {
         this.styleConfig[property] = color.hex
       } else if (typeof color === 'string') {
         this.styleConfig[property] = color
       }
-      console.log('Updated styleConfig:', this.styleConfig)
     },
 
     hexToRgba(hex, alpha) {

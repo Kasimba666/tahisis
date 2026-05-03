@@ -124,9 +124,6 @@ export default {
       // Проверяем файлы в локальном состоянии или компоненте el-upload
       const uploadComponent = this.$refs.upload
 
-      console.log('Upload component:', uploadComponent)
-      console.log('Upload files:', uploadComponent?.uploadFiles)
-      console.log('Local file list:', this.fileList)
 
       let file = null
 
@@ -144,7 +141,6 @@ export default {
         return
       }
 
-      console.log('Selected file:', file)
 
       this.uploading = true
       this.uploadProgress = 10
@@ -218,7 +214,6 @@ export default {
     },
 
     handleUploadSuccess(response, file, fileList) {
-      console.log('Upload success:', response)
     },
 
     handleUploadError(error, file, fileList) {
@@ -227,8 +222,6 @@ export default {
     },
 
     handleFileChange(file, fileList) {
-      console.log('File changed:', file)
-      console.log('File list:', fileList)
       this.fileList = fileList
     },
 

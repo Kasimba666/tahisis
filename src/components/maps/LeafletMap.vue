@@ -54,16 +54,6 @@ export default {
     }
   },
   mounted() {
-    console.log('=== LeafletMap mounted ===')
-    console.log('Props received:', {
-      settlements: this.settlements,
-      vectorLayers: this.vectorLayers,
-      initialCenter: this.initialCenter,
-      initialZoom: this.initialZoom,
-      marker: this.marker,
-      isActive: this.isActive
-    })
-
     this.$nextTick(() => {
       setTimeout(() => {
         this.initMap()
@@ -126,7 +116,6 @@ export default {
       this.mapInstance.on('moveend zoomend', () => {
         const currentCenter = this.mapInstance.getCenter()
         const currentZoom = this.mapInstance.getZoom()
-        console.log(`Leaflet zoom: ${currentZoom}, center: [${currentCenter.lat.toFixed(4)}, ${currentCenter.lng.toFixed(4)}]`)
 
         this.$emit('view-change', {
           center: currentCenter,
@@ -136,14 +125,12 @@ export default {
 
       // Обновляем позицию маркеров при изменении проекции карты
       this.mapInstance.on('viewreset', () => {
-        console.log('Leaflet viewreset - invalidating size')
         this.mapInstance.invalidateSize()
         // Не пересоздаём маркеры, только корректируем позицию
       })
 
       // Обрабатываем анимацию зума для предотвращения ошибок с tooltip'ами
       this.mapInstance.on('zoomstart', () => {
-        console.log('Leaflet zoomstart - closing all tooltips to prevent animation errors')
         this.mapInstance.eachLayer((layer) => {
           if (layer instanceof L.Marker && layer.getTooltip()) {
             // Временно закрываем tooltip чтобы избежать анимационных ошибок
@@ -153,7 +140,6 @@ export default {
       })
 
       this.mapInstance.on('zoomend', () => {
-        console.log('Leaflet zoomend - restoring tooltips and updating marker sizes')
         // При изменении зума обновляем размеры маркеров
         this.updateMarkerSizes()
         setTimeout(() => {
@@ -183,12 +169,8 @@ export default {
     },
 
     updateMarkers() {
-      console.log('=== LeafletMap updateMarkers ===')
-      console.log('this.mapInstance exists:', !!this.mapInstance)
-      console.log('this.settlements:', this.settlements)
 
       if (!this.mapInstance) {
-        console.log('No mapInstance, returning')
         return
       }
 
@@ -417,15 +399,11 @@ export default {
     getLayerStyle(layer) {
       const { getLayerColor } = useMapMarkers()
 
-      console.log('=== LeafletMap getLayerStyle ===')
-      console.log('Layer ID:', layer.id, 'Name:', layer.name)
-      console.log('Layer style from DB:', layer.style)
 
       // Если есть стиль в БД, используем его
       if (layer.style) {
         try {
           const style = typeof layer.style === 'string' ? JSON.parse(layer.style) : layer.style
-          console.log('Parsed style:', style)
 
           // Возвращаем стиль в зависимости от типа геометрии
           if (style.point) {
@@ -436,7 +414,6 @@ export default {
               fillOpacity: 0.8,
               radius: style.point.radius || 8
             }
-            console.log('Applying point style:', pointStyle)
             return pointStyle
           }
 
@@ -446,7 +423,6 @@ export default {
               weight: style.line.strokeWidth || 2,
               opacity: style.line.opacity || 0.7
             }
-            console.log('Applying line style:', lineStyle)
             return lineStyle
           }
 
@@ -458,7 +434,6 @@ export default {
               fillColor: style.polygon.fillColor || '#3388ff',
               fillOpacity: style.polygon.fillOpacity || 0.3
             }
-            console.log('Applying polygon style:', polygonStyle)
             return polygonStyle
           }
         } catch (error) {
@@ -473,7 +448,6 @@ export default {
         opacity: 0.7,
         fillOpacity: 0.3
       }
-      console.log('Applying default style:', defaultStyle)
       return defaultStyle
     },
 
@@ -551,7 +525,6 @@ export default {
     },
 
     toggleHeatmapLayer(visible) {
-      console.log('LeafletMap: toggle heatmap visibility to', visible)
 
       if (!this.mapInstance) return
 
@@ -586,14 +559,12 @@ export default {
         this.heatmapLayer.setZIndex(500)
         this.heatmapLayer.addTo(this.mapInstance)
 
-        console.log(`Показать тепловую карту для ${heatmapData.length} поселений`)
       } else {
         // Скрываем и удаляем тепловую карту
         if (this.heatmapLayer) {
           this.mapInstance.removeLayer(this.heatmapLayer)
           this.heatmapLayer = null
         }
-        console.log('Скрыть тепловую карту поселений в Leaflet')
       }
     },
 
@@ -685,7 +656,6 @@ export default {
         })
         .filter(point => point !== null) // Убираем null значения
 
-      console.log(`Подготовлено ${heatmapData.length} точек для тепловой карты, max популяция: ${maxPopulation}`)
       return heatmapData
     },
 
@@ -721,7 +691,6 @@ export default {
     },
 
     updateMarkerSizes() {
-      console.log('=== LeafletMap updateMarkerSizes ===')
 
       if (!this.mapInstance || this.markers.length === 0) return
 
@@ -776,12 +745,9 @@ export default {
         }
       })
 
-      console.log(`Updated marker sizes for ${this.markers.length} markers at zoom ${currentZoom}`)
     },
 
     updateSettlementLabels() {
-      console.log('=== LeafletMap updateSettlementLabels ===')
-      console.log('settlementNameMode:', this.settlementNameMode)
 
       this.markers.forEach(marker => {
         if (marker._settlementData && marker instanceof L.Marker) {
@@ -823,7 +789,6 @@ export default {
         }
       })
 
-      console.log(`Обновлены labels для ${this.markers.length} маркеров`)
     }
   },
   watch: {

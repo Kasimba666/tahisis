@@ -173,7 +173,6 @@ export default {
         // Сохраняем список названий (делаем lowercase для регистронезависимого сравнения)
         this.estateSourceNames = (data || []).map(item => item.name.toLowerCase().trim())
         
-        console.log('Loaded estate source names:', this.estateSourceNames.length)
       } catch (error) {
         console.error('Error loading estate source names:', error)
         this.estateSourceNames = []
@@ -428,7 +427,6 @@ export default {
 
           // Пропускаем строки без обязательных полей
           if (!nameModern || !districtName) {
-            console.warn('Пропущена строка без названия или района:', row)
             continue
           }
 
@@ -560,7 +558,6 @@ export default {
             
             if (sourceErr) throw sourceErr
             if (!estateSource) {
-              console.warn(`Источник подтипа не найден: "${estateName}"`)
               continue
             }
 

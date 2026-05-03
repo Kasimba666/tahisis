@@ -74,19 +74,6 @@ export default {
     }
   },
   mounted() {
-    console.log('=== OpenLayersMap MOUNTED ===')
-    console.log('refs.olMap:', this.$refs.olMap)
-    console.log('settlements prop:', this.settlements?.length || 0)
-    console.log('isActive prop:', this.isActive)
-    console.log('Props received:', {
-      settlements: this.settlements,
-      vectorLayers: this.vectorLayers,
-      initialCenter: this.initialCenter,
-      initialZoom: this.initialZoom,
-      marker: this.marker,
-      isActive: this.isActive
-    })
-
     this.$nextTick(() => {
       setTimeout(() => {
         this.initMap()
@@ -100,8 +87,6 @@ export default {
   },
   methods: {
     initMap() {
-      console.log('=== OpenLayersMap initMap ===')
-      console.log('refs.olMap exists:', !!this.$refs.olMap)
       
       if (!this.$refs.olMap) {
         console.error('No olMap ref!')
@@ -114,7 +99,6 @@ export default {
           source: new VectorSource(),
           zIndex: 1000  // Маркеры населённых пунктов всегда поверх векторных слоёв
         })
-        console.log('Vector layer created')
 
         this.mapInstance = new OLMap({
           target: this.$refs.olMap,
@@ -127,7 +111,6 @@ export default {
             zoom: this.initialZoom
           })
         })
-        console.log('Map instance created')
 
         this.createHomeButton()
         
@@ -150,12 +133,10 @@ export default {
         // Добавляем обработчик событий полноэкранного режима
         this.setupFullscreenEvents()
 
-        console.log('Calling updateMarkers with', this.settlements?.length || 0, 'settlements')
         this.updateMarkers()
         this.updateSingleMarker()
         this.loadVectorLayers()
 
-        console.log('=== OpenLayersMap initialization complete ===')
       } catch (error) {
         console.error('Error in initMap:', error)
       }
@@ -293,7 +274,6 @@ export default {
             const detailsBtn = contentDiv.querySelector('.popup-details-btn')
             if (detailsBtn) {
               detailsBtn.onclick = () => {
-                console.log('OpenLayers popup: Details button clicked', settlement)
                 window.dispatchEvent(new CustomEvent('show-settlement-details', {
                   detail: { settlement }
                 }))
@@ -368,7 +348,6 @@ export default {
         const view = this.mapInstance.getView()
         const center = transform(view.getCenter(), 'EPSG:3857', 'EPSG:4326')
         const currentZoom = view.getZoom()
-        console.log(`OpenLayers zoom: ${currentZoom}, center: [${center[1].toFixed(4)}, ${center[0].toFixed(4)}]`)
 
         this.$emit('view-change', {
           center: { lat: center[1], lng: center[0] },
@@ -378,12 +357,8 @@ export default {
     },
 
     updateMarkers() {
-      console.log('=== OpenLayers updateMarkers ===')
-      console.log('vectorLayer exists:', !!this.vectorLayer)
-      console.log('settlements length:', this.settlements?.length || 0)
 
       if (!this.vectorLayer) {
-        console.warn('No vectorLayer in updateMarkers')
         return
       }
 
@@ -405,10 +380,8 @@ export default {
           }
           settlementsArray.push(settlement)
         })
-        console.log('Converted GeoJSON to array:', settlementsArray.length, 'settlements')
       } else if (Array.isArray(this.settlements)) {
         settlementsArray = this.settlements
-        console.log('Using array directly:', settlementsArray.length, 'settlements')
       }
 
       let addedCount = 0
@@ -418,7 +391,6 @@ export default {
           const lon = parseFloat(settlement.lon)
 
           if (isNaN(lat) || isNaN(lon)) {
-            console.warn('Invalid coordinates:', settlement)
             return
           }
 
@@ -454,12 +426,9 @@ export default {
         }
       })
 
-      console.log('Added markers count:', addedCount)
-      console.log('Total features in source:', source.getFeatures().length)
     },
 
     createMarkersWithDefaultStyle() {
-      console.log('=== createMarkersWithDefaultStyle: Using gray default style ===')
 
       if (!this.vectorLayer) return
 
@@ -523,7 +492,6 @@ export default {
         }
       })
 
-      console.log('Created default markers count:', addedCount)
     },
 
     updateSingleMarker() {
@@ -607,7 +575,6 @@ export default {
 
       // Если нет типов с валидными цветами, создаем серый маркер
       if (estateTypesWithValidColors.length === 0) {
-        console.warn('No valid colors found for settlement estate types:', estateTypes)
         const styles = [
           new Style({
             image: new Circle({
@@ -937,7 +904,6 @@ export default {
     },
 
     toggleHeatmapLayer(visible, settings = null) {
-      console.log('OpenLayersMap: toggle heatmap visibility to', visible, 'settings:', settings)
 
       if (!this.mapInstance) return
 
@@ -961,7 +927,6 @@ export default {
         const intensity = settings?.intensity || 1.0
         const colorPalette = settings?.colorPalette || 'red-yellow'
 
-        console.log(`Создаём heatmap с радиусом ${radius}px, размытием ${blur}px, интенсивностью ${intensity}, палитрой ${colorPalette}`)
 
         // Получаем градиент в зависимости от выбранной палитры
         const gradient = this.getHeatmapGradient(colorPalette)
@@ -989,14 +954,12 @@ export default {
         // Добавляем слой на карту
         this.mapInstance.addLayer(this.heatmapLayer)
 
-        console.log(`Показать тепловую карту для ${heatmapFeatures.length} поселений`)
       } else {
         // Скрываем и удаляем тепловую карту
         if (this.heatmapLayer) {
           this.mapInstance.removeLayer(this.heatmapLayer)
           this.heatmapLayer = null
         }
-        console.log('Скрыть тепловую карту поселений в OpenLayers')
       }
     },
 
@@ -1222,13 +1185,10 @@ export default {
         })
         .filter(feature => feature !== null) // Убираем null значения
 
-      console.log(`Подготовлено ${features.length} features для тепловой карты OpenLayers, max популяция: ${maxPopulation}`)
       return features
     },
 
     updateSettlementLabels() {
-      console.log('=== OpenLayersMap updateSettlementLabels ===')
-      console.log('settlementNameMode:', this.settlementNameMode)
 
       // Радикально проще - пересоздаем все labels
       this.clearSettlementLabels()
@@ -1254,7 +1214,6 @@ export default {
         }
       })
 
-      console.log(`Обновлены labels для ${features.length} фич`)
     }
   },
   watch: {

@@ -161,11 +161,7 @@ export default {
   watch: {
     settlement: {
       handler(newSettlement) {
-        console.log('=== SettlementDetails settlement changed ===')
-        console.log('New settlement:', newSettlement)
         if (newSettlement) {
-          console.log('settlement.lat:', newSettlement.lat, 'type:', typeof newSettlement.lat)
-          console.log('settlement.lon:', newSettlement.lon, 'type:', typeof newSettlement.lon)
         }
       },
       immediate: true
@@ -182,11 +178,6 @@ export default {
     },
     hasCoordinates() {
       const hasCoords = this.settlement && this.settlement.lat && this.settlement.lon
-      console.log('=== SettlementDetails hasCoordinates ===')
-      console.log('settlement:', this.settlement)
-      console.log('settlement.lat:', this.settlement?.lat, 'type:', typeof this.settlement?.lat)
-      console.log('settlement.lon:', this.settlement?.lon, 'type:', typeof this.settlement?.lon)
-      console.log('hasCoordinates result:', hasCoords)
       return hasCoords
     }
   },
@@ -202,13 +193,9 @@ export default {
       this.showMap = !this.showMap
 
       if (this.showMap && this.hasCoordinates) {
-        console.log('=== SettlementDetails: Показать на карте ===')
-        console.log('Settlement data:', this.settlement)
-        console.log('Coordinates:', {
           lat: this.settlement.lat,
           lon: this.settlement.lon
         })
-        console.log('Marker object to pass to MapView:', {
           lat: this.settlement.lat,
           lon: this.settlement.lon,
           name: this.settlement.settlement_name_modern || this.settlement.settlement_name_old

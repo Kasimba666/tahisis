@@ -37,7 +37,6 @@ export const estateTypesService = {
               }
             })
           }
-          console.log(`✅ Loaded ${Object.keys(estateTypeColors).length} estate type colors`)
         }
 
         // Убираем промис из переменной

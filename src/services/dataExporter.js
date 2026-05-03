@@ -133,23 +133,12 @@ export class DataExporter {
 
   // Конвертация населенных пунктов в GeoJSON
   convertSettlementsToGeoJSON(settlements) {
-    console.log('=== CONVERT SETTLEMENTS DEBUG ===')
-    console.log('Input settlements count:', settlements?.length || 0)
-
     // Фильтруем поселения с координатами
     const validSettlements = settlements.filter(settlement => {
-      const hasCoords = settlement.lat && settlement.lon
-      if (!hasCoords) {
-        console.log('Settlement without coordinates:', settlement.settlement_name_old)
-      }
-      return hasCoords
+      return settlement.lat && settlement.lon
     })
 
-    console.log('Valid settlements with coordinates:', validSettlements.length)
-
-    const features = validSettlements.map((settlement, index) => {
-      console.log(`Processing settlement ${index + 1}/${validSettlements.length}:`, settlement.settlement_name_old)
-
+    const features = validSettlements.map((settlement) => {
       // Подготавливаем данные о сословиях с ID для отображения на карте
       const estateTypes = this.prepareEstateTypesForMap(settlement)
 
@@ -224,16 +213,10 @@ export class DataExporter {
         }
       }
 
-      console.log(`Feature ${index + 1} created:`, {
-        name: feature.properties.name_old,
-        total: feature.properties.population.total,
-        estate_types_count: feature.properties.estate_types.length
-      })
-
       return feature
     })
 
-    const result = {
+    return {
       type: 'FeatureCollection',
       features: features,
       crs: {
@@ -256,13 +239,6 @@ export class DataExporter {
         }
       }
     }
-
-    console.log('=== CONVERT RESULT ===')
-    console.log('Final features count:', result.features.length)
-    console.log('Metadata totalCount:', result.metadata.totalCount)
-    console.log('Metadata exportedCount:', result.metadata.exportedCount)
-
-    return result
   }
 
   // Подготовка данных о типах сословий для отображения на карте
@@ -482,31 +458,11 @@ export class DataExporter {
   // Экспорт населенных пунктов в GeoJSON с учетом фильтров
   async exportSettlementsToGeoJSON(settlementsData) {
     try {
-      console.log('=== EXPORT DEBUG ===')
-      console.log('Input settlements count:', settlementsData?.length || 0)
-      console.log('Sample input settlement:', settlementsData?.[0] ? {
-        name: settlementsData[0].settlement_name_old,
-        total: settlementsData[0].total,
-        estates_count: settlementsData[0].estates_count,
-        has_estates: !!(settlementsData[0].estates && settlementsData[0].estates.length > 0)
-      } : 'No data')
-
       if (!settlementsData || settlementsData.length === 0) {
         throw new Error('Нет данных для экспорта')
       }
 
       const geoJson = this.convertSettlementsToGeoJSON(settlementsData)
-
-      console.log('=== EXPORT RESULT DEBUG ===')
-      console.log('GeoJSON features count:', geoJson.features?.length || 0)
-      console.log('Sample feature properties:', geoJson.features?.[0]?.properties ? {
-        name: geoJson.features[0].properties.name_old,
-        total: geoJson.features[0].properties.population.total,
-        estates_count: geoJson.features[0].properties.counts.estates_count,
-        estate_types_count: geoJson.features[0].properties.estate_types?.length || 0
-      } : 'No features')
-
-      console.log(`✓ Exported settlements: ${settlementsData.length} records`)
 
       return {
         success: true,
@@ -515,12 +471,12 @@ export class DataExporter {
         exportedAt: new Date().toISOString()
       }
     } catch (error) {
-        console.error(`✗ Error exporting settlements:`, error)
-        return {
-          success: false,
-          error: error.message,
-          count: 0
-        }
+      console.error(`✗ Error exporting settlements:`, error)
+      return {
+        success: false,
+        error: error.message,
+        count: 0
+      }
     }
   }
 
@@ -531,8 +487,6 @@ export class DataExporter {
 
     for (const tableInfo of nonEmptyTables) {
       try {
-        console.log(`Exporting ${tableInfo.name} (${tableInfo.count} records)...`)
-
         const result = await this.getAllTableData(tableInfo.name)
         const geoJson = this.convertToGeoJSON(tableInfo.name, result.data)
 
@@ -541,8 +495,6 @@ export class DataExporter {
           data: geoJson,
           count: result.totalCount
         }
-
-        console.log(`✓ Exported ${tableInfo.name}: ${result.totalCount} records`)
       } catch (error) {
         console.error(`✗ Error exporting ${tableInfo.name}:`, error)
         exportResults[tableInfo.name] = {

@@ -244,10 +244,6 @@ export class VectorLayerService {
   }
 
   updateVectorLayer(id, layerData) {
-    console.log('=== VectorLayerService updateVectorLayer ===')
-    console.log('Updating layer ID:', id)
-    console.log('Update data:', JSON.stringify(layerData, null, 2))
-
     return supabase
       .from('Vector_layer')
       .update(layerData)
@@ -257,19 +253,14 @@ export class VectorLayerService {
         Type_vector_layer ( name )
       `)
       .then(({ data, error }) => {
-        if (error) {
-          console.error('Supabase update error:', error)
-          throw error
-        }
+        if (error) throw error
 
-        console.log('Update successful, returned data:', data)
         return {
           ...data[0],
           type_vector_layer_name: data[0].Type_vector_layer?.name || ""
         }
       })
       .catch((error) => {
-        console.error('Error in updateVectorLayer:', error)
         throw error
       })
   }
@@ -382,42 +373,20 @@ export const vectorLayerService = new VectorLayerService()
 
 // Инициализация сервиса (проверка bucket)
 export const initializeVectorLayerService = () => {
-  // Пытаемся проверить существование bucket
   return supabase.storage.listBuckets()
     .then(({ data: buckets, error: listError }) => {
       if (listError) {
-        // Если не можем проверить список buckets из-за RLS, пытаемся создать bucket
-        if (listError.message?.includes('row-level security') || listError.message?.includes('permission')) {
-          console.warn('Cannot verify bucket existence due to permissions. Attempting to create vector-layers bucket...')
-          return vectorLayerService.createBucket()
-            .then(() => {
-              console.log('Vector-layers bucket created successfully')
-            })
-            .catch((createError) => {
-              console.warn('Could not create vector-layers bucket automatically. Please create it manually in Supabase dashboard.')
-            })
-        } else {
-          console.warn('Cannot verify bucket existence due to permissions. Assuming vector-layers bucket exists.')
-        }
+        // Нет прав на listBuckets — предполагаем, что bucket существует
         return
       }
 
       const bucketExists = buckets?.some(bucket => bucket.name === 'vector-layers')
 
-      if (bucketExists) {
-        console.log('Vector-layers bucket already exists in Supabase.')
-      } else {
-        console.warn('Vector-layers bucket not found. Attempting to create it...')
-        return vectorLayerService.createBucket()
-          .then(() => {
-            console.log('Vector-layers bucket created successfully')
-          })
-          .catch((createError) => {
-            console.warn('Could not create vector-layers bucket automatically. Please create it manually in Supabase dashboard.')
-          })
+      if (!bucketExists) {
+        console.warn('Vector-layers bucket not found. Please create it manually in Supabase dashboard.')
       }
     })
-    .catch((error) => {
-      console.warn('Error during vector layer service initialization:', error.message)
+    .catch(() => {
+      // Молча игнорируем ошибки инициализации
     })
 }

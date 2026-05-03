@@ -492,17 +492,11 @@
 
       <!-- Кнопки действий -->
       <div class="filter-actions">
-        <el-button
-          type="primary"
-          size="large"
-          @click="applyFilters"
-          :class="{ 'has-changes': hasChanges, 'has-active-filters': activeFiltersList.length > 0 }"
-          :loading="loading"
-        >
+        <el-button size="large" @click="_applyFiltersNow" type="primary" :class="{ 'has-changes': hasChanges }">
           Применить
         </el-button>
-        <el-button size="large" @click="resetFilters">
-          Сбросить значения
+        <el-button size="large" @click="resetFilters" type="danger" plain>
+          Сбросить все
         </el-button>
         <el-button size="large" @click="getShareableLink" type="info" plain>
           Получить ссылку с фильтрами
@@ -516,6 +510,7 @@
 import { ElMessage } from 'element-plus'
 import { ArrowDown, Close } from '@element-plus/icons-vue'
 import { useEstatesFilters } from '@/composables/useStorage.js'
+import { supabase } from '@/services/supabase'
 
 export default {
   name: 'EstatesFilters',
@@ -572,10 +567,14 @@ export default {
       }
 
       Object.keys(defaultFilters).forEach(key => {
-        if (filters.value[key] === undefined) {
+        if (filters.value[key] === undefined || filters.value[key] === null) {
           filters.value[key] = defaultFilters[key]
         }
       })
+      // Нормализация vanishedFilter: если не массив — устанавливаем значение по умолчанию
+      if (!Array.isArray(filters.value.vanishedFilter)) {
+        filters.value.vanishedFilter = ['existing', 'vanished']
+      }
     }
 
     // Инициализируем фильтры
@@ -608,7 +607,8 @@ export default {
       searchMilitaryUnit: '',
       // Отслеживание изменений
       hasChanges: false,
-      appliedFilters: null
+      appliedFilters: null,
+      vanishedEntitySets: null
     }
   },
   computed: {
@@ -631,34 +631,35 @@ export default {
     },
     
     filteredTypeEstates() {
-      return this.allTypeEstates
+      return this._applyVanishedFilter(this.allTypeEstates, 'typeEstates')
     },
     
     filteredSubtypeEstates() {
-      if (!this.filters.typeEstates || this.filters.typeEstates.length === 0) {
-        return this.allSubtypeEstates
+      let items = this.allSubtypeEstates
+      if (this.filters.typeEstates && this.filters.typeEstates.length > 0) {
+        items = items.filter(s => this.filters.typeEstates.includes(s.id_type_estate))
       }
-      return this.allSubtypeEstates.filter(s => this.filters.typeEstates.includes(s.id_type_estate))
+      return this._applyVanishedFilter(items, 'subtypeEstates')
     },
     
     filteredReligions() {
-      return this.allReligions
+      return this._applyVanishedFilter(this.allReligions, 'religions')
     },
     
     filteredAffiliations() {
-      return this.allAffiliations
+      return this._applyVanishedFilter(this.allAffiliations, 'affiliations')
     },
     
     filteredVolosts() {
-      return this.allVolosts
+      return this._applyVanishedFilter(this.allVolosts, 'volosts')
     },
     
     filteredLandowners() {
-      return this.allLandowners
+      return this._applyVanishedFilter(this.allLandowners, 'landowners')
     },
     
     filteredMilitaryUnits() {
-      return this.allMilitaryUnits
+      return this._applyVanishedFilter(this.allMilitaryUnits, 'militaryUnits')
     },
     
     filteredDistrictsSearch() {
@@ -750,7 +751,7 @@ export default {
           // Несколько ревизий
           const revisionNames = this.filters.revision.map(num => {
             const revision = this.allRevisions.find(r => r.number === num)
-            return revision ? `${revision.number} (${revision.year})` : `№:${num}`
+            return revision ? `${revision.number} (${revition.year})` : `№:${num}`
           })
           activeFilters.push({
             type: 'revision',
@@ -939,28 +940,104 @@ export default {
     this.loadFiltersFromURL()
   },
   watch: {
-    allDistricts() {
-      this.$emit('options-loaded', {
-        revisions: this.allRevisions,
-        districts: this.allDistricts,
-        settlements: this.allSettlements,
-        typeEstates: this.allTypeEstates,
-        subtypeEstates: this.allSubtypeEstates,
-        religions: this.allReligions,
-        affiliations: this.allAffiliations,
-        volosts: this.allVolosts
-      })
-    },
     filters: {
       handler() {
         this.hasChanges = true
-        // НЕ отправляем событие сброса данных при каждом изменении фильтров
-        // Данные будут сброшены только при нажатии кнопки "Применить"
+        // НЕ вызываем debouncedApplyFilters автоматически —
+        // фильтры применяются только по кнопке "Применить"
       },
       deep: true
     }
   },
+
   methods: {
+    _applyVanishedFilter(allItems, entityType) {
+      if (!this.vanishedEntitySets) return allItems
+      if (!this.filters.vanishedFilter || this.filters.vanishedFilter.length !== 1) return allItems
+
+      const target = this.filters.vanishedFilter[0] === 'vanished' ? 'vanished' : 'existing'
+      const allowedIds = new Set(this.vanishedEntitySets[target]?.[entityType] || [])
+
+      return allItems.filter(item => allowedIds.has(item.id))
+    },
+
+    async loadVanishedEntitySets() {
+      try {
+        const allData = []
+        let from = 0
+        const pageSize = 1000
+
+        while (true) {
+          const { data, error } = await supabase
+            .from('Estate')
+            .select(`
+              id_subtype_estate,
+              id_volost,
+              id_landowner,
+              id_military_unit,
+              Subtype_estate!Estate_id_subtype_estate_fkey(
+                id_type_estate,
+                id_type_religion,
+                id_type_affiliation
+              ),
+              Report_record!Estate_id_report_record_fkey(
+                Settlement!Report_record_id_settlment_fkey(vanished)
+              )
+            `)
+            .range(from, from + pageSize - 1)
+            .order('id')
+
+          if (error) throw error
+          if (!data || data.length === 0) break
+
+          allData.push(...data)
+          from += pageSize
+        }
+
+        const vanished = { subtypeEstates: new Set(), typeEstates: new Set(), religions: new Set(), affiliations: new Set(), volosts: new Set(), landowners: new Set(), militaryUnits: new Set() }
+        const existing = { subtypeEstates: new Set(), typeEstates: new Set(), religions: new Set(), affiliations: new Set(), volosts: new Set(), landowners: new Set(), militaryUnits: new Set() }
+
+        allData.forEach(e => {
+          const isVanished = e.Report_record?.Settlement?.vanished === true
+          const target = isVanished ? vanished : existing
+
+          target.subtypeEstates.add(e.id_subtype_estate)
+          if (e.Subtype_estate) {
+            target.typeEstates.add(e.Subtype_estate.id_type_estate)
+            target.religions.add(e.Subtype_estate.id_type_religion)
+            target.affiliations.add(e.Subtype_estate.id_type_affiliation)
+          }
+          if (e.id_volost) target.volosts.add(e.id_volost)
+          if (e.id_landowner) target.landowners.add(e.id_landowner)
+          if (e.id_military_unit) target.militaryUnits.add(e.id_military_unit)
+        })
+
+        this.vanishedEntitySets = {
+          vanished: {
+            subtypeEstates: [...vanished.subtypeEstates],
+            typeEstates: [...vanished.typeEstates],
+            religions: [...vanished.religions],
+            affiliations: [...vanished.affiliations],
+            volosts: [...vanished.volosts],
+            landowners: [...vanished.landowners],
+            militaryUnits: [...vanished.militaryUnits]
+          },
+          existing: {
+            subtypeEstates: [...existing.subtypeEstates],
+            typeEstates: [...existing.typeEstates],
+            religions: [...existing.religions],
+            affiliations: [...existing.affiliations],
+            volosts: [...existing.volosts],
+            landowners: [...existing.landowners],
+            militaryUnits: [...existing.militaryUnits]
+          }
+        }
+      } catch (error) {
+        console.error('Error loading vanished entity sets:', error)
+        this.vanishedEntitySets = null
+      }
+    },
+
     loadFilterOptions() {
       const store = this.$store
       Promise.all([
@@ -988,71 +1065,61 @@ export default {
         store.dispatch('reference/loadMilitaryUnits').then(data => {
           this.allMilitaryUnits = (data || []).map(m => ({ ...m, name: m.description || m.person || 'Без названия' }))
         })
-      ]).catch(error => {
+      ]).then(() => {
+        // Загружаем маппинг сущностей к исчезнувшим/существующим НП
+        this.loadVanishedEntitySets()
+        // Эмитируем options-loaded только когда ВСЕ справочники загружены
+        this.$emit('options-loaded', {
+          revisions: this.allRevisions,
+          districts: this.allDistricts,
+          settlements: this.allSettlements,
+          typeEstates: this.allTypeEstates,
+          subtypeEstates: this.allSubtypeEstates,
+          religions: this.allReligions,
+          affiliations: this.allAffiliations,
+          volosts: this.allVolosts
+        })
+      }).catch(error => {
         console.error('Error loading filter options:', error)
         ElMessage.error('Ошибка загрузки опций фильтров')
       })
     },
     
-    
-    applyFilters() {
-      // Проверяем, есть ли активные фильтры
-      const hasActiveFilters =
-        this.filters.revision?.length > 0 ||
-        this.filters.districts?.length > 0 ||
-        this.filters.settlementNamesOld?.length > 0 ||
-        this.filters.settlementNamesModern?.length > 0 ||
-        this.filters.typeEstates?.length > 0 ||
-        this.filters.subtypeEstates?.length > 0 ||
-        this.filters.religions?.length > 0 ||
-        this.filters.affiliations?.length > 0 ||
-        this.filters.volosts?.length > 0 ||
-        this.filters.landowners?.length > 0 ||
-        this.filters.militaryUnits?.length > 0 ||
-        this.filters.maleEnabled ||
-        this.filters.femaleEnabled ||
-        this.filters.populationEnabled ||
-        this.filters.estatesCountEnabled ||
-        (this.filters.vanishedFilter && this.filters.vanishedFilter.length === 1)
-
-      if (!hasActiveFilters) {
-        this.$confirm(
-          'У вас не выбран ни один фильтр, продолжить?',
-          'Подтверждение',
-          {
-            confirmButtonText: 'Продолжить',
-            cancelButtonText: 'Отмена',
-            type: 'warning',
-            confirmButtonClass: 'el-button--primary'
-          }
-        ).then(() => {
-          // Применяем фильтры и загружаем данные
-          this.$emit('apply-filters-and-load', this.filters)
-          // Обновляем URL
-          this.updateURLWithFilters()
-          // Сохраняем в localStorage
-          this.applyStoredFilters()
-          // Сбрасываем флаг изменений
-          this.hasChanges = false
-        }).catch(() => {
-          // Пользователь отменил действие - ничего не делаем
-        })
-      } else {
-        // Применяем фильтры и загружаем данные
-        this.$emit('apply-filters-and-load', this.filters)
-        // Обновляем URL
-        this.updateURLWithFilters()
-        // Сохраняем в localStorage
-        this.applyStoredFilters()
-        // Сбрасываем флаг изменений
-        this.hasChanges = false
+    debouncedApplyFilters() {
+      // Очищаем предыдущий таймаут
+      if (this._debounceTimer) {
+        clearTimeout(this._debounceTimer)
       }
+      // Устанавливаем новый таймаут — 400ms для числовых фильтров (input-number), 200ms для чекбоксов
+      const delay = this._lastChangeWasNumeric ? 400 : 200
+      this._debounceTimer = setTimeout(() => {
+        this._applyFiltersNow()
+      }, delay)
+    },
+
+    _applyFiltersNow() {
+      // Глубокая копия через JSON чтобы избежать Proxy-ссылок Vue 3
+      const filtersCopy = JSON.parse(JSON.stringify(this.filters))
+      // Применяем фильтры и загружаем данные
+      this.$emit('apply-filters-and-load', filtersCopy)
+      // Обновляем URL
+      this.updateURLWithFilters()
+      // Сохраняем в localStorage
+      this.applyStoredFilters()
+      // Сбрасываем флаг изменений
+      this.hasChanges = false
     },
     
     resetFilters() {
       // Используем метод из composable для сброса фильтров
       this.resetStoredFilters()
-      this.$emit('filter-change', this.filters)
+      // При сбросе сразу применяем
+      this.$emit('apply-filters-and-load', { ...this.filters })
+      // Обновляем URL
+      this.updateURLWithFilters()
+      // Сохраняем в localStorage
+      this.applyStoredFilters()
+      this.hasChanges = false
     },
     
     selectAllDistricts() {
@@ -1102,8 +1169,6 @@ export default {
     selectAllSettlementNamesModern() {
       this.filters.settlementNamesModern = this.filteredSettlementNamesModernSearch
     },
-
-
 
     // Загрузка фильтров из URL параметров
     loadFiltersFromURL() {
@@ -1219,7 +1284,6 @@ export default {
       // Отключаем флаг изменений, так как это восстановление
       this.hasChanges = false
       
-      console.log('Filters restored:', this.filters)
     },
 
     // Удаление конкретного фильтра

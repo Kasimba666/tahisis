@@ -487,15 +487,6 @@ export default {
     window.addEventListener('show-settlement-on-map', this.handleShowOnMap)
     window.addEventListener('clear-settlement-highlight', this.handleClearHighlight)
 
-    // Логирование props для отладки
-    console.log('=== MapView mounted ===')
-    console.log('Props received:', {
-      settlements: this.settlements,
-      geoJsonData: this.geoJsonData,
-      center: this.center,
-      zoom: this.zoom,
-      marker: this.marker
-    })
   },
   beforeUnmount() {
     window.removeEventListener('show-settlement-on-map', this.handleShowOnMap)
@@ -515,7 +506,6 @@ export default {
 
     onLeafletViewChange(view) {
       if (this.isSyncing) return
-      console.log(`🔄 SYNC Leaflet -> OpenLayers: center [${view.center.lat.toFixed(4)}, ${view.center.lng.toFixed(4)}], zoom ${view.zoom}`)
       this.isSyncing = true
 
       if (this.$refs.olMap && view.center && view.zoom) {
@@ -529,7 +519,6 @@ export default {
 
     onOLViewChange(view) {
       if (this.isSyncing) return
-      console.log(`🔄 SYNC OpenLayers -> Leaflet: center [${view.center.lat.toFixed(4)}, ${view.center.lng.toFixed(4)}], zoom ${view.zoom}`)
       this.isSyncing = true
 
       if (this.$refs.leafletMap && view.center && view.zoom) {
@@ -542,22 +531,14 @@ export default {
     },
 
     handleShowOnMap(event) {
-      console.log('=== MapView handleShowOnMap ===')
-      console.log('Event detail:', event.detail)
-      console.log('Current map provider:', this.mapProvider)
-      console.log('Leaflet map ref:', this.$refs.leafletMap)
-      console.log('OpenLayers map ref:', this.$refs.olMap)
       
       const { lat, lon, name } = event.detail
       
       if (this.mapProvider === 'leaflet' && this.$refs.leafletMap) {
-        console.log('Calling leafletMap.highlightSettlement')
         this.$refs.leafletMap.highlightSettlement(lat, lon, name)
       } else if (this.mapProvider === 'openlayers' && this.$refs.olMap) {
-        console.log('Calling olMap.highlightSettlement')
         this.$refs.olMap.highlightSettlement(lat, lon, name)
       } else {
-        console.log('No map available or provider mismatch')
       }
     },
 
@@ -614,13 +595,10 @@ export default {
       const savedSettings = storageService.loadHeatmapSettings()
       if (savedSettings) {
         this.heatmapSettings = { ...this.heatmapSettings, ...savedSettings }
-        console.log('Loaded heatmap settings:', this.heatmapSettings)
       }
     },
 
     updateHeatmapSettings() {
-      console.log('=== MapView updateHeatmapSettings ===')
-      console.log('New settings:', this.heatmapSettings)
 
       // Сохраняем настройки в localStorage
       storageService.saveHeatmapSettings(this.heatmapSettings)
@@ -640,7 +618,6 @@ export default {
 
       // Если открываем элементы управления - автоматически включаем heatmap слой, если он еще не включен
       if (this.showHeatmapControls && !this.isHeatmapVisible) {
-        console.log('Opening heatmap controls - auto-enabling heatmap layer')
         // Используем handleLayerVisibilityChange для корректной логики
         this.handleLayerVisibilityChange({
           layerId: 'heatmap',
@@ -688,7 +665,6 @@ export default {
       handler() {
         // Обновляем тепловую карту если она включена и выбрана OpenLayers карта
         if (this.isHeatmapVisible && this.mapProvider === 'openlayers') {
-          console.log('Обновление тепловой карты из-за изменения выборки settlements')
           this.$refs.olMap.toggleHeatmapLayer(false)
           setTimeout(() => {
             this.$refs.olMap.toggleHeatmapLayer(true, this.heatmapSettings)

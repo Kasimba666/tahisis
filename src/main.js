@@ -33,10 +33,7 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 initializeVectorLayerService()
 
 // Загружаем цвета типов собственности
-console.log('🚀 Loading estate type colors...')
-estateTypesService.loadEstateTypeColors().then(colors => {
-  console.log(`✅ Estate type colors loaded: ${Object.keys(colors).length} colors ready`)
-}).catch(error => {
+estateTypesService.loadEstateTypeColors().catch(error => {
   console.error('❌ Failed to load estate type colors:', error)
 })
 

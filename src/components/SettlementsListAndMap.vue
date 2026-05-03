@@ -393,10 +393,6 @@ export default {
 
     // Преобразование данных для MapView компонента
     settlementsForMap() {
-      console.log('=== settlementsForMap: Processing data ===')
-      console.log('settlementsData length:', this.settlementsData?.length || 0)
-      console.log('allSubtypeEstates loaded:', this.allSubtypeEstates?.length || 0)
-      console.log('estateTypeColors loaded:', Object.keys(this.estateTypeColors).length)
 
       if (!this.settlementsData || this.settlementsData.length === 0) {
         return []
@@ -429,8 +425,6 @@ export default {
       })
 
       const filtered = mapped.filter(s => s.lat && s.lon) // Только с координатами
-      console.log('Mapped settlements with coordinates:', filtered.length)
-      console.log('Sample settlement:', filtered[0])
 
       return filtered
     },
@@ -470,8 +464,6 @@ export default {
     }
   },
   async mounted() {
-    console.log('=== SettlementsListAndMap MOUNTED ===')
-    console.log('this.filters:', this.filters)
 
     // Добавляем обработчик события из popup карты
     window.addEventListener('show-settlement-details', this.handleShowDetailsFromMap)
@@ -481,36 +473,24 @@ export default {
 
     try {
       // Загружаем все необходимые справочники
-      console.log('=== LOADING REFERENCE DATA ===')
 
       // Загружаем справочник населенных пунктов
       await this.loadSettlementsReference()
-      console.log('Settlements reference loaded')
 
       // Загружаем ревизии
       await this.loadRevisions()
-      console.log('Revisions loaded')
 
       // Загружаем остальные справочники если не переданы через пропсы
       await this.loadAdditionalReferenceData()
 
-      console.log('=== REFERENCE DATA LOADED ===')
-      console.log('allSettlements:', this.allSettlements?.length || 0)
-      console.log('allRevisions:', this.allRevisions?.length || 0)
-      console.log('estateTypeColors:', Object.keys(this.estateTypeColors).length)
 
       // Синхронизируем локальные данные с props (для совместимости)
       this.syncWithProps()
 
       // Проверяем наличие активных фильтров (восстановленных из URL или переданных через props)
       const hasActiveFilters = this.checkActiveFilters()
-      console.log('=== ACTIVE FILTERS CHECK ===')
-      console.log('hasActiveFilters result:', hasActiveFilters)
-      console.log('props filters:', JSON.stringify(this.filters))
-      console.log('currentFilters from URL:', JSON.stringify(this.currentFilters))
 
       if (hasActiveFilters) {
-        console.log('=== APPLYING FILTERS ===')
         // Применяем восстановленные фильтры и загружаем данные
         if (this.currentFilters && Object.keys(this.currentFilters).length > 0) {
           this.applyFiltersAndLoad(this.currentFilters)
@@ -518,7 +498,6 @@ export default {
           this.applyFiltersAndLoad(this.filters)
         }
       } else {
-        console.log('=== NO ACTIVE FILTERS - NOT LOADING ANY DATA ===')
         // Ничего не загружаем при отсутствии фильтров
         // Данные будут загружены только при нажатии "Применить"
       }
@@ -540,12 +519,8 @@ export default {
   methods: {
     // Обработчик события из popup карты
     handleShowDetailsFromMap(event) {
-      console.log('=== SettlementsListAndMap: handleShowDetailsFromMap ===')
-      console.log('Event:', event)
-      console.log('Event detail:', event.detail)
       
       const settlement = event.detail?.settlement
-      console.log('Settlement from event:', settlement)
       
       if (settlement) {
         // Находим полную запись settlement in settlementsData по имени
@@ -553,15 +528,12 @@ export default {
           s.settlement_name_old === settlement.name || 
           s.settlement_name_modern === settlement.nameModern
         )
-        console.log('Full settlement found:', fullSettlement)
         
         if (fullSettlement) {
           this.viewSettlementDetails(fullSettlement)
         } else {
-          console.warn('Settlement not found in settlementsData:', settlement.name, settlement.nameModern)
         }
       } else {
-        console.warn('No settlement in event.detail')
       }
     },
 
@@ -574,9 +546,6 @@ export default {
     },
     // Проверка активных фильтров (тщательно очищает пустые значения)
     checkActiveFilters() {
-      console.log('=== checkActiveFilters: START ===')
-      console.log('this.filters (props):', JSON.stringify(this.filters))
-      console.log('this.currentFilters (URL):', JSON.stringify(this.currentFilters))
 
       let hasFilters = false
       let activeFilterCount = 0
@@ -594,41 +563,33 @@ export default {
 
       // Проверяем props фильтры
       if (this.filters && typeof this.filters === 'object') {
-        console.log('Checking props filters...')
         for (const [key, value] of Object.entries(this.filters)) {
           if (isValidValue(value)) {
-            console.log(`  ✓ Props filter ${key}:`, value)
             hasFilters = true
             activeFilterCount++
           } else {
-            console.log(`  ✗ Props filter ${key}: invalid/empty`, value)
           }
         }
       }
 
       // Проверяем URL фильтры
       if (this.currentFilters && typeof this.currentFilters === 'object') {
-        console.log('Checking URL filters...')
         for (const [key, value] of Object.entries(this.currentFilters)) {
           // Исключаем некоторые поля которые не считаются фильтрами
           if (['sorting', 'viewMode', 'dataMode'].includes(key)) continue
 
           if (isValidValue(value)) {
-            console.log(`  ✓ URL filter ${key}:`, value)
             hasFilters = true
             activeFilterCount++
           } else {
-            console.log(`  ✗ URL filter ${key}: invalid/empty`, value)
           }
         }
       }
 
-      console.log(`=== checkActiveFilters: END === result=${hasFilters}, activeFilterCount=${activeFilterCount}`)
       return hasFilters
     },
 
     setFilterOptions(options) {
-      console.log('=== SettlementsListAndMap setFilterOptions ===', options)
 
       if (options.districts) this.allDistricts = options.districts
       if (options.settlements) this.allSettlements = options.settlements
@@ -649,13 +610,6 @@ export default {
       if (options.landowners) this.allLandowners = options.landowners
       if (options.militaryUnits) this.allMilitaryUnits = options.militaryUnits
       if (options.revisions) this.allRevisions = options.revisions
-
-      console.log('Filter options set. Counts:', {
-        districts: this.allDistricts.length,
-        typeEstates: this.allTypeEstates.length,
-        subtypeEstates: this.allSubtypeEstates.length,
-        religions: this.allReligions.length
-      })
     },
 
     syncWithProps() {
@@ -726,7 +680,6 @@ export default {
 
     // Загружаем дополнительные справочники для фильтров
     loadAdditionalReferenceData() {
-      console.log('=== Loading additional reference data ===')
       const promises = [
         // Districts
         supabase
@@ -735,7 +688,6 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allDistricts = data || []
-            console.log('Districts loaded:', this.allDistricts.length)
           }),
 
         // TypeEstates (без цветов, только для фильтров)
@@ -745,7 +697,6 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allTypeEstates = data || []
-            console.log('TypeEstates loaded:', this.allTypeEstates.length)
           }),
 
         // SubtypeEstates (с цветами для маркеров карты)
@@ -764,8 +715,6 @@ export default {
               }
             })
             
-            console.log('SubtypeEstates loaded:', this.allSubtypeEstates.length)
-            console.log('Subtype estate colors:', this.estateTypeColors)
           }),
 
         // Religions
@@ -775,7 +724,6 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allReligions = data || []
-            console.log('Religions loaded:', this.allReligions.length)
           }),
 
         // Affiliations
@@ -785,7 +733,6 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allAffiliations = data || []
-            console.log('Affiliations loaded:', this.allAffiliations.length)
           }),
 
         // Volosts
@@ -795,7 +742,6 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allVolosts = data || []
-            console.log('Volosts loaded:', this.allVolosts.length)
           }),
 
         // Landowners
@@ -805,7 +751,6 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allLandowners = data || []
-            console.log('Landowners loaded:', this.allLandowners.length)
           }),
 
         // MilitaryUnits
@@ -815,24 +760,10 @@ export default {
           .then(({ data, error }) => {
             if (error) throw error
             this.allMilitaryUnits = data || []
-            console.log('MilitaryUnits loaded:', this.allMilitaryUnits.length)
           })
       ]
 
       return Promise.all(promises)
-        .then(() => {
-          console.log('=== All additional reference data loaded ===')
-          console.log('Reference data summary:', {
-            districts: this.allDistricts.length,
-            typeEstates: this.allTypeEstates.length,
-            subtypeEstates: this.allSubtypeEstates.length,
-            religions: this.allReligions.length,
-            affiliations: this.allAffiliations.length,
-            volosts: this.allVolosts.length,
-            landowners: this.allLandowners.length,
-            militaryUnits: this.allMilitaryUnits.length
-          })
-        })
         .catch(error => {
           console.error('Error loading additional reference data:', error)
           // Не будем выбрасывать ошибку - пусть работает без справочников если нужно
@@ -1279,8 +1210,6 @@ export default {
     },
 
     applyFilters(filters) {
-      console.log('=== applyFilters called ===')
-      console.log('filters:', filters)
       this.currentFilters = filters
       // Сбрасываем данные при изменении фильтров
       this.settlementsData = []
@@ -1290,8 +1219,6 @@ export default {
 
     // Метод для применения фильтров и загрузки данных (вызывается при нажатии "Применить")
     applyFiltersAndLoad(filters) {
-      console.log('=== applyFiltersAndLoad called ===')
-      console.log('filters:', filters)
       
       // Сначала применяем фильтры
       this.currentFilters = filters
@@ -1631,7 +1558,6 @@ export default {
     updateMapMarkers() {
       // Проверяем что данные загружены и карта существует
       if (!this.settlementsData || this.settlementsData.length === 0) {
-        console.log('No settlements data to update markers')
         return
       }
 
@@ -1662,11 +1588,9 @@ export default {
                   }
                 }
               } catch (error) {
-                console.warn('Error updating map size:', error)
               }
             }, 200)
           } catch (error) {
-            console.warn('Error updating map markers:', error)
           }
         })
       }
@@ -1861,7 +1785,6 @@ export default {
     subtypeEstates: {
       handler(newVal) {
         if (newVal && newVal.length > 0) {
-          console.log('=== subtypeEstates prop changed ===', newVal.length)
           this.allSubtypeEstates = newVal
           
           // Обновляем цвета подтипов
@@ -1871,7 +1794,6 @@ export default {
               this.estateTypeColors[subtype.id] = subtype.color
             }
           })
-          console.log('Updated estateTypeColors:', Object.keys(this.estateTypeColors).length)
         }
       },
       immediate: true,
@@ -1881,7 +1803,6 @@ export default {
     typeEstates: {
       handler(newVal) {
         if (newVal && newVal.length > 0) {
-          console.log('=== typeEstates prop changed ===', newVal.length)
           this.allTypeEstates = newVal
         }
       },
@@ -1971,14 +1892,9 @@ export default {
     settlementsData: {
       handler() {
         if (this.viewMode === 'map' || this.viewMode === 'split') {
-          console.log('=== SettlementsListAndMap settlementsData changed ===')
-          console.log('Current settlementsData length:', this.settlementsData?.length || 0)
-          console.log('Current settlementsForMap length:', this.settlementsForMap?.length || 0)
-          console.log('estateTypeColors keys:', Object.keys(this.estateTypeColors))
 
           // Используем nextTick чтобы дать время на пересчет computed свойств
           this.$nextTick(() => {
-            console.log('After nextTick - settlementsForMap length:', this.settlementsForMap?.length || 0)
             this.updateMapMarkers()
           })
         }

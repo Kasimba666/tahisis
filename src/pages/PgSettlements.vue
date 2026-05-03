@@ -69,8 +69,6 @@ export default {
   },
   methods: {
     setFilterOptions(options) {
-      console.log('=== PGSETTLEMENTS SET FILTER OPTIONS ===')
-      console.log('Options received:', options)
       this.allDistricts = options.districts || []
       this.allSettlements = options.settlements || []
       this.allTypeEstates = options.typeEstates || []
@@ -78,12 +76,6 @@ export default {
       this.allReligions = options.religions || []
       this.allAffiliations = options.affiliations || []
       this.allVolosts = options.volosts || []
-
-      console.log('Loaded data counts:', {
-        districts: this.allDistricts.length,
-        typeEstates: this.allTypeEstates.length,
-        subtypeEstates: this.allSubtypeEstates.length
-      })
 
       // Загружаем ревизии отдельно
       this.loadRevisions()
@@ -113,7 +105,6 @@ export default {
 
     // При изменении фильтров сбрасываем данные (не загружаем новые)
     applyFilters(filters) {
-      console.log('=== PgSettlements applyFilters ===', filters)
       this.currentFilters = filters
       
       // Сохраняем фильтры в URL
@@ -126,7 +117,6 @@ export default {
 
     // При нажатии "Применить" загружаем данные с новыми фильтрами
     applyFiltersAndLoad(filters) {
-      console.log('=== PgSettlements applyFiltersAndLoad ===', filters)
       this.currentFilters = filters
 
       // Сохраняем фильтры в URL

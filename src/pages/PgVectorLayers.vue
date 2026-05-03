@@ -238,7 +238,6 @@ export default {
       // Создаём копию объекта чтобы избежать мутаций
       this.currentEditingLayer = { ...row }
       this.styleEditorVisible = true
-      console.log('Editing style for layer:', this.currentEditingLayer.id, this.currentEditingLayer.name)
     },
 
     async handleStyleSave(styleJSON) {
@@ -251,18 +250,13 @@ export default {
       const layerId = this.currentEditingLayer.id
       const layerName = this.currentEditingLayer.name
 
-      console.log('=== PgVectorLayers handleStyleSave ===')
-      console.log('Saving style for layer ID:', layerId, 'Name:', layerName)
-      console.log('Style JSON:', JSON.stringify(styleJSON, null, 2))
 
       try {
         const updateData = {
           style: styleJSON
         }
-        console.log('Update data being sent to service:', updateData)
 
         const result = await vectorLayerService.updateVectorLayer(layerId, updateData)
-        console.log('Update result:', result)
 
         this.$message.success(`Стиль слоя "${layerName}" сохранён`)
         this.currentEditingLayer = null

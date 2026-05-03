@@ -5,7 +5,6 @@
         <EstatesFilters
           :data-mode="dataMode"
           :loading="loading"
-          @filter-change="handleFilterChange"
           @apply-filters-and-load="handleApplyFiltersAndLoad"
           @options-loaded="handleOptionsLoaded"
         />
@@ -60,18 +59,9 @@ export default {
     }
   },
   methods: {
-    handleFilterChange(filters) {
-      this.currentFilters = filters
-      if (this.$refs.listAndMap) {
-        // При изменении фильтров сбрасываем данные (не загружаем новые)
-        this.$refs.listAndMap.applyFilters(filters)
-      }
-    },
-
     handleApplyFiltersAndLoad(filters) {
       this.currentFilters = filters
       if (this.$refs.listAndMap) {
-        // При нажатии "Применить" загружаем данные с новыми фильтрами
         this.$refs.listAndMap.applyFiltersAndLoad(filters)
       }
     },

@@ -263,10 +263,8 @@ export default {
   methods: {
     // Валидация СТРОГОГО HSL формата цвета для базы данных
     isValidHslColor(color) {
-      console.log('isValidHslColor called with:', color, 'type:', typeof color)
 
       if (typeof color !== 'string') {
-        console.log('Color is not a string')
         return false
       }
 
@@ -277,49 +275,40 @@ export default {
         const s = parseInt(hslMatch[2])
         const l = parseInt(hslMatch[3])
         const isValid = h >= 0 && h <= 360 && s >= 0 && s <= 100 && l >= 0 && l <= 100
-        console.log('HSL match:', hslMatch, 'values:', {h, s, l}, 'valid:', isValid)
         return isValid
       }
 
       // Другие форматы (hex, rgb) считаем НЕВАЛИДНЫМИ для базы данных
-      console.log('Non-HSL color format - needs conversion')
       return false
     },
 
     // Обеспечить СТРОГИЙ HSL формат цвета для базы данных
     ensureHslFormatForDatabase(color) {
-      console.log('ensureHslFormatForDatabase called with:', color)
 
       // Если цвет уже в правильном HSL формате, возвращаем как есть
       if (this.isValidHslColor(color)) {
-        console.log('Color is already valid HSL:', color)
         return color
       }
 
       // Если цвет в hex формате, конвертируем в HSL
       if (color.startsWith('#')) {
-        console.log('Converting hex color:', color)
         const hsl = this.hexToHsl(color)
-        console.log('Converted to HSL:', hsl)
         return hsl
       }
 
       // Если цвет в rgb/rgba формате, конвертируем в HSL
       if (color.startsWith('rgb')) {
-        console.log('Converting RGB color:', color)
         const rgbMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
         if (rgbMatch) {
           const r = parseInt(rgbMatch[1])
           const g = parseInt(rgbMatch[2])
           const b = parseInt(rgbMatch[3])
           const hsl = this.rgbToHsl(r, g, b)
-          console.log('Converted RGB to HSL:', hsl)
           return hsl
         }
       }
 
       // Для всех неправильных форматов возвращаем белый цвет
-      console.log('Invalid color format, returning white')
       return 'hsl(180, 0%, 100%)'
     },
 
@@ -333,27 +322,22 @@ export default {
 
     // Конвертировать RGB в HSL
     rgbToHsl(r, g, b) {
-      console.log('rgbToHsl called with:', {r, g, b})
 
       r /= 255
       g /= 255
       b /= 255
 
-      console.log('Normalized RGB:', {r, g, b})
 
       const max = Math.max(r, g, b)
       const min = Math.min(r, g, b)
       let h, s, l = (max + min) / 2
 
-      console.log('Max:', max, 'Min:', min, 'Initial L:', l)
 
       if (max === min) {
         h = s = 0 // achromatic
-        console.log('Achromatic color')
       } else {
         const d = max - min
         s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-        console.log('Delta:', d, 'Saturation:', s)
 
         switch (max) {
           case r: h = (g - b) / d + (g < b ? 6 : 0); break
@@ -362,7 +346,6 @@ export default {
           default: h = 0
         }
         h /= 6
-        console.log('Hue before normalization:', h)
       }
 
       h = Math.round(h * 360)
@@ -370,7 +353,6 @@ export default {
       l = Math.round(l * 100)
 
       const result = `hsl(${h}, ${s}%, ${l}%)`
-      console.log('Final HSL result:', result)
       return result
     },
 
@@ -392,7 +374,6 @@ export default {
         color: this.isValidHslColor(row.color) ? row.color : 'hsl(180, 0%, 100%)'
       }))
 
-      console.log('Loaded estate types with validated colors:', this.tableData)
     },
 
     startEdit(row) {
@@ -413,11 +394,9 @@ export default {
     },
 
     async updateRow(id) {
-      console.log('Updating row:', id, 'with color:', this.editRow.color)
 
       // Конвертируем цвет в СТРОГИЙ HSL формат для базы данных
       const hslColorForDB = this.ensureHslFormatForDatabase(this.editRow.color)
-      console.log('Converted color for DB:', hslColorForDB)
 
       const { error } = await supabase
           .from("Type_estate")
@@ -428,7 +407,6 @@ export default {
           .eq("id", id)
 
       if (!error) {
-        console.log('Successfully updated estate type')
         this.cancelEdit()
       } else {
         console.error('Error updating estate type:', error)
@@ -473,11 +451,9 @@ export default {
 
     // Обработчик изменения цвета в селекторе
     onColorChange(newColor) {
-      console.log('Color changed in picker:', newColor)
       // Принудительно обновляем локальное состояние для немедленного отображения
       this.$nextTick(() => {
         this.editRow.color = newColor
-        console.log('Updated editRow.color:', this.editRow.color)
       })
     },
 
@@ -516,9 +492,7 @@ export default {
 
       this.subtypeTableData = subtypesWithSources
       
-      console.log('Loaded subtypes with sources:')
       this.subtypeTableData.forEach(row => {
-        console.log(`ID: ${row.id}, Name: ${row.name}, Sources: ${row.sources.join(' | ')}`)
       })
     },
 
@@ -617,7 +591,6 @@ export default {
       }
 
       this.sourceTableData = data || []
-      console.log('Loaded sources:', this.sourceTableData.length)
     },
 
     getSubtypeName(subtypeId) {
@@ -703,7 +676,6 @@ export default {
       this.activeTab = 'subtypes'
       this.$nextTick(() => {
         // Фильтруем и выделяем подтипы, относящиеся к этому типу
-        console.log('Showing subtypes for type:', typeRow.name, 'id:', typeRow.id)
       })
     },
 
@@ -712,7 +684,6 @@ export default {
       this.activeTab = 'sources'
       this.$nextTick(() => {
         // Фильтруем и выделяем источники, относящиеся к этому подтипу
-        console.log('Showing sources for subtype:', subtypeRow.name, 'sources:', subtypeRow.sources)
       })
     },
 

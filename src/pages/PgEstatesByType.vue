@@ -176,6 +176,17 @@ export default {
               return false
             }
           }
+
+          // Фильтр по статусу населённого пункта (vanished / existing)
+          if (this.currentFilters.vanishedFilter && this.currentFilters.vanishedFilter.length === 1) {
+            const targetVanished = this.currentFilters.vanishedFilter[0] === 'vanished'
+            if (!settlement || settlement.vanished !== targetVanished) {
+              return false
+            }
+          }
+        } else if (this.currentFilters.vanishedFilter && this.currentFilters.vanishedFilter.length === 1) {
+          // Если у estate нет привязанного населённого пункта — исключаем при фильтре по статусу НП
+          return false
         }
 
         // Фильтр по типам сословий
@@ -351,7 +362,8 @@ export default {
               'typeEstates', 'subtypeEstates', 'religions', 'affiliations',
               'maleEnabled', 'femaleEnabled', 'populationEnabled',
               'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
-              'populationMin', 'populationMax'
+              'populationMin', 'populationMax',
+              'vanishedFilter'
             ]
 
             const cleanedFilters = {}
@@ -483,7 +495,7 @@ export default {
         // Загружаем населённые пункты для фильтрации
         const { data: settlements, error: settlementsError } = await supabase
           .from('Settlement')
-          .select('id, name_old, name_modern, id_district')
+          .select('id, name_old, name_modern, id_district, vanished')
 
         if (settlementsError) throw settlementsError
         this.settlements = settlements || []

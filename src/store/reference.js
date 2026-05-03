@@ -49,7 +49,6 @@ function loadFromStorage(key) {
     const isFresh = Date.now() - timestamp < CACHE_TTL
     const data = JSON.parse(dataRaw)
 
-    console.log(`💾 [Vuex] "${key}" loaded from localStorage: ${data.length} records${isFresh ? '' : ' (stale)'}`)
     return { data, isFresh, timestamp }
   } catch (e) {
     console.warn(`[Vuex] Failed to load "${key}" from localStorage:`, e.message)
@@ -161,7 +160,6 @@ export default {
     loadReference({ commit, state, getters }, { key, queryFn }) {
       // Return cached data if fresh (in-memory)
       if (getters.isCached(key)) {
-        console.log(`📦 [Vuex] Using in-memory cached "${key}"`)
         return Promise.resolve(state[key])
       }
 
@@ -171,24 +169,20 @@ export default {
 
       // Deduplicate concurrent requests
       if (state.pendingFetches[key]) {
-        console.log(`⏳ [Vuex] Awaiting in-flight "${key}"`)
         return state.pendingFetches[key]
       }
 
-      console.log(`🔄 [Vuex] Fetching "${key}"...`)
       const promise = supabaseQueryWithRetry(queryFn, { operationName: `load-${key}` })
         .then(({ data, error }) => {
           if (error) throw error
           const result = data || []
           commit('setData', { key, data: result })
-          console.log(`✅ [Vuex] "${key}" loaded: ${result.length} records`)
           return result
         })
         .catch(error => {
           console.error(`❌ [Vuex] Failed to load "${key}":`, error)
           // Если есть устаревшие данные в state — возвращаем их при ошибке
           if (hasStaleData) {
-            console.warn(`⚠️ [Vuex] Returning stale "${key}" (${state[key].length} records) due to fetch error`)
             return state[key]
           }
           throw error
@@ -203,7 +197,6 @@ export default {
 
       // Если есть устаревшие данные в state — возвращаем их немедленно
       if (hasStaleData) {
-        console.log(`💾 [Vuex] Returning stale "${key}" (${state[key].length} records), refreshing in background`)
         return Promise.resolve(state[key])
       }
 

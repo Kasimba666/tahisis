@@ -478,7 +478,6 @@ export default {
         this.selectedRevision = null
         this.fetchData()
 
-        console.log(`Ревизия ${this.selectedRevision} успешно удалена`)
       } catch (error) {
         console.error('Ошибка при удалении ревизии:', error)
         alert('Ошибка при удалении ревизии: ' + error.message)

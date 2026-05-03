@@ -237,9 +237,6 @@ export default {
         }
       }))
 
-      console.log('SubtypeEstateDetails - создано GeoJSON features:', features.length, 'из', uniqueSettlementsMap.size, 'уникальных settlements')
-      console.log('Estates с settlementId:', this.estates.filter(e => e.settlementId).length)
-      console.log('Загружено settlements:', this.settlements.length)
       
       return {
         type: 'FeatureCollection',
