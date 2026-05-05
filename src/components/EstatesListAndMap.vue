@@ -119,6 +119,7 @@
           @header-dragend="handleHeaderDragEnd"
           @row-dblclick="viewDetails"
           :default-sort="{ prop: 'settlement_name_old', order: 'ascending' }"
+          :row-class-name="getRowClassName"
         >
           <el-table-column v-if="visibleReportColumns.id" prop="id" label="ID" width="50" sortable />
           <el-table-column v-if="visibleReportColumns.code" prop="code" label="Код" width="80" sortable />
@@ -516,15 +517,16 @@ export default {
     mapMarkers() {
       if (!this.hasCoordinates) return []
 
-      let lat, lon, name, popupContent
+      let lat, lon, name, popupContent, vanished
 
       if (this.dataMode === 'report') {
         lat = this.selectedRecord.lat
         lon = this.selectedRecord.lon
         name = this.selectedRecord.settlement_name_modern || this.selectedRecord.settlement_name_old
+        vanished = this.selectedRecord.settlement_vanished === true
         popupContent = `
           <div style="font-family: Arial, sans-serif; max-width: 200px;">
-            <h4 style="margin: 0 0 8px 0; color: #409eff;">${name}</h4>
+            <h4 style="margin: 0 0 8px 0; color: #409eff;">${name}${vanished ? ' <span style="color: hsl(0, 70%, 50%); font-size: 11px;">(исчезнувший)</span>' : ''}</h4>
             <p style="margin: 4px 0;"><strong>Население:</strong> ${this.selectedRecord.population_all || 0}</p>
             <p style="margin: 4px 0;"><strong>Сословий:</strong> ${this.selectedRecord.estates_count || 0}</p>
             <p style="margin: 4px 0;"><strong>Район:</strong> ${this.selectedRecord.district_name || '—'}</p>
@@ -538,9 +540,10 @@ export default {
         lat = settlement.lat
         lon = settlement.lon
         name = this.selectedRecord.settlement_name_modern || this.selectedRecord.settlement_name_old
+        vanished = settlement?.vanished === true
         popupContent = `
           <div style="font-family: Arial, sans-serif; max-width: 200px;">
-            <h4 style="margin: 0 0 8px 0; color: #409eff;">${name}</h4>
+            <h4 style="margin: 0 0 8px 0; color: #409eff;">${name}${vanished ? ' <span style="color: hsl(0, 70%, 50%); font-size: 11px;">(исчезнувший)</span>' : ''}</h4>
             <p style="margin: 4px 0;"><strong>Подтип сословия:</strong> ${this.selectedRecord.subtype_estate_name || '—'}</p>
             <p style="margin: 4px 0;"><strong>Мужчин:</strong> ${this.selectedRecord.male || 0}</p>
             <p style="margin: 4px 0;"><strong>Женщин:</strong> ${this.selectedRecord.female || 0}</p>
@@ -554,6 +557,7 @@ export default {
         lat: parseFloat(lat),
         lng: parseFloat(lon),
         popup: popupContent,
+        vanished,
         icon: {
           iconUrl: 'data:image/svg+xml;base64,' + btoa(`
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -590,7 +594,8 @@ export default {
                 district: item.district_name,
                 lat: settlement.lat,
                 lon: settlement.lon,
-                population: null
+                population: null,
+                vanished: settlement.vanished === true
               })
             }
           }
@@ -605,7 +610,8 @@ export default {
               district: item.district_name,
               lat: item.lat,
               lon: item.lon,
-              population: item.population_all
+              population: item.population_all,
+              vanished: item.settlement_vanished === true
             })
           }
         })
@@ -657,6 +663,13 @@ export default {
     }
   },
   methods: {
+    getRowClassName({ row }) {
+      if (row.settlement_vanished) {
+        return 'vanished-row'
+      }
+      return ''
+    },
+
     loadSettlementsReference() {
       return supabase
         .from('Settlement')
@@ -2827,6 +2840,19 @@ export default {
     color: var(--text-primary) !important;
     border-top: 2px solid var(--accent-primary) !important;
     font-weight: 600 !important;
+  }
+}
+
+// Строки исчезнувших населённых пунктов
+:deep(.el-table__body tr.vanished-row) {
+  background-color: hsla(350, 60%, 88%, 0.35) !important;
+
+  td {
+    background-color: hsla(350, 60%, 88%, 0.35) !important;
+  }
+
+  &:hover > td {
+    background-color: hsla(350, 60%, 80%, 0.45) !important;
   }
 }
 

@@ -420,7 +420,8 @@ export default {
           population: settlement.total,
           estateTypes: estateTypes, // массив типов сословий с цветами
           religions: religions, // массив названий религий
-          estates: settlement.estates || [] // детальные данные по сословиям
+          estates: settlement.estates || [], // детальные данные по сословиям
+          vanished: settlement.vanished || false
         }
       })
 
@@ -539,10 +540,14 @@ export default {
 
     // Определение класса для строки таблицы
     getRowClassName({ row }) {
+      const classes = []
       if (this.selectedSettlement && row.settlement_id === this.selectedSettlement.settlement_id) {
-        return 'highlighted-row'
+        classes.push('highlighted-row')
       }
-      return ''
+      if (row.vanished) {
+        classes.push('vanished-row')
+      }
+      return classes.join(' ')
     },
     // Проверка активных фильтров (тщательно очищает пустые значения)
     checkActiveFilters() {
@@ -2321,6 +2326,32 @@ export default {
 
   &:hover > td {
     background-color: var(--accent-primary) !important;
+  }
+}
+
+// Строки исчезнувших населённых пунктов
+:deep(.el-table__body tr.vanished-row) {
+  background-color: hsla(350, 60%, 88%, 0.35) !important;
+
+  td {
+    background-color: hsla(350, 60%, 88%, 0.35) !important;
+  }
+
+  &:hover > td {
+    background-color: hsla(350, 60%, 80%, 0.45) !important;
+  }
+
+  &.highlighted-row {
+    background-color: var(--accent-primary) !important;
+
+    td {
+      background-color: var(--accent-primary) !important;
+      color: var(--bg-primary) !important;
+    }
+
+    &:hover > td {
+      background-color: var(--accent-primary) !important;
+    }
   }
 }
 

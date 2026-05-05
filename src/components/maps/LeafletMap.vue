@@ -197,6 +197,7 @@ export default {
 
       settlementsArray.forEach(settlement => {
         if (settlement.lat && settlement.lon) {
+          const isVanished = settlement.vanished === true
           const lat = parseFloat(settlement.lat)
           const lon = parseFloat(settlement.lon)
 
@@ -207,12 +208,19 @@ export default {
           const markerSize = this.calculateMarkerSize(settlement.estateTypes || [], currentZoom)
           const markerElement = createConcentricCirclesMarker(settlement.estateTypes || [], markerSize)
 
-          const customIcon = L.divIcon({
-            className: 'custom-marker',
-            html: markerElement,
-            iconSize: [markerSize.iconSize, markerSize.iconSize],
-            iconAnchor: [markerSize.iconAnchor, markerSize.iconAnchor]
-          })
+          const customIcon = isVanished
+            ? L.divIcon({
+                html: '<div class="vanished-marker-dot"></div>',
+                className: 'vanished-marker-container',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8]
+              })
+            : L.divIcon({
+                className: 'custom-marker',
+                html: markerElement,
+                iconSize: [markerSize.iconSize, markerSize.iconSize],
+                iconAnchor: [markerSize.iconAnchor, markerSize.iconAnchor]
+              })
 
           // Определяем название для отображения в зависимости от режима
           let displayName = ''
@@ -871,6 +879,20 @@ export default {
   svg {
     width: 16px !important;
     height: 16px !important;
+  }
+}
+
+:deep(.vanished-marker-container) {
+  background: transparent;
+  border: none;
+
+  .vanished-marker-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: hsl(30, 82%, 72%);
+    border: 2px solid hsl(30, 22%, 67%);
+    margin: 2px;
   }
 }
 
