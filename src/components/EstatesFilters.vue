@@ -35,7 +35,7 @@
             <div class="filter-options">
               <el-checkbox-group v-model="filters.revision">
                 <el-checkbox
-                  v-for="revision in allRevisions"
+                  v-for="revision in filteredRevisions"
                   :key="revision.number"
                   :label="revision.number"
                 >
@@ -44,6 +44,7 @@
               </el-checkbox-group>
             </div>
             <div class="filter-actions-dropdown">
+              <el-button link size="small" @click="selectAllRevisions">Выбрать все</el-button>
               <el-button link size="small" type="danger" @click="filters.revision = []">Сбросить</el-button>
             </div>
           </el-dropdown-menu>
@@ -599,6 +600,11 @@ export default {
       allVolosts: [],
       allLandowners: [],
       allMilitaryUnits: [],
+      // Сырые данные для кросс-зависимых фильтров
+      allEstatesForFilters: [], // Estate с Report_record + Settlement + Subtype_estate
+      // Индексные мапы: key -> Set связанных id (полная денормализация)
+      indexBySubtype: {},    // subtypeId -> Set<estateId>
+      indexByReportRecord: {},// reportRecordId -> estate
       // Поиск
       searchDistrict: '',
       searchSettlementOld: '',
@@ -612,70 +618,193 @@ export default {
     }
   },
   computed: {
-    revisionOptions() {
-      return this.allRevisions.map(rev => ({
-        label: `${rev.number} ревизия (${rev.year})`,
-        value: rev.id
-      }))
+    /**
+     * Кросс-фильтр: применяет все активные фильтры КРОМЕ указанного (excludeKey)
+     * и возвращает Set ID сущностей, доступных в оставшихся Estates.
+     * Если excludeKey null — фильтрует по всем активным фильтрам.
+     */
+    _crossFilteredIds() {
+      // excludeKey -> Set of entity IDs
+      // Кэшируем на уровне вызова
+      return (excludeKey, entityKey) => {
+        const records = this.allEstatesForFilters
+        if (!records || records.length === 0) return null
+
+        const f = this.filters
+        const activeFilters = []
+
+        // Ревизии (фильтр по number → revisionId через маппинг)
+        if (excludeKey !== 'revision' && f.revision && f.revision.length > 0) {
+          const revMap = {}
+          this.allRevisions.forEach(r => { revMap[r.number] = r.id })
+          const ids = new Set(f.revision.map(n => revMap[n]).filter(Boolean))
+          if (ids.size > 0) activeFilters.push(r => ids.has(r.revisionId))
+        }
+
+        // Районы
+        if (excludeKey !== 'districts' && f.districts && f.districts.length > 0) {
+          const ids = new Set(f.districts)
+          activeFilters.push(r => ids.has(r.districtId))
+        }
+
+        // Старые названия НП
+        if (excludeKey !== 'settlementNamesOld' && f.settlementNamesOld && f.settlementNamesOld.length > 0) {
+          const ids = new Set(f.settlementNamesOld)
+          activeFilters.push(r => ids.has(r.settlementNameOld))
+        }
+
+        // Современные названия НП
+        if (excludeKey !== 'settlementNamesModern' && f.settlementNamesModern && f.settlementNamesModern.length > 0) {
+          const ids = new Set(f.settlementNamesModern)
+          activeFilters.push(r => ids.has(r.settlementNameModern))
+        }
+
+        // Статус НП (vanished)
+        if (excludeKey !== 'vanishedFilter' && f.vanishedFilter && f.vanishedFilter.length === 1) {
+          const target = f.vanishedFilter[0] === 'vanished'
+          activeFilters.push(r => r.settlementVanished === target)
+        }
+
+        // Типы сословий
+        if (excludeKey !== 'typeEstates' && f.typeEstates && f.typeEstates.length > 0) {
+          const ids = new Set(f.typeEstates)
+          activeFilters.push(r => ids.has(r.typeEstateId))
+        }
+
+        // Подтипы сословий
+        if (excludeKey !== 'subtypeEstates' && f.subtypeEstates && f.subtypeEstates.length > 0) {
+          const ids = new Set(f.subtypeEstates)
+          activeFilters.push(r => ids.has(r.subtypeEstateId))
+        }
+
+        // Религии
+        if (excludeKey !== 'religions' && f.religions && f.religions.length > 0) {
+          const ids = new Set(f.religions)
+          activeFilters.push(r => ids.has(r.religionId))
+        }
+
+        // Принадлежности
+        if (excludeKey !== 'affiliations' && f.affiliations && f.affiliations.length > 0) {
+          const ids = new Set(f.affiliations)
+          activeFilters.push(r => ids.has(r.affiliationId))
+        }
+
+        // Волости
+        if (excludeKey !== 'volosts' && f.volosts && f.volosts.length > 0) {
+          const ids = new Set(f.volosts)
+          activeFilters.push(r => r.volostId !== null && ids.has(r.volostId))
+        }
+
+        // Помещики
+        if (excludeKey !== 'landowners' && f.landowners && f.landowners.length > 0) {
+          const ids = new Set(f.landowners)
+          activeFilters.push(r => r.landownerId !== null && ids.has(r.landownerId))
+        }
+
+        // Войсковые организации
+        if (excludeKey !== 'militaryUnits' && f.militaryUnits && f.militaryUnits.length > 0) {
+          const ids = new Set(f.militaryUnits)
+          activeFilters.push(r => r.militaryUnitId !== null && ids.has(r.militaryUnitId))
+        }
+
+        if (activeFilters.length === 0) return null
+
+        const result = new Set()
+        for (const r of records) {
+          if (activeFilters.every(fn => fn(r))) {
+            const val = r[entityKey]
+            if (val !== null && val !== undefined) result.add(val)
+          }
+        }
+        return result
+      }
     },
-    
+
+    filteredRevisions() {
+      const allowed = this._crossFilteredIds('revision', 'revisionId')
+      if (!allowed) return this.allRevisions
+      return this.allRevisions.filter(r => allowed.has(r.id))
+    },
+
     filteredDistricts() {
-      return this.allDistricts
+      const allowed = this._crossFilteredIds('districts', 'districtId')
+      if (!allowed) return this.allDistricts
+      return this.allDistricts.filter(d => allowed.has(d.id))
     },
-    
+
     filteredSettlements() {
       if (!this.filters.districts || this.filters.districts.length === 0) {
         return this.allSettlements
       }
       return this.allSettlements.filter(s => this.filters.districts.includes(s.id_district))
     },
-    
+
     filteredTypeEstates() {
-      return this._applyVanishedFilter(this.allTypeEstates, 'typeEstates')
+      const cross = this._crossFilteredIds('typeEstates', 'typeEstateId')
+      let items = this.allTypeEstates
+      if (cross) items = items.filter(t => cross.has(t.id))
+      return this._applyVanishedFilter(items, 'typeEstates')
     },
-    
+
     filteredSubtypeEstates() {
+      const cross = this._crossFilteredIds('subtypeEstates', 'subtypeEstateId')
       let items = this.allSubtypeEstates
       if (this.filters.typeEstates && this.filters.typeEstates.length > 0) {
         items = items.filter(s => this.filters.typeEstates.includes(s.id_type_estate))
       }
+      if (cross) items = items.filter(s => cross.has(s.id))
       return this._applyVanishedFilter(items, 'subtypeEstates')
     },
-    
+
     filteredReligions() {
-      return this._applyVanishedFilter(this.allReligions, 'religions')
+      const cross = this._crossFilteredIds('religions', 'religionId')
+      let items = this.allReligions
+      if (cross) items = items.filter(r => cross.has(r.id))
+      return this._applyVanishedFilter(items, 'religions')
     },
-    
+
     filteredAffiliations() {
-      return this._applyVanishedFilter(this.allAffiliations, 'affiliations')
+      const cross = this._crossFilteredIds('affiliations', 'affiliationId')
+      let items = this.allAffiliations
+      if (cross) items = items.filter(a => cross.has(a.id))
+      return this._applyVanishedFilter(items, 'affiliations')
     },
-    
+
     filteredVolosts() {
-      return this._applyVanishedFilter(this.allVolosts, 'volosts')
+      const cross = this._crossFilteredIds('volosts', 'volostId')
+      let items = this.allVolosts
+      if (cross) items = items.filter(v => cross.has(v.id))
+      return this._applyVanishedFilter(items, 'volosts')
     },
-    
+
     filteredLandowners() {
-      return this._applyVanishedFilter(this.allLandowners, 'landowners')
+      const cross = this._crossFilteredIds('landowners', 'landownerId')
+      let items = this.allLandowners
+      if (cross) items = items.filter(l => cross.has(l.id))
+      return this._applyVanishedFilter(items, 'landowners')
     },
-    
+
     filteredMilitaryUnits() {
-      return this._applyVanishedFilter(this.allMilitaryUnits, 'militaryUnits')
+      const cross = this._crossFilteredIds('militaryUnits', 'militaryUnitId')
+      let items = this.allMilitaryUnits
+      if (cross) items = items.filter(m => cross.has(m.id))
+      return this._applyVanishedFilter(items, 'militaryUnits')
     },
-    
+
     filteredDistrictsSearch() {
       if (!this.searchDistrict) return this.filteredDistricts
       return this.filteredDistricts.filter(d =>
         d.name.toLowerCase().includes(this.searchDistrict.toLowerCase())
       )
     },
-    
+
     filteredLandownersSearch() {
       if (!this.searchLandowner) return this.filteredLandowners
       return this.filteredLandowners.filter(l => 
         l.name.toLowerCase().includes(this.searchLandowner.toLowerCase())
       )
     },
-    
+
     filteredMilitaryUnitsSearch() {
       if (!this.searchMilitaryUnit) return this.filteredMilitaryUnits
       return this.filteredMilitaryUnits.filter(m =>
@@ -1038,6 +1167,72 @@ export default {
       }
     },
 
+    /**
+     * Загружает плоскую денормализованную таблицу всех Estate
+     * со всеми связями для кросс-фильтрации.
+     * Результат: массив объектов {revisionId, districtId, settlementNameOld, ...}
+     */
+    loadCrossFilterData() {
+      return Promise.all([
+        // Estate: только FK-ключи
+        supabase.from('Estate').select('id, id_report_record, id_subtype_estate, id_volost, id_landowner, id_military_unit'),
+        // Report_record: связь с ревизией и НП
+        supabase.from('Report_record').select('id, id_revision_report, id_settlement'),
+        // Settlement: названия, район, статус
+        supabase.from('Settlement').select('id, name_old, name_modern, id_district, vanished'),
+        // Subtype_estate: типы, религия, принадлежность
+        supabase.from('Subtype_estate').select('id, id_type_estate, id_type_religion, id_type_affiliation')
+      ]).then(([
+        { data: estates, error: eErr },
+        { data: reportRecords, error: rErr },
+        { data: settlements, error: sErr },
+        { data: subtypes, error: stErr }
+      ]) => {
+        if (eErr || rErr || sErr || stErr) throw eErr || rErr || sErr || stErr
+
+        // Индексы для быстрого поиска
+        const reportMap = {}
+        ;(reportRecords || []).forEach(r => { reportMap[r.id] = r })
+
+        const settlementMap = {}
+        ;(settlements || []).forEach(s => { settlementMap[s.id] = s })
+
+        const subtypeMap = {}
+        ;(subtypes || []).forEach(s => { subtypeMap[s.id] = s })
+
+        const result = []
+        ;(estates || []).forEach(estate => {
+          const reportRecord = reportMap[estate.id_report_record]
+          if (!reportRecord) return
+
+          const settlement = settlementMap[reportRecord.id_settlement]
+          const subtype = subtypeMap[estate.id_subtype_estate]
+
+          result.push({
+            estateId: estate.id,
+            revisionId: reportRecord.id_revision_report,
+            districtId: settlement ? settlement.id_district : null,
+            settlementNameOld: settlement ? settlement.name_old : null,
+            settlementNameModern: settlement ? settlement.name_modern : null,
+            settlementVanished: settlement ? settlement.vanished : null,
+            typeEstateId: subtype ? subtype.id_type_estate : null,
+            subtypeEstateId: estate.id_subtype_estate,
+            religionId: subtype ? subtype.id_type_religion : null,
+            affiliationId: subtype ? subtype.id_type_affiliation : null,
+            volostId: estate.id_volost,
+            landownerId: estate.id_landowner,
+            militaryUnitId: estate.id_military_unit
+          })
+        })
+
+        this.allEstatesForFilters = result
+      }).catch(error => {
+        console.error('Error loading cross-filter data:', error)
+        // Не фатально — фильтры просто покажут все опции
+        this.allEstatesForFilters = []
+      })
+    },
+
     loadFilterOptions() {
       const store = this.$store
       Promise.all([
@@ -1066,6 +1261,8 @@ export default {
           this.allMilitaryUnits = (data || []).map(m => ({ ...m, name: m.description || m.person || 'Без названия' }))
         })
       ]).then(() => {
+        // Загружаем кросс-фильтр данные (связи Estate→Report_record→Settlement+Subtype)
+        this.loadCrossFilterData()
         // Загружаем маппинг сущностей к исчезнувшим/существующим НП
         this.loadVanishedEntitySets()
         // Эмитируем options-loaded только когда ВСЕ справочники загружены
@@ -1155,7 +1352,7 @@ export default {
     },
 
     selectAllRevisions() {
-      this.filters.revision = this.allRevisions.map(r => r.number)
+      this.filters.revision = this.filteredRevisions.map(r => r.number)
     },
 
     selectAllVanished() {
