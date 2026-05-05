@@ -873,12 +873,12 @@ export default {
                 id,
                 code,
                 population_all,
-                id_settlment,
+                id_settlement,
                 id_revision_report,
                 Revision_report!Report_record_id_revision_report_fkey(id, year, number),
-                Settlement!Report_record_id_settlment_fkey(name_old, name_modern, lat, lon, id_district, vanished, District(name))
+                Settlement!Report_record_id_settlement_fkey(name_old, name_modern, lat, lon, id_district, vanished, District(name))
               `)
-              .not('id_settlment', 'is', null)
+              .not('id_settlement', 'is', null)
 
             // Фильтр по ревизиям - конвертируем номера в ID
             if (filters.revision && filters.revision.length > 0) {
@@ -900,7 +900,7 @@ export default {
             }
             reportQuery = reportQuery.in('id', rrIdsFromEstate)
           }
-          if (settlementIds.length > 0) reportQuery = reportQuery.in('id_settlment', settlementIds)
+          if (settlementIds.length > 0) reportQuery = reportQuery.in('id_settlement', settlementIds)
           if (oldNames.length > 0) reportQuery = reportQuery.in('Settlement.name_old', oldNames)
           if (modernNames.length > 0) reportQuery = reportQuery.in('Settlement.name_modern', modernNames)
 
@@ -968,12 +968,12 @@ export default {
         })
         .then(({ reportRecords, estates }) => {
           const rrToSettlement = new Map()
-          reportRecords.forEach(r => rrToSettlement.set(r.id, r.id_settlment))
+          reportRecords.forEach(r => rrToSettlement.set(r.id, r.id_settlement))
 
           const settlementsMap = new Map()
           reportRecords.forEach(r => {
             const s = r.Settlement || {}
-            const sid = r.id_settlment
+            const sid = r.id_settlement
             if (!sid) return
             if (!settlementsMap.has(sid)) {
               settlementsMap.set(sid, {
@@ -1012,7 +1012,7 @@ export default {
           })
 
           settlementsMap.forEach((value, sid) => {
-            const rrForSettlement = reportRecords.filter(r => r.id_settlment === sid)
+            const rrForSettlement = reportRecords.filter(r => r.id_settlement === sid)
             const eForSettlement = bySettlement.get(sid) || []
 
             const totalMale = eForSettlement.reduce((s, e) => s + (e.male || 0), 0)

@@ -334,12 +334,12 @@ export default {
         const reportRecordIds = [...new Set(estates.map(e => e.id_report_record).filter(Boolean))]
         const { data: reportRecords, error: reportError } = await supabase
           .from('Report_record')
-          .select('id, id_settlment')
+          .select('id, id_settlement')
           .in('id', reportRecordIds)
 
         if (reportError) throw reportError
 
-        const settlementIds = [...new Set(reportRecords.map(r => r.id_settlment).filter(Boolean))]
+        const settlementIds = [...new Set(reportRecords.map(r => r.id_settlement).filter(Boolean))]
         const { data: settlements, error: settlementError } = await supabase
           .from('Settlement')
           .select('id, name_old, name_modern, lat, lon')
@@ -406,7 +406,7 @@ export default {
         // Формируем список хозяйств с дополнительными данными
         this.estates = estates.map(estate => {
           const reportRecord = reportRecords.find(r => r.id === estate.id_report_record)
-          const settlement = settlements.find(s => s.id === reportRecord?.id_settlment)
+          const settlement = settlements.find(s => s.id === reportRecord?.id_settlement)
           const volost = volosts.find(v => v.id === estate.id_volost)
           const landowner = landowners.find(l => l.id === estate.id_landowner)
           const militaryUnit = militaryUnits.find(m => m.id === estate.id_military_unit)

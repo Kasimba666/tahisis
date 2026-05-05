@@ -126,6 +126,9 @@ export default {
       reportRecords: [],
       revisions: [], // Полная информация о ревизиях для сопоставления
       settlements: [], // Населённые пункты для фильтрации
+      volosts: [], // Волости для фильтрации
+      landowners: [], // Помещики для фильтрации
+      militaryUnits: [], // Войсковые организации для фильтрации
       detailsVisible: false,
       selectedSubtypeId: null,
       selectedReportRecordId: null
@@ -153,8 +156,8 @@ export default {
         }
 
         // Фильтр по районам и населённым пунктам
-        if (reportRecord.id_settlment) {
-          const settlement = this.settlements.find(s => s.id === reportRecord.id_settlment)
+        if (reportRecord.id_settlement) {
+          const settlement = this.settlements.find(s => s.id === reportRecord.id_settlement)
           
           // Фильтр по районам
           if (this.currentFilters.districts && this.currentFilters.districts.length > 0) {
@@ -235,6 +238,27 @@ export default {
           
           if (femaleCount < femaleMin) return false
           if (femaleMax !== null && femaleMax !== undefined && femaleCount > femaleMax) return false
+        }
+
+        // Фильтр по волостям
+        if (this.currentFilters.volosts && this.currentFilters.volosts.length > 0) {
+          if (!estate.id_volost || !this.currentFilters.volosts.includes(estate.id_volost)) {
+            return false
+          }
+        }
+
+        // Фильтр по помещикам
+        if (this.currentFilters.landowners && this.currentFilters.landowners.length > 0) {
+          if (!estate.id_landowner || !this.currentFilters.landowners.includes(estate.id_landowner)) {
+            return false
+          }
+        }
+
+        // Фильтр по войсковым организациям
+        if (this.currentFilters.militaryUnits && this.currentFilters.militaryUnits.length > 0) {
+          if (!estate.id_military_unit || !this.currentFilters.militaryUnits.includes(estate.id_military_unit)) {
+            return false
+          }
         }
 
         // Фильтр по общей численности
@@ -363,7 +387,7 @@ export default {
               'maleEnabled', 'femaleEnabled', 'populationEnabled',
               'maleMin', 'maleMax', 'femaleMin', 'femaleMax',
               'populationMin', 'populationMax',
-              'vanishedFilter'
+              'vanishedFilter', 'volosts', 'landowners', 'militaryUnits'
             ]
 
             const cleanedFilters = {}
@@ -479,7 +503,7 @@ export default {
         // Загружаем сословия (хозяйства) со связью к Report_record
         const { data: estates, error: estatesError } = await supabase
           .from('Estate')
-          .select('id, id_subtype_estate, male, female, id_report_record')
+          .select('id, id_subtype_estate, male, female, id_report_record, id_volost, id_landowner, id_military_unit')
 
         if (estatesError) throw estatesError
         this.estates = estates || []
@@ -487,7 +511,7 @@ export default {
         // Загружаем записи ревизий для фильтра
         const { data: reportRecords, error: reportError } = await supabase
           .from('Report_record')
-          .select('id, id_revision_report, id_settlment')
+          .select('id, id_revision_report, id_settlement')
 
         if (reportError) throw reportError
         this.reportRecords = reportRecords || []
@@ -515,6 +539,33 @@ export default {
 
         if (affiliationsError) throw affiliationsError
         this.affiliations = affiliations || []
+
+        // Загружаем волости
+        const { data: volosts, error: volostsError } = await supabase
+          .from('Volost')
+          .select('*')
+          .order('name')
+
+        if (volostsError) throw volostsError
+        this.volosts = volosts || []
+
+        // Загружаем помещиков
+        const { data: landowners, error: landownersError } = await supabase
+          .from('Landowner')
+          .select('*')
+          .order('person')
+
+        if (landownersError) throw landownersError
+        this.landowners = landowners || []
+
+        // Загружаем войсковые организации
+        const { data: militaryUnits, error: militaryUnitsError } = await supabase
+          .from('Military_unit')
+          .select('*')
+          .order('person')
+
+        if (militaryUnitsError) throw militaryUnitsError
+        this.militaryUnits = militaryUnits || []
 
       } catch (error) {
         console.error('Error loading data:', error)

@@ -703,7 +703,7 @@ export default {
                 year,
                 number
               ),
-              Settlement!Report_record_id_settlment_fkey(
+              Settlement!Report_record_id_settlement_fkey(
                 name_old,
                 name_modern,
                 id_district,
@@ -1178,7 +1178,7 @@ export default {
               year,
               number
             ),
-            Settlement!Report_record_id_settlment_fkey(
+              Settlement!Report_record_id_settlement_fkey(
               name_old,
               name_modern,
               lat,
@@ -1233,7 +1233,7 @@ export default {
         
         // Применяем фильтр по населенным пунктам
         if (settlementIds.length > 0) {
-          query = query.in('id_settlment', settlementIds)
+          query = query.in('id_settlement', settlementIds)
         }
 
         // Фильтр по старым/современным названиям НП применяется клиентски (см. applyClientSideReportFilters)

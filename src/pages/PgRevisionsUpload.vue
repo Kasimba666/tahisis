@@ -116,7 +116,7 @@
         <template #default="{ row }">
           <div v-if="editRecordId === row.id">
             <el-select
-              v-model="editRecord.id_settlment"
+              v-model="editRecord.id_settlement"
               placeholder="Выберите населённый пункт"
               filterable
               size="small"
@@ -372,7 +372,7 @@ export default {
           volost_name: volosts.join(', ') || '-',
           landowner_description: landowners.join(', ') || '-',
           military_unit_description: militaryUnits.join(', ') || '-',
-          id_settlment: record.id_settlment
+          id_settlement: record.id_settlement
         }
       }).sort((a, b) => {
         // Сортируем по ID
@@ -490,15 +490,15 @@ export default {
 
       // Находим район текущего поселения для инициализации
       let districtId = null
-      if (row.id_settlment) {
-        const settlement = this.availableSettlements.find(s => s.id === row.id_settlment)
+      if (row.id_settlement) {
+        const settlement = this.availableSettlements.find(s => s.id === row.id_settlement)
         districtId = settlement?.id_district || null
       }
 
       this.editRecord = {
         code: row.code,
         population_all: row.population_all,
-        id_settlment: row.id_settlment,
+        id_settlement: row.id_settlement,
         id_district: districtId,
         settlement_name_old_alt: row.settlement_name_old_alt,
         settlement_name_modern: row.settlement_name_modern,
@@ -523,17 +523,17 @@ export default {
     async onDistrictChange(newDistrictId) {
       // При изменении района очищаем выбранное поселение, если оно не принадлежит новому району
       // Сначала проверяем, принадлежит ли текущий выбранный посёлок новому району
-      if (this.editRecord.id_settlment && newDistrictId) {
-        const currentSettlement = this.availableSettlements.find(s => s.id === this.editRecord.id_settlment)
+      if (this.editRecord.id_settlement && newDistrictId) {
+        const currentSettlement = this.availableSettlements.find(s => s.id === this.editRecord.id_settlement)
         if (!currentSettlement || currentSettlement.id_district !== newDistrictId) {
           // Посёлок не принадлежит новому району - очищаем выбор
-          this.editRecord.id_settlment = null
+          this.editRecord.id_settlement = null
           this.editRecord.settlement_name_old_alt = ''
           this.editRecord.settlement_name_modern = ''
         }
       } else if (!newDistrictId) {
         // Район сброшен - очищаем посёлок
-        this.editRecord.id_settlment = null
+        this.editRecord.id_settlement = null
         this.editRecord.settlement_name_old_alt = ''
         this.editRecord.settlement_name_modern = ''
       }
@@ -553,14 +553,14 @@ export default {
             .update({
               code: this.editRecord.code,
               population_all: this.editRecord.population_all,
-              id_settlment: this.editRecord.id_settlment
+              id_settlement: this.editRecord.id_settlement
             })
             .eq('id', this.editRecordId)
 
         if (reportError) throw reportError
 
         // Затем обновляем Settlement (имена и район)
-        if (this.editRecord.id_settlment) {
+        if (this.editRecord.id_settlement) {
           const { error: settlementError } = await supabase
               .from('Settlement')
               .update({
@@ -568,7 +568,7 @@ export default {
                 name_modern: this.editRecord.settlement_name_modern,
                 id_district: this.editRecord.id_district
               })
-              .eq('id', this.editRecord.id_settlment)
+              .eq('id', this.editRecord.id_settlement)
 
           if (settlementError) throw settlementError
         }

@@ -981,7 +981,7 @@ export default {
                 id_type_affiliation
               ),
               Report_record!Estate_id_report_record_fkey(
-                Settlement!Report_record_id_settlment_fkey(vanished)
+                Settlement!Report_record_id_settlement_fkey(vanished)
               )
             `)
             .range(from, from + pageSize - 1)

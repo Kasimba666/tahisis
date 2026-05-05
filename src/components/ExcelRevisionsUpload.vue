@@ -531,7 +531,7 @@ export default {
             // Связываем Report_record с Settlement
             await supabase
                 .from('Report_record')
-                .update({ id_settlment: settlementId })
+                .update({ id_settlement: settlementId })
                 .eq('id', reportId)
           }
           
