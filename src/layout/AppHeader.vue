@@ -63,13 +63,15 @@
 
             <div class="nav-spacer"></div>
             
-            <a v-if="!authState.user" @click="openAuthModal" class="nav-item nav-action">
-              Войти
-            </a>
-            <div v-else class="nav-item has-submenu" @click="toggleSubmenu('userMenu')">
-              <span class="submenu-trigger">{{ authState.user.email }}</span>
+            <div class="nav-item has-submenu" @click="toggleSubmenu('userMenu')">
+              <span class="submenu-trigger">{{ authState.user ? authState.user.email : 'Гость' }}</span>
               <div class="submenu" :class="{ 'is-open': openSubmenu === 'userMenu' }">
-                <a @click="handleLogout" class="submenu-item">Выйти</a>
+                <template v-if="authState.user">
+                  <a @click="handleLogout" class="submenu-item">Выйти</a>
+                </template>
+                <template v-else>
+                  <a @click="openAuthModal" class="submenu-item">Войти</a>
+                </template>
               </div>
             </div>
           </nav>
