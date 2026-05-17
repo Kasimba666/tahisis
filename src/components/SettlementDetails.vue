@@ -20,6 +20,15 @@
           {{ settlement.district_name }}
         </el-descriptions-item>
 
+        <el-descriptions-item
+          v-if="showVanishedStatus"
+          label="Статус НП"
+        >
+          <el-tag :type="settlement.vanished ? 'warning' : 'success'" size="small">
+            {{ settlement.vanished ? 'Исчезнувший' : 'Существующий' }}
+          </el-tag>
+        </el-descriptions-item>
+
         <el-descriptions-item label="Количество ревизий">
           <el-tag type="info">{{ settlement.revision_count }}</el-tag>
         </el-descriptions-item>
@@ -57,6 +66,7 @@
             size="small"
             border
             stripe
+            :row-class-name="revisionsRowClassName"
           >
             <el-table-column prop="year" label="Год" width="80" />
             <el-table-column prop="number" label="Рев." width="60" />
@@ -106,6 +116,7 @@
             size="small"
             border
             stripe
+            :row-class-name="estatesRowClassName"
           >
             <el-table-column prop="subtype_estate_name" label="Подтип сословия" min-width="150" />
             <el-table-column prop="type_estate_name" label="Тип сословия" width="110" />
@@ -150,6 +161,16 @@ export default {
     settlement: {
       type: Object,
       default: null
+    },
+    /**
+     * Массив значений фильтра статуса НП из EstatesFilters.
+     * Может содержать 'vanished' и/или 'existing'.
+     * Если длина = 1 — фильтр активирован (выбран ровно один вариант).
+     * Если пуст или содержит оба — фильтр не активен.
+     */
+    vanishedFilter: {
+      type: Array,
+      default: null
     }
   },
   emits: ['update:modelValue'],
@@ -179,6 +200,12 @@ export default {
     hasCoordinates() {
       const hasCoords = this.settlement && this.settlement.lat && this.settlement.lon
       return hasCoords
+    },
+    /**
+     * Показывать «Статус НП» только когда выбран ровно 1 фильтр.
+     */
+    showVanishedStatus() {
+      return Array.isArray(this.vanishedFilter) && this.vanishedFilter.length === 1
     }
   },
   methods: {
@@ -189,18 +216,14 @@ export default {
       this.visible = false
       this.showMap = false
     },
+    revisionsRowClassName() {
+      return this.settlement?.vanished ? 'vanished-row' : ''
+    },
+    estatesRowClassName() {
+      return this.settlement?.vanished ? 'vanished-row' : ''
+    },
     toggleMap() {
       this.showMap = !this.showMap
-
-      if (this.showMap && this.hasCoordinates) {
-          lat: this.settlement.lat,
-          lon: this.settlement.lon
-        })
-          lat: this.settlement.lat,
-          lon: this.settlement.lon,
-          name: this.settlement.settlement_name_modern || this.settlement.settlement_name_old
-        })
-      }
     }
   }
 }
@@ -229,6 +252,11 @@ export default {
       color: var(--text-primary);
       font-weight: 600;
     }
+  }
+
+  // Строки исчезнувших населённых пунктов
+  :deep(.el-table__body tr.vanished-row) {
+    background-color: hsla(350, 60%, 88%, 0.35) !important;
   }
 
   .map-container {

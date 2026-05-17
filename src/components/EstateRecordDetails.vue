@@ -52,14 +52,14 @@
           <el-descriptions-item label="Всего">
             <el-tag type="success">{{ record.total || 0 }}</el-tag>
           </el-descriptions-item>
-          <el-descriptions-item label="Волость">
-            {{ record.volost_name || '—' }}
+          <el-descriptions-item v-if="record.volost_name" label="Волость">
+            {{ record.volost_name }}
           </el-descriptions-item>
-          <el-descriptions-item label="Помещик">
-            {{ record.landowner_description || '—' }}
+          <el-descriptions-item v-if="record.landowner_description" label="Помещик">
+            {{ record.landowner_description }}
           </el-descriptions-item>
-          <el-descriptions-item label="Воинская часть">
-            {{ record.military_unit_description || '—' }}
+          <el-descriptions-item v-if="record.military_unit_description" label="Воинская часть">
+            {{ record.military_unit_description }}
           </el-descriptions-item>
         </template>
 
@@ -171,13 +171,13 @@
                 <el-descriptions-item label="Всего">
                   <el-tag type="success">{{ estate.total }}</el-tag>
                 </el-descriptions-item>
-                <el-descriptions-item label="Волость">
+                <el-descriptions-item v-if="estate.volost_name" label="Волость">
                   {{ estate.volost_name }}
                 </el-descriptions-item>
-                <el-descriptions-item label="Помещик">
+                <el-descriptions-item v-if="estate.landowner_description" label="Помещик">
                   {{ estate.landowner_description }}
                 </el-descriptions-item>
-                <el-descriptions-item label="Воинская часть">
+                <el-descriptions-item v-if="estate.military_unit_description" label="Воинская часть">
                   {{ estate.military_unit_description }}
                 </el-descriptions-item>
               </el-descriptions>

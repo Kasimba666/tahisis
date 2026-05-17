@@ -146,6 +146,12 @@
             {{ selectedSettlement.district_name }}
           </el-descriptions-item>
 
+          <el-descriptions-item label="Статус НП">
+            <el-tag :type="selectedSettlement.vanished ? 'warning' : 'success'" size="small">
+              {{ selectedSettlement.vanished ? 'Исчезнувший' : 'Существующий' }}
+            </el-tag>
+          </el-descriptions-item>
+
           <el-descriptions-item label="Количество ревизий">
             <el-tag type="info">{{ selectedSettlement.revision_count }}</el-tag>
           </el-descriptions-item>
@@ -183,6 +189,7 @@
               size="small"
               border
               stripe
+              :row-class-name="revisionsRowClassName"
             >
               <el-table-column prop="year" label="Год" width="80" />
               <el-table-column prop="number" label="Рев." width="60" />
@@ -240,6 +247,7 @@
               size="small"
               border
               stripe
+              :row-class-name="estatesRowClassName"
             >
               <el-table-column prop="subtype_estate_name" label="Подтип сословия" min-width="150" />
               <el-table-column prop="type_estate_name" label="Тип сословия" width="110" />
@@ -1278,6 +1286,14 @@ export default {
       this.showDetailsMap = !this.showDetailsMap
     },
 
+    revisionsRowClassName() {
+      return this.selectedSettlement?.vanished ? 'vanished-row' : ''
+    },
+
+    estatesRowClassName() {
+      return this.selectedSettlement?.vanished ? 'vanished-row' : ''
+    },
+
     showOnMap() {
       if (!this.selectedSettlement || !this.hasCoordinates) return
       
@@ -1644,6 +1660,8 @@ export default {
           })),
           // Группировка по типам сословий
           estate_types: this.groupEstatesByType(settlement.estates || []),
+          // Статус исчезнувшего НП
+          vanished: settlement.vanished || false,
           // Флаг что это отфильтрованные данные
           filtered: true
         }

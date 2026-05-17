@@ -47,6 +47,13 @@
           size="small"
           stripe
         >
+          <el-table-column label="Статус НП" width="120">
+            <template #default="{ row }">
+              <el-tag :type="row.settlementVanished ? 'warning' : 'success'" size="small">
+                {{ row.settlementVanished ? 'Исчезнувший' : 'Существующий' }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column label="Старое название" min-width="150">
             <template #default="{ row }">
               {{ row.settlementName || '—' }}
@@ -183,6 +190,7 @@ export default {
                 id: estate.settlementId,
                 name: estate.settlementName,
                 nameModern: estate.settlementNameModern,
+                vanished: settlement.vanished || false,
                 lat: settlement.lat,
                 lon: settlement.lon,
                 male: 0,
@@ -220,6 +228,7 @@ export default {
           name: settlement.name,
           name_old: settlement.name,
           nameModern: settlement.nameModern,
+          vanished: settlement.vanished || false,
           volost: Array.from(settlement.volosts).join(', ') || null,
           landowner: Array.from(settlement.landowners).join(', ') || null,
           militaryUnit: Array.from(settlement.militaryUnits).join(', ') || null,
@@ -342,7 +351,7 @@ export default {
         const settlementIds = [...new Set(reportRecords.map(r => r.id_settlement).filter(Boolean))]
         const { data: settlements, error: settlementError } = await supabase
           .from('Settlement')
-          .select('id, name_old, name_modern, lat, lon')
+          .select('id, name_old, name_modern, lat, lon, vanished')
           .in('id', settlementIds)
 
         if (settlementError) throw settlementError
@@ -415,6 +424,7 @@ export default {
             ...estate,
             settlementName: settlement?.name_old,
             settlementNameModern: settlement?.name_modern,
+            settlementVanished: settlement?.vanished || false,
             settlementId: settlement?.id,
             volostName: volost?.name,
             landownerName: landowner ? (landowner.description || landowner.person) : null,
