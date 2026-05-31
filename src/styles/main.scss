@@ -14,7 +14,7 @@
 }
 
 html {
-  font-family: $font-family;
+  font-family: var(--font-family-base);
   line-height: $line-height-normal;
   font-weight: $font-weight-normal;
   font-synthesis: none;
@@ -120,6 +120,22 @@ button {
 .card {
   @include card-style;
   margin: $spacing-sm 0;
+}
+
+// ============================================
+// ШРИФТОВЫЕ УТИЛИТЫ (арабская каллиграфия)
+// ============================================
+
+.font-naskh {
+  font-family: var(--font-naskh);
+}
+
+.font-kufi {
+  font-family: var(--font-kufi);
+}
+
+.font-thuluth {
+  font-family: var(--font-thuluth);
 }
 
 // ============================================

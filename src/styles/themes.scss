@@ -5,6 +5,11 @@
 // ============================================
 
 :root {
+  // Шрифты
+  --font-family-base: #{$font-family};
+  --font-naskh: #{$font-naskh};
+  --font-kufi: #{$font-kufi};
+  --font-thuluth: #{$font-thuluth};
   // Основные цвета фона
   --bg-primary: #{$light-bg-primary};
   --bg-secondary: #{$light-bg-secondary};

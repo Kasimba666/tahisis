@@ -37,6 +37,15 @@
           Войти
         </el-button>
       </el-form-item>
+      <el-form-item>
+        <el-button
+            type="default"
+            @click="continueAsGuest"
+            class="guest-button"
+        >
+          Продолжить как гость
+        </el-button>
+      </el-form-item>
     </el-form>
   </el-dialog>
 </template>
@@ -76,6 +85,10 @@ export default {
   methods: {
     closeDialog() {
       this.dialogVisible = false
+    },
+
+    continueAsGuest() {
+      this.closeDialog()
     },
 
     signIn() {
@@ -128,6 +141,10 @@ export default {
 }
 
 .auth-button {
+  width: 100%;
+}
+
+.guest-button {
   width: 100%;
 }
 </style>

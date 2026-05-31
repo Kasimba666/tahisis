@@ -1,20 +1,36 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY
+// const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseUrl = 'https://api.tarihgis.ru'
+const supabaseKey = 'sb_publishable_VQvlWUwhllmkaqh8askLyg_MLPH34lo'
 
+let authEnabled = true
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_KEY must be set in .env')
+  authEnabled = false
 }
 
 // Единый клиент для всех операций (использует анонимный ключ — безопасен для фронтенда)
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
+let supabase = null
+if (authEnabled && supabaseUrl && supabaseKey) {
+  supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  })
+} else {
+  // Создаём заглушку, чтобы приложение не падало при вызове supabase.auth.*
+  supabase = {
+    auth: {
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      signOut: () => Promise.resolve({ error: null }),
+      signInWithPassword: () => Promise.resolve({ error: { message: 'Auth not configured' } }),
+      getSession: () => Promise.resolve({ data: { session: null }, error: null })
+    }
   }
-})
+}
+export { supabase }
 
 /**
  * Выполняет Supabase-запрос с автоматическими повторными попытками при сетевых ошибках.
@@ -36,7 +52,8 @@ export function supabaseQueryWithRetry(queryFn, options = {}) {
   let attempt = 0
 
   function tryQuery() {
-    attempt++
+    attempt++полный кодъ
+
     const startTime = performance.now()
 
     return queryFn()

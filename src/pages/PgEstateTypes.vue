@@ -65,7 +65,13 @@
 
         <el-table :data="subtypeTableData" style="width: 100%" default-sort="{prop: 'name', order: 'ascending'}" @row-click="showSubtypeSourcesDialog">
           <el-table-column prop="id" label="ID" width="60" sortable />
-          
+
+          <el-table-column label="Шрифт" width="80">
+            <template #default="{ row }">
+              <span class="font-indicator">{{ ['Насх', 'Куфи', 'Сульс'][row._fontIndex || 0] }}</span>
+            </template>
+          </el-table-column>
+
           <el-table-column prop="name" label="Название" sortable resizable min-width="150">
             <template #default="{ row }">
               <div v-if="editSubtypeId === row.id">
@@ -76,7 +82,6 @@
               </div>
             </template>
           </el-table-column>
-
 
           <el-table-column prop="id_type_religion" label="Религия" sortable resizable min-width="150">
             <template #default="{ row }">
@@ -155,7 +160,7 @@
 
         <el-table :data="sourceTableData" style="width: 100%" default-sort="{prop: 'name', order: 'ascending'}">
           <el-table-column prop="id" label="ID" width="60" sortable />
-          
+
           <el-table-column prop="name" label="Название из ревизии" sortable resizable min-width="200">
             <template #default="{ row }">
               <div v-if="editSourceId === row.id">
@@ -236,7 +241,7 @@ export default {
   },
   data() {
     const pageState = usePageState('pg-estate-types')
-    
+
     return {
       activeTab: pageState.activeTab.get() || 'types',
       tableData: [],
@@ -458,7 +463,7 @@ export default {
     },
 
     // === Методы для работы с подтипами сословий ===
-    
+
     async fetchSubtypes() {
       const { data, error } = await supabase
         .from('Subtype_estate')
@@ -490,10 +495,10 @@ export default {
         })
       )
 
-      this.subtypeTableData = subtypesWithSources
-      
-      this.subtypeTableData.forEach(row => {
-      })
+      this.subtypeTableData = subtypesWithSources.map((row, index) => ({
+        ...row,
+        _fontIndex: index % 3
+      }))
     },
 
     startSubtypeEdit(row) {
@@ -578,7 +583,7 @@ export default {
     },
 
     // === Методы для работы с источниками (Subtype_estate_source) ===
-    
+
     async fetchSources() {
       const { data, error } = await supabase
         .from('Subtype_estate_source')
@@ -670,7 +675,7 @@ export default {
     },
 
     // === Методы для кнопок "Детали" ===
-    
+
     showTypeDetails(typeRow) {
       // Переключаемся на вкладку подтипов и показываем связанные
       this.activeTab = 'subtypes'
