@@ -1,0 +1,98 @@
+// ---------- КОНФИГУРАЦИЯ ----------
+const SUPABASE_URL = 'https://rqairzjmldhczzxbmbse.supabase.co';
+
+// ---------- CORS ----------
+function corsHeaders(request) {
+  const origin = request.headers.get('Origin');
+  return {
+    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, Range, Prefer, X-Client-Info, accept-profile',
+    'Access-Control-Expose-Headers': 'Content-Range, Range',
+    'Access-Control-Max-Age': '86400',
+  };
+}
+
+function handleOptions(request) {
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        ...corsHeaders(request),
+        'Allow': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+      },
+    });
+  }
+  return null;
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    // Preflight
+    const optionsResponse = handleOptions(request);
+    if (optionsResponse) return optionsResponse;
+
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // Отладочный эндпоинт (можно удалить)
+    if (path === '/debug') {
+      return new Response(JSON.stringify({
+        status: 'Worker is running',
+        supabase_url: SUPABASE_URL,
+        request_url: request.url,
+        request_method: request.method,
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders(request) },
+      });
+    }
+
+    // Определяем API-запросы к Supabase
+    const isSupabaseApi =
+      path.startsWith('/rest/v1/') ||
+      path.startsWith('/auth/v1/') ||
+      path.startsWith('/storage/v1/') ||
+      path.startsWith('/realtime/v1/');
+
+    if (!isSupabaseApi) {
+      return new Response('Not found', { status: 404, headers: corsHeaders(request) });
+    }
+
+    // Проксируем в Supabase
+    let targetUrlStr = SUPABASE_URL + path + url.search;
+    targetUrlStr = targetUrlStr.replace(/([^:]\/)\/+/g, '$1');
+    const targetUrl = new URL(targetUrlStr);
+
+    const newHeaders = new Headers(request.headers);
+    newHeaders.set('Host', targetUrl.host);
+    newHeaders.delete('Origin');
+
+    const proxyRequest = new Request(targetUrl.toString(), {
+      method: request.method,
+      headers: newHeaders,
+      body: request.body,
+      duplex: 'half',
+    });
+
+    try {
+      const response = await fetch(proxyRequest);
+      const responseHeaders = new Headers(response.headers);
+      const cors = corsHeaders(request);
+      for (const [key, value] of Object.entries(cors)) {
+        responseHeaders.set(key, value);
+      }
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaders,
+      });
+    } catch (err) {
+      console.error('Supabase proxy error:', err);
+      return new Response(JSON.stringify({ error: 'Supabase proxy failed', detail: err.message }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders(request) },
+      });
+    }
+  },
+};

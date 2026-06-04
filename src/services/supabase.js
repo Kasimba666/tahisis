@@ -52,7 +52,7 @@ export function supabaseQueryWithRetry(queryFn, options = {}) {
   let attempt = 0
 
   function tryQuery() {
-    attempt++полный кодъ
+    attempt++
 
     const startTime = performance.now()
 

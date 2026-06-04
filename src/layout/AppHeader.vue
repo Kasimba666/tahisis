@@ -39,7 +39,15 @@
             <!-- <router-link to="/help" class="nav-item" :class="{ active: isActive('/help') }">
               Справка
             </router-link> -->
-            <div v-if="authState.user" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
+            <div v-if="authState.isAdmin" class="nav-item has-submenu" @click="toggleSubmenu('adminMenu')">
+              <span class="submenu-trigger">Администрирование</span>
+              <div class="submenu" :class="{ 'is-open': openSubmenu === 'adminMenu' }">
+                <router-link to="/user-management" class="submenu-item">
+                  Управление пользователями
+                </router-link>
+              </div>
+            </div>
+            <div v-if="authState.isAuthenticated" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
               <span class="submenu-trigger">Управление данными</span>
               <div class="submenu" :class="{ 'is-open': openSubmenu === 'dataMenu' }">
                 <router-link to="/estate-types" class="submenu-item">
@@ -64,7 +72,7 @@
             <div class="nav-spacer"></div>
             
             <div class="nav-item has-submenu" @click="toggleSubmenu('userMenu')">
-              <span class="submenu-trigger">{{ authState.user ? authState.user.email : 'Гость' }}</span>
+              <span class="submenu-trigger">{{ authState.profile ? (authState.profile.full_name || authState.user.email) : (authState.user ? authState.user.email : 'Гость') }}</span>
               <div class="submenu" :class="{ 'is-open': openSubmenu === 'userMenu' }">
                 <template v-if="authState.user">
                   <a @click="handleLogout" class="submenu-item">Выйти</a>
@@ -156,7 +164,7 @@ export default {
           if (error) {
             ElMessage.error(error.message)
           } else {
-            ElMessage.success('You have been logged out.')
+            ElMessage.success('Вы вышли из системы.')
             this.$router.push('/')
           }
         })
@@ -223,9 +231,7 @@ export default {
     font-weight: 700;
     color: var(--text-title);
     margin: 0;
-    //background: linear-gradient(135deg, var(--accent-primary), var(--accent-hover));
     -webkit-background-clip: text;
-    //-webkit-text-fill-color: transparent;
     background-clip: text;
   }
 }

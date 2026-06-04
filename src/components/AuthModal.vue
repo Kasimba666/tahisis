@@ -101,7 +101,7 @@ export default {
             if (error) {
               ElMessage.error(error.message)
             } else {
-              ElMessage.success('Signed in successfully!')
+              ElMessage.success('Вы успешно вошли!')
               this.closeDialog()
             }
           })

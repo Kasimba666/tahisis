@@ -12,6 +12,7 @@ import PgVectorLayers from '@/pages/PgVectorLayers.vue'
 import PgAdministrativeDivision from '@/pages/PgAdministrativeDivision.vue'
 // import PgHelp from '@/pages/PgHelp.vue'
 import PgUserGuide from '@/pages/PgUserGuide.vue'
+import PgUserManagement from '@/pages/PgUserManagement.vue'
 
 // Вспомогательная функция для работы с URL параметрами фильтров
 const getFiltersFromURL = () => {
@@ -205,6 +206,14 @@ const routes = [
     path: '/user-guide',
     name: 'UserGuide',
     component: PgUserGuide
+  },
+  {
+    path: '/user-management',
+    name: 'UserManagement',
+    component: PgUserManagement,
+    meta: {
+      requireAdmin: true
+    }
   }
 ]
 
@@ -213,19 +222,22 @@ const router = createRouter({
   routes
 })
 
-// Navigation guard для проверки аутентификации
+// Navigation guard для проверки аутентификации и прав администратора
 router.beforeEach((to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requireAuth)
-  const isAuthenticated = authState.user !== null
+  const requiresAdmin = to.matched.some(record => record.meta.requireAdmin)
 
-  if (requiresAuth && !isAuthenticated) {
-    // Перенаправляем на главную страницу с сообщением об ошибке
+  if (requiresAuth && !authState.isAuthenticated) {
     next('/')
-    // Здесь можно добавить показ сообщения об ошибке аутентификации
-    // console.log('Доступ запрещен: требуется аутентификация')
-  } else {
-    next()
+    return
   }
+
+  if (requiresAdmin && !authState.isAdmin) {
+    next('/')
+    return
+  }
+
+  next()
 })
 
 export default router
