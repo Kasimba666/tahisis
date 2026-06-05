@@ -45,11 +45,11 @@ function updateState(session) {
     state.isAuthenticated = false
 
     if (session?.user) {
+        state.isAuthenticated = true
         fetchProfile(session.user.id)
             .then(profile => {
                 state.profile = profile
                 state.isAdmin = profile?.role === 'admin'
-                state.isAuthenticated = !!profile && profile.is_active !== false
             })
     }
 }

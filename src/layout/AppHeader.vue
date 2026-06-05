@@ -47,7 +47,7 @@
                 </router-link>
               </div>
             </div>
-            <div v-if="authState.isAuthenticated" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
+            <div v-if="authState.isAuthenticated || authState.isAdmin" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
               <span class="submenu-trigger">Управление данными</span>
               <div class="submenu" :class="{ 'is-open': openSubmenu === 'dataMenu' }">
                 <router-link to="/estate-types" class="submenu-item">
