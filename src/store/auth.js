@@ -22,7 +22,7 @@ function fetchProfile(userId) {
             .from('user_profiles')
             .select('*')
             .eq('id', userId)
-            .single(),
+            .maybeSingle(),
         { operationName: 'Fetch user profile' }
     )
         .then(({ data, error }) => {
