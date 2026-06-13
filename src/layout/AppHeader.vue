@@ -39,14 +39,9 @@
             <!-- <router-link to="/help" class="nav-item" :class="{ active: isActive('/help') }">
               Справка
             </router-link> -->
-            <div v-if="authState.isAdmin" class="nav-item has-submenu" @click="toggleSubmenu('adminMenu')">
-              <span class="submenu-trigger">Администрирование</span>
-              <div class="submenu" :class="{ 'is-open': openSubmenu === 'adminMenu' }">
-                <router-link to="/user-management" class="submenu-item">
-                  Управление пользователями
-                </router-link>
-              </div>
-            </div>
+            <router-link v-if="authState.isAuthenticated || authState.isAdmin" to="/user-management" class="nav-item" :class="{ active: isActive('/user-management') }">
+              Управление пользователями
+            </router-link>
             <div v-if="authState.isAuthenticated || authState.isAdmin" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
               <span class="submenu-trigger">Управление данными</span>
               <div class="submenu" :class="{ 'is-open': openSubmenu === 'dataMenu' }">

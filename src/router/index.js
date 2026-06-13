@@ -13,6 +13,7 @@ import PgAdministrativeDivision from '@/pages/PgAdministrativeDivision.vue'
 // import PgHelp from '@/pages/PgHelp.vue'
 import PgUserGuide from '@/pages/PgUserGuide.vue'
 import PgUserManagement from '@/pages/PgUserManagement.vue'
+import PgResearcherManagement from '@/pages/PgResearcherManagement.vue'
 
 // Вспомогательная функция для работы с URL параметрами фильтров
 const getFiltersFromURL = () => {
@@ -212,7 +213,15 @@ const routes = [
     name: 'UserManagement',
     component: PgUserManagement,
     meta: {
-      requireAdmin: true
+      requireAuth: true
+    }
+  },
+  {
+    path: '/researcher-management',
+    name: 'ResearcherManagement',
+    component: PgResearcherManagement,
+    meta: {
+      requireAuth: true
     }
   }
 ]

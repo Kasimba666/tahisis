@@ -7,7 +7,7 @@ function corsHeaders(request) {
   return {
     'Access-Control-Allow-Origin': origin || '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, Range, Prefer, X-Client-Info, accept-profile',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, Range, Prefer, X-Client-Info, accept-profile, content-profile',
     'Access-Control-Expose-Headers': 'Content-Range, Range',
     'Access-Control-Max-Age': '86400',
   };
