@@ -12,5 +12,20 @@ export default defineConfig({
   },
   base: '/',
   // base: '/tahisis/',
-
+  server: {
+    proxy: {
+      '/auth': {
+        target: 'https://api.tarihgis.ru',
+        changeOrigin: true
+      },
+      '/rest': {
+        target: 'https://api.tarihgis.ru',
+        changeOrigin: true
+      },
+      '/storage': {
+        target: 'https://api.tarihgis.ru',
+        changeOrigin: true
+      }
+    }
+  }
 })

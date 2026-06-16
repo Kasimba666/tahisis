@@ -9,8 +9,43 @@ export const state = reactive({
     session: null,
     profile: null,
     isAdmin: false,
+    isEditor: false,
+    isResearcher: false,
+    isGuest: false,
     isAuthenticated: false
 })
+
+/**
+ * Returns the user's role string, or 'guest' if not authenticated.
+ * @returns {string}
+ */
+export function getUserRole() {
+    if (!state.profile || !state.profile.role) return 'guest'
+    return state.profile.role
+}
+
+/**
+ * Checks if the user has at least the specified role level.
+ * Hierarchy: admin > editor > researcher > guest/pending
+ * @param {string} requiredRole
+ * @returns {boolean}
+ */
+export function hasRole(requiredRole) {
+    const roleHierarchy = ['guest', 'pending', 'researcher', 'editor', 'admin']
+    const userRole = getUserRole()
+    const userLevel = roleHierarchy.indexOf(userRole)
+    const requiredLevel = roleHierarchy.indexOf(requiredRole)
+    if (userLevel === -1 || requiredLevel === -1) return false
+    return userLevel >= requiredLevel
+}
+
+/**
+ * Checks if user can access data management features.
+ * @returns {boolean}
+ */
+export function canManageData() {
+    return state.isAdmin || state.isEditor
+}
 
 /**
  * Fetches the user profile from the user_profiles table.
@@ -42,6 +77,9 @@ function updateState(session) {
     state.session = session
     state.profile = null
     state.isAdmin = false
+    state.isEditor = false
+    state.isResearcher = false
+    state.isGuest = false
     state.isAuthenticated = false
 
     if (session?.user) {
@@ -49,7 +87,11 @@ function updateState(session) {
         fetchProfile(session.user.id)
             .then(profile => {
                 state.profile = profile
-                state.isAdmin = profile?.role === 'admin'
+                const role = profile?.role || 'guest'
+                state.isAdmin = role === 'admin'
+                state.isEditor = role === 'editor'
+                state.isResearcher = role === 'researcher'
+                state.isGuest = role === 'guest' || role === 'pending'
             })
     }
 }

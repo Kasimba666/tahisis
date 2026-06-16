@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { state as authState } from '@/store/auth.js'
+import { state as authState, canManageData } from '@/store/auth.js'
 import PgAbout from '@/pages/PgAbout.vue'
 import PgEstateTypes from '@/pages/PgEstateTypes.vue'
 import PgRevisionsUpload from '@/pages/PgRevisionsUpload.vue'
@@ -14,6 +14,7 @@ import PgAdministrativeDivision from '@/pages/PgAdministrativeDivision.vue'
 import PgUserGuide from '@/pages/PgUserGuide.vue'
 import PgUserManagement from '@/pages/PgUserManagement.vue'
 import PgResearcherManagement from '@/pages/PgResearcherManagement.vue'
+import PgRegistrationRequests from '@/pages/PgRegistrationRequests.vue'
 
 // Вспомогательная функция для работы с URL параметрами фильтров
 const getFiltersFromURL = () => {
@@ -136,7 +137,8 @@ const routes = [
     name: 'EstateTypes',
     component: PgEstateTypes,
     meta: {
-      requireAuth: true
+      requireAuth: true,
+      requireDataAccess: true
     }
   },
   {
@@ -144,7 +146,8 @@ const routes = [
     name: 'RevisionsUpload',
     component: PgRevisionsUpload,
     meta: {
-      requireAuth: true
+      requireAuth: true,
+      requireDataAccess: true
     }
   },
   {
@@ -179,7 +182,8 @@ const routes = [
     name: 'VectorLayerTypes',
     component: PgVectorLayerTypes,
     meta: {
-      requireAuth: true
+      requireAuth: true,
+      requireDataAccess: true
     }
   },
   {
@@ -187,7 +191,8 @@ const routes = [
     name: 'VectorLayers',
     component: PgVectorLayers,
     meta: {
-      requireAuth: true
+      requireAuth: true,
+      requireDataAccess: true
     }
   },
   {
@@ -195,7 +200,8 @@ const routes = [
     name: 'AdministrativeDivision',
     component: PgAdministrativeDivision,
     meta: {
-      requireAuth: true
+      requireAuth: true,
+      requireDataAccess: true
     }
   },
   // {
@@ -213,7 +219,17 @@ const routes = [
     name: 'UserManagement',
     component: PgUserManagement,
     meta: {
-      requireAuth: true
+      requireAuth: true,
+      requireAdmin: true
+    }
+  },
+  {
+    path: '/registration-requests',
+    name: 'RegistrationRequests',
+    component: PgRegistrationRequests,
+    meta: {
+      requireAuth: true,
+      requireAdmin: true
     }
   },
   {
@@ -221,7 +237,8 @@ const routes = [
     name: 'ResearcherManagement',
     component: PgResearcherManagement,
     meta: {
-      requireAuth: true
+      requireAuth: true,
+      requireAdmin: true
     }
   }
 ]
@@ -231,10 +248,11 @@ const router = createRouter({
   routes
 })
 
-// Navigation guard для проверки аутентификации и прав администратора
+// Navigation guard для проверки аутентификации и прав
 router.beforeEach((to, from, next) => {
   const requiresAuth = to.matched.some(record => record.meta.requireAuth)
   const requiresAdmin = to.matched.some(record => record.meta.requireAdmin)
+  const requiresDataAccess = to.matched.some(record => record.meta.requireDataAccess)
 
   if (requiresAuth && !authState.isAuthenticated) {
     next('/')
@@ -242,6 +260,11 @@ router.beforeEach((to, from, next) => {
   }
 
   if (requiresAdmin && !authState.isAdmin) {
+    next('/')
+    return
+  }
+
+  if (requiresDataAccess && !canManageData()) {
     next('/')
     return
   }

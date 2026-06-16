@@ -478,7 +478,7 @@ button {
   }
 }
 
-// Message
+// Message — яркие, заметные, без прозрачности, перекрывают всё
 .el-message {
   background-color: var(--bg-primary) !important;
   border-color: var(--border-color) !important;
@@ -486,23 +486,57 @@ button {
   box-shadow: $shadow-lg !important;
   padding: $spacing-xs $spacing-sm !important;
   font-size: $font-size-sm !important;
+  z-index: 99999 !important;
+  border-width: 2px !important;
   
   &.el-message--success {
-    background-color: hsla(122, 39%, 49%, 0.1) !important;
-    border-color: var(--success) !important;
-    color: var(--success) !important;
+    background-color: hsl(122, 39%, 94%) !important;
+    border-color: hsl(122, 39%, 49%) !important;
+    color: hsl(122, 39%, 25%) !important;
   }
   
   &.el-message--warning {
-    background-color: hsla(36, 100%, 50%, 0.1) !important;
-    border-color: var(--warning) !important;
-    color: var(--warning) !important;
+    background-color: hsl(36, 100%, 94%) !important;
+    border-color: hsl(36, 100%, 50%) !important;
+    color: hsl(36, 100%, 25%) !important;
   }
   
   &.el-message--error {
-    background-color: hsla(4, 90%, 58%, 0.1) !important;
-    border-color: var(--error) !important;
-    color: var(--error) !important;
+    background-color: hsl(4, 90%, 95%) !important;
+    border-color: hsl(4, 90%, 58%) !important;
+    color: hsl(4, 90%, 30%) !important;
+  }
+}
+
+// Тёмная тема для message
+[data-theme="dark"] {
+  .el-message {
+    &.el-message--success {
+      background-color: hsl(122, 39%, 15%) !important;
+      border-color: hsl(122, 39%, 49%) !important;
+      color: hsl(122, 39%, 75%) !important;
+    }
+    
+    &.el-message--warning {
+      background-color: hsl(36, 100%, 15%) !important;
+      border-color: hsl(36, 100%, 50%) !important;
+      color: hsl(36, 100%, 75%) !important;
+    }
+    
+    &.el-message--error {
+      background-color: hsl(4, 90%, 18%) !important;
+      border-color: hsl(4, 90%, 58%) !important;
+      color: hsl(4, 90%, 78%) !important;
+    }
+  }
+}
+
+// Обычный (info) — тоже без прозрачности
+[data-theme]:not([data-theme="dark"]) {
+  .el-message {
+    background-color: hsl(0, 0%, 100%) !important;
+    border-color: hsl(0, 0%, 80%) !important;
+    color: hsl(0, 0%, 20%) !important;
   }
 }
 

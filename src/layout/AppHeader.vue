@@ -39,10 +39,13 @@
             <!-- <router-link to="/help" class="nav-item" :class="{ active: isActive('/help') }">
               Справка
             </router-link> -->
-            <router-link v-if="authState.isAuthenticated || authState.isAdmin" to="/user-management" class="nav-item" :class="{ active: isActive('/user-management') }">
+            <router-link v-if="authState.isAdmin" to="/registration-requests" class="nav-item" :class="{ active: isActive('/registration-requests') }">
+              Заявки на регистрацию
+            </router-link>
+            <router-link v-if="authState.isAdmin" to="/user-management" class="nav-item" :class="{ active: isActive('/user-management') }">
               Управление пользователями
             </router-link>
-            <div v-if="authState.isAuthenticated || authState.isAdmin" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
+            <div v-if="canManageData()" class="nav-item has-submenu" @click="toggleSubmenu('dataMenu')">
               <span class="submenu-trigger">Управление данными</span>
               <div class="submenu" :class="{ 'is-open': openSubmenu === 'dataMenu' }">
                 <router-link to="/estate-types" class="submenu-item">
@@ -90,7 +93,7 @@
 import {useScreen} from '@/composables/useScreen.js'
 import AuthModal from '@/components/AuthModal.vue'
 import { ElMessage } from 'element-plus'
-import { state as authState, signOut } from '@/store/auth.js'
+import { state as authState, signOut, canManageData as canManageDataFn } from '@/store/auth.js'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 
 export default {
@@ -135,6 +138,9 @@ export default {
     document.removeEventListener('click', this.handleClickOutside)
   },
   methods: {
+    canManageData() {
+      return canManageDataFn()
+    },
     toggleSubmenu(menuName) {
       if (this.openSubmenu === menuName) {
         this.openSubmenu = null

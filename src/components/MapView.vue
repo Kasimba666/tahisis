@@ -113,6 +113,18 @@
           </div>
         </transition>
       </div>
+
+      <!-- Кнопка экспорта карты в JPG -->
+      <el-button
+        size="small"
+        :icon="Picture"
+        :loading="exportLoading"
+        @click="exportMapToJpg"
+        round
+        style="margin-left: auto; flex-shrink: 0;"
+      >
+        Экспорт JPG
+      </el-button>
     </div>
 
     <map-legend :estate-types-legend="estateTypesLegend" :force-expanded="isFullscreen" />
@@ -237,6 +249,20 @@
             <span>{{ estateTypesCount }} типов сословий</span>
           </div>
         </div>
+
+        <!-- Секция 5: Экспорт -->
+        <div class="control-section export-section">
+          <el-button
+            size="small"
+            :icon="Picture"
+            :loading="exportLoading"
+            @click="exportMapToJpg"
+            round
+            style="width: 100%;"
+          >
+            Экспорт JPG
+          </el-button>
+        </div>
       </div>
     </div>
 
@@ -287,6 +313,7 @@ import MapLegend from './MapLegend.vue'
 import LeafletMap from './maps/LeafletMap.vue'
 import OpenLayersMap from './maps/OpenLayersMap.vue'
 import VectorLayersControl from './VectorLayersControl.vue'
+import { ElMessage } from 'element-plus'
 import { vectorLayerService } from '@/services/vectorLayers.js'
 import { storageService } from '@/services/storage.js'
 import { estateTypesService } from '@/services/estateTypes.js'
@@ -297,8 +324,8 @@ import {
   Management,
   Aim,
   CircleClose,
-  Loading
-
+  Loading,
+  Picture
 } from '@element-plus/icons-vue'
 
 export default {
@@ -345,6 +372,7 @@ export default {
       isHeatmapVisible: false,
       isHeatmapCollapsed: true,
       showHeatmapControls: false,
+      exportLoading: false,
 
       // Настройки тепловой карты
       heatmapSettings: {
@@ -590,6 +618,42 @@ export default {
       this.isFullscreen = isFullscreen
     },
 
+    exportMapToJpg() {
+      this.exportLoading = true
+
+      // Находим активный контейнер карты
+      const activeMapEl = this.$el.querySelector('.map-container:not(.hidden)')
+      if (!activeMapEl) {
+        ElMessage.warning('Карта не найдена')
+        this.exportLoading = false
+        return
+      }
+
+      import('html2canvas').then(({ default: html2canvas }) => {
+        html2canvas(activeMapEl, {
+          useCORS: true,
+          allowTaint: false,
+          scale: 2,
+          backgroundColor: '#ffffff',
+          logging: false
+        })
+          .then((canvas) => {
+            const link = document.createElement('a')
+            link.download = 'map-export-' + Date.now() + '.jpg'
+            link.href = canvas.toDataURL('image/jpeg', 0.95)
+            link.click()
+            ElMessage.success('Карта сохранена как JPG')
+          })
+          .catch((err) => {
+            console.error('Export error:', err)
+            ElMessage.error('Ошибка экспорта карты')
+          })
+          .finally(() => {
+            this.exportLoading = false
+          })
+      })
+    },
+
     // Загружаем настройки тепловой карты из localStorage
     loadHeatmapSettings() {
       const savedSettings = storageService.loadHeatmapSettings()
@@ -815,11 +879,6 @@ export default {
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.2),
         0 2px 8px rgba(0, 0, 0, 0.1);
-
-      // Анимация появления/исчезновения
-      transition: all 0.4s ease-out;
-      opacity: 0;
-      transform: translateY(-15px) scale(0.95);
 
       // Заголовок панели
       .controls-header {
@@ -1100,23 +1159,6 @@ export default {
       }
     }
 
-    // Анимационные состояния
-    &.v-enter-active,
-    &.v-leave-active {
-      transition: all 0.4s ease-out;
-    }
-
-    &.v-enter-from,
-    &.v-leave-to {
-      opacity: 0;
-      transform: translateY(-15px) scale(0.95);
-    }
-
-    &.v-enter-to,
-    &.v-leave-from {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
   }
 
   // Убедимся что fullscreen панель всегда видна
@@ -1330,6 +1372,13 @@ export default {
   .fade-enter-to,
   .fade-leave-from {
     opacity: 1;
+  }
+
+  // Секция экспорта в fullscreen панели
+  .export-section {
+    background: var(--bg-secondary) !important;
+    border-color: var(--border-color) !important;
+    text-align: center;
   }
 
   // Индикатор загрузки цветов маркеров

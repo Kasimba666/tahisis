@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 
-// const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseUrl = 'https://api.tarihgis.ru'
 const supabaseKey = 'sb_publishable_VQvlWUwhllmkaqh8askLyg_MLPH34lo'
 
@@ -11,7 +10,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 // Единый клиент для всех операций (использует анонимный ключ — безопасен для фронтенда)
 let supabase = null
-if (authEnabled && supabaseUrl && supabaseKey) {
+if (authEnabled && supabaseKey) {
   supabase = createClient(supabaseUrl, supabaseKey, {
     auth: {
       autoRefreshToken: true,
@@ -26,6 +25,7 @@ if (authEnabled && supabaseUrl && supabaseKey) {
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       signOut: () => Promise.resolve({ error: null }),
       signInWithPassword: () => Promise.resolve({ error: { message: 'Auth not configured' } }),
+      signUp: () => Promise.resolve({ data: { user: null }, error: { message: 'Auth not configured' } }),
       getSession: () => Promise.resolve({ data: { session: null }, error: null })
     }
   }
