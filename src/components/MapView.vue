@@ -287,6 +287,7 @@
           :is-active="mapProvider === 'leaflet'"
           @view-change="onLeafletViewChange"
           @fullscreen-change="onFullscreenChange"
+          @export-jpg="exportMapToJpg"
         />
       </div>
 
@@ -876,6 +877,7 @@ export default {
       gap: 12px;
       min-width: 260px;
       max-width: 350px;
+      opacity: 1 !important;
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.2),
         0 2px 8px rgba(0, 0, 0, 0.1);
@@ -1158,16 +1160,6 @@ export default {
         }
       }
     }
-
-  }
-
-  // Убедимся что fullscreen панель всегда видна
-  :deep(.leaflet-container:has(.leaflet-fullscreen-button)) ~ .fullscreen-controls,
-  :deep(.ol-viewport:has(.ol-fullscreen)) ~ .fullscreen-controls {
-    .fullscreen-controls-inner {
-      opacity: 1 !important;
-      transform: translateY(0) !important;
-    }
   }
 
   // Dropdown панель настроек тепловой карты
@@ -1372,6 +1364,15 @@ export default {
   .fade-enter-to,
   .fade-leave-from {
     opacity: 1;
+  }
+
+  // Плавающая кнопка экспорта поверх карты
+  .map-export-overlay {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 9999;
+    pointer-events: auto;
   }
 
   // Секция экспорта в fullscreen панели

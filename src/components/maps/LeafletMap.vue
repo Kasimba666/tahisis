@@ -112,6 +112,21 @@ export default {
       })
       new L.Control.HomeButton({ position: 'topleft' }).addTo(this.mapInstance)
 
+      // Кнопка экспорта карты в JPG
+      L.Control.ExportJpgButton = L.Control.extend({
+        onAdd: function(map) {
+          const btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control export-jpg-button')
+          btn.title = 'Экспортировать карту в JPG'
+          btn.innerHTML = '📷'
+          btn.style.cssText = 'background: white; width: 30px; height: 30px; cursor: pointer; border: none; display: flex; align-items: center; justify-content: center; padding: 0; font-size: 16px; line-height: 1;'
+          btn.onclick = function() {
+            self.$emit('export-jpg')
+          }
+          return btn
+        }
+      })
+      new L.Control.ExportJpgButton({ position: 'topleft' }).addTo(this.mapInstance)
+
       // События карты
       this.mapInstance.on('moveend zoomend', () => {
         const currentCenter = this.mapInstance.getCenter()
