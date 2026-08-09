@@ -1066,7 +1066,10 @@ export default {
   },
   mounted() {
     this.loadFilterOptions()
-    this.loadFiltersFromURL()
+    // Не применяем фильтры из URL автоматически при монтировании
+    // Это предотвращает мерцание кнопки "Применить" и автоматическую выборку данных
+    // Фильтры из URL будут показаны, но применены только после нажатия "Применить"
+    this.loadFiltersFromURL(true)
   },
   watch: {
     filters: {
@@ -1368,7 +1371,7 @@ export default {
     },
 
     // Загрузка фильтров из URL параметров
-    loadFiltersFromURL() {
+    loadFiltersFromURL(skipApply = false) {
       try {
         const urlParams = new URLSearchParams(window.location.search)
         const filtersParam = urlParams.get('filters')
@@ -1401,11 +1404,13 @@ export default {
             // Объединяем с текущими фильтрами
             Object.assign(this.filters, cleanedFilters)
 
-            // Сохраняем в localStorage
-            this.applyStoredFilters()
+            if (!skipApply) {
+              // Сохраняем в localStorage
+              this.applyStoredFilters()
 
-            // Показываем уведомление
-            ElMessage.success('Фильтры загружены из URL!')
+              // Показываем уведомление
+              ElMessage.success('Фильтры загружены из URL!')
+            }
           }
         }
       } catch (error) {

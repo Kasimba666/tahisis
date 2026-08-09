@@ -633,15 +633,16 @@ export default {
     // Загружаем справочник населённых пунктов для showOnMap
     this.loadSettlementsReference()
 
+    // Запоминаем исходный режим из пропса/роута ДО восстановления параметров из URL
+    const initialDataMode = this.initialDataMode || this.dataMode || 'estate'
+
     // Восстанавливаем параметры из URL
     this.restoreParamsFromURL()
 
-    // Загружаем данные сразу с фильтрами, не ждём setFilterOptions.
-    // Приоритет: URL-параметры (уже восстановлены в restoreParamsFromURL) → localStorage
+    // Восстанавливаем фильтры из URL/localStorage
     if (!this.currentFilters) {
       const savedFilters = storageService.loadEstatesFilters()
       if (savedFilters && Object.keys(savedFilters).length > 0) {
-        // Нормализуем vanishedFilter: пустой массив → показать всё
         const vf = Array.isArray(savedFilters.vanishedFilter) && savedFilters.vanishedFilter.length > 0
           ? savedFilters.vanishedFilter
           : ['existing', 'vanished']
@@ -650,11 +651,16 @@ export default {
         this.currentFilters = {}
       }
     }
-    this.loadData()
 
     this.$nextTick(() => {
       this.initColumnDragDrop()
     })
+
+    // Для режима report (раздел Ревизии) не загружаем данные автоматически
+    // Данные будут загружены только при нажатии кнопки "Применить" в фильтрах
+    if (initialDataMode === 'estate') {
+      this.loadData()
+    }
   },
   beforeUnmount() {
     if (this.sortableInstance) {
