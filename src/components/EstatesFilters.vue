@@ -728,8 +728,33 @@ export default {
 
     filteredDistricts() {
       const allowed = this._crossFilteredIds('districts', 'districtId')
-      if (!allowed) return this.allDistricts
-      return this.allDistricts.filter(d => allowed.has(d.id))
+      let items = this.allDistricts
+      if (allowed) items = items.filter(d => allowed.has(d.id))
+
+      // Дополнительно: если выбраны названия НП, учитываем их районы напрямую из allSettlements
+      const districtIdsFromSettlements = new Set()
+      if (this.filters.settlementNamesOld?.length > 0) {
+        const nameSet = new Set(this.filters.settlementNamesOld)
+        this.allSettlements.forEach(s => {
+          if (nameSet.has(s.name_old) && s.id_district) {
+            districtIdsFromSettlements.add(s.id_district)
+          }
+        })
+      }
+      if (this.filters.settlementNamesModern?.length > 0) {
+        const nameSet = new Set(this.filters.settlementNamesModern)
+        this.allSettlements.forEach(s => {
+          if (nameSet.has(s.name_modern) && s.id_district) {
+            districtIdsFromSettlements.add(s.id_district)
+          }
+        })
+      }
+
+      if (districtIdsFromSettlements.size > 0) {
+        items = items.filter(d => districtIdsFromSettlements.has(d.id))
+      }
+
+      return items
     },
 
     filteredSettlements() {
@@ -819,9 +844,18 @@ export default {
       }
 
       const oldNames = new Set()
-      const filteredSettlements = this.filters?.districts?.length > 0
-        ? this.allSettlements.filter(s => this.filters.districts.includes(s.id_district))
-        : this.allSettlements
+      let filteredSettlements = this.allSettlements
+
+      // Фильтр по районам
+      if (this.filters?.districts?.length > 0) {
+        filteredSettlements = filteredSettlements.filter(s => this.filters.districts.includes(s.id_district))
+      }
+
+      // Кросс-фильтр по всем активным фильтрам, кроме выбора старых названий
+      const allowedSettlementIds = this._crossFilteredIds('settlementNamesOld', 'settlementId')
+      if (allowedSettlementIds) {
+        filteredSettlements = filteredSettlements.filter(s => allowedSettlementIds.has(s.id))
+      }
 
       filteredSettlements.forEach(s => {
         if (s.name_old) oldNames.add(s.name_old)
@@ -836,9 +870,18 @@ export default {
       }
 
       const modernNames = new Set()
-      const filteredSettlements = this.filters?.districts?.length > 0
-        ? this.allSettlements.filter(s => this.filters.districts.includes(s.id_district))
-        : this.allSettlements
+      let filteredSettlements = this.allSettlements
+
+      // Фильтр по районам
+      if (this.filters?.districts?.length > 0) {
+        filteredSettlements = filteredSettlements.filter(s => this.filters.districts.includes(s.id_district))
+      }
+
+      // Кросс-фильтр по всем активным фильтрам, кроме выбора современных названий
+      const allowedSettlementIds = this._crossFilteredIds('settlementNamesModern', 'settlementId')
+      if (allowedSettlementIds) {
+        filteredSettlements = filteredSettlements.filter(s => allowedSettlementIds.has(s.id))
+      }
 
       filteredSettlements.forEach(s => {
         if (s.name_modern) modernNames.add(s.name_modern)
@@ -1214,6 +1257,7 @@ export default {
           result.push({
             estateId: estate.id,
             revisionId: reportRecord.id_revision_report,
+            settlementId: reportRecord ? reportRecord.id_settlement : null,
             districtId: settlement ? settlement.id_district : null,
             settlementNameOld: settlement ? settlement.name_old : null,
             settlementNameModern: settlement ? settlement.name_modern : null,
