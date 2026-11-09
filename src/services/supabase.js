@@ -1,6 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://api.tarihgis.ru'
+// В режиме разработки Supabase-клиент обращается к собственному origen
+// (http://localhost:5173). Vite-прокси (vite.config.js) пересылает запросы
+// /auth, /rest, /storage на https://api.tarihgis.ru, поэтому браузер не
+// выполняет CORS-preflight и запрос авторизации не блокируется.
+// В production используется прямой URL API — на стороне api.tarihgis.ru
+// должен быть настроен CORS (разрешен заголовок x-supabase-api-version
+// и origen фронтенда).
+const supabaseUrl = import.meta.env.DEV ? window.location.origin : 'https://api.tarihgis.ru'
 const supabaseKey = 'sb_publishable_VQvlWUwhllmkaqh8askLyg_MLPH34lo'
 
 let authEnabled = true
