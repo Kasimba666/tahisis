@@ -1,0 +1,6 @@
+name = "supabase-api-proxy"
+main = "src/worker/index.js"
+compatibility_date = "2026-11-09"
+
+[vars]
+SUPABASE_URL = "https://rqairzjmldhczzxbmbse.supabase.co"
