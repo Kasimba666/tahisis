@@ -20,7 +20,7 @@ let supabase = null
 if (authEnabled && supabaseKey) {
   supabase = createClient(supabaseUrl, supabaseKey, {
     auth: {
-      autoRefreshToken: true,
+      autoRefreshToken: false, // Отключён авто-обновление токена при инициализации, чтобы избежать ошибки "Invalid Refresh Token" при отсутствии сессии
       persistSession: true,
       detectSessionInUrl: true
     }

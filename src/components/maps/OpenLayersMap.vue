@@ -1271,15 +1271,15 @@ export default {
 @keyframes pulse-openlayers {
   0% {
     opacity: 1;
-    r: 25;
+    transform: scale(1);
   }
   50% {
     opacity: 0.5;
-    r: 30;
+    transform: scale(1.2);
   }
   100% {
     opacity: 1;
-    r: 25;
+    transform: scale(1);
   }
 }
 

@@ -1,13 +1,26 @@
 <template>
   <el-dialog
       v-model="dialogVisible"
-      :title="mode === 'login' ? 'Авторизация' : 'Заявка на регистрацию'"
       width="400px"
       class="auth-modal"
       :append-to-body="true"
       :destroy-on-close="true"
+      :show-close="false"
       center
   >
+    <template #header>
+      <div class="dialog-header">
+        <span>{{ mode === 'login' ? 'Авторизация' : 'Заявка на регистрация' }}</span>
+        <el-button
+            type="text"
+            size="small"
+            class="close-btn"
+            @click="closeDialog"
+        >
+          <span class="close-icon">×</span>
+        </el-button>
+      </div>
+    </template>
     <!-- Переключатель режимов -->
     <div class="mode-tabs">
       <el-button
@@ -269,7 +282,7 @@ export default {
 .auth-modal {
   // Overrides for Element Plus dialog to be more compact
   :deep(.el-dialog__header) {
-    padding: 3px;
+    padding: 0;
     margin-right: 0;
   }
 
@@ -303,5 +316,43 @@ export default {
 
 .auth-button {
   width: 100%;
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 3px 8px;
+}
+
+.close-btn {
+  padding: 0;
+  width: 26px;
+  height: 26px;
+  min-width: 0;
+
+  :deep(.el-button__inner) {
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+  }
+
+  &:hover :deep(.el-button__inner) {
+    background: var(--el-color-primary-light-9);
+    color: var(--el-color-primary);
+  }
+}
+
+.close-icon {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--el-text-color-regular);
+  display: inline-block;
 }
 </style>
